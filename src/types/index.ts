@@ -38,6 +38,13 @@ export type {
   ProfileRole,
   ProfileRow,
 } from './database'
+export type {
+  CoreCompetency,
+  Hazard,
+  HazardDetails,
+  HazardSeverity,
+  TrajectoryPoint,
+} from './hazard'
 export type { MediaAsset, MediaRef } from './media'
 export { ACTIVITY_MEDIA_BUCKET, collectMediaAssetIds } from './media'
 export type {
@@ -50,6 +57,8 @@ export {
   PROCESS_TAG,
   isProcessActivity,
 } from './process'
+export type { SeeDefinition, SeeDifficulty, SeeHazard } from './see'
+export { SEE_NODE_TYPE, SEE_TAG, isSeeActivity } from './see'
 export type {
   ProcessAnswerOption,
   ProcessQuestionBank,

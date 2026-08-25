@@ -6,6 +6,8 @@ defineProps<{
   multiline?: boolean
   rows?: number
   type?: 'text' | 'number'
+  options?: readonly string[]
+  placeholder?: string
 }>()
 
 const model = defineModel<string>({ required: true })
@@ -22,13 +24,26 @@ const model = defineModel<string>({ required: true })
           v-model="model"
           class="author-field-control"
           :rows="rows ?? 2"
+          :placeholder="placeholder"
         />
+        <select
+          v-else-if="options"
+          :id="id"
+          v-model="model"
+          class="author-field-control"
+        >
+          <option value="">{{ placeholder ?? 'Select' }}</option>
+          <option v-for="option in options" :key="option" :value="option">
+            {{ option }}
+          </option>
+        </select>
         <input
           v-else
           :id="id"
           v-model="model"
           class="author-field-control"
           :type="type ?? 'text'"
+          :placeholder="placeholder"
         />
       </span>
     </label>

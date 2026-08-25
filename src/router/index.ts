@@ -9,6 +9,9 @@ import PlayerView from '@/views/PlayerView.vue'
 import ProcessEditorView from '@/views/author/ProcessEditorView.vue'
 import ProcessListView from '@/views/author/ProcessListView.vue'
 import ProcessNewView from '@/views/author/ProcessNewView.vue'
+import SeeEditorView from '@/views/author/SeeEditorView.vue'
+import SeeListView from '@/views/author/SeeListView.vue'
+import SeeNewView from '@/views/author/SeeNewView.vue'
 import AuthorStudioShell from '@/components/author/AuthorStudioShell.vue'
 
 export const router = createRouter({
@@ -43,7 +46,25 @@ export const router = createRouter({
       component: AuthorStudioShell,
       meta: { layout: 'author', title: 'Authoring Studio', requiresAuth: true },
       children: [
-        { path: '', redirect: { name: 'process-list' } },
+        { path: '', redirect: { name: 'see-list' } },
+        {
+          path: 'see',
+          name: 'see-list',
+          component: SeeListView,
+          meta: { layout: 'author', title: 'See', requiresAuth: true },
+        },
+        {
+          path: 'see/new',
+          name: 'see-new',
+          component: SeeNewView,
+          meta: { layout: 'author', title: 'New Hazard', requiresAuth: true },
+        },
+        {
+          path: 'see/:id',
+          name: 'see-edit',
+          component: SeeEditorView,
+          meta: { layout: 'author', title: 'Edit See', requiresAuth: true },
+        },
         {
           path: 'process',
           name: 'process-list',

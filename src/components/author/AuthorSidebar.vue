@@ -6,6 +6,9 @@ const route = useRoute()
 const processOpen = computed(
   () => route.path === '/studio/process' || route.path.startsWith('/studio/process/'),
 )
+const seeOpen = computed(
+  () => route.path === '/studio/see' || route.path.startsWith('/studio/see/'),
+)
 </script>
 
 <template>
@@ -40,7 +43,9 @@ const processOpen = computed(
           </svg>
         </span>
         <div class="author-nav-children">
-          <span class="author-nav-disabled">See</span>
+          <RouterLink to="/studio/see" class="author-nav-link" :class="{ active: seeOpen }">
+            See
+          </RouterLink>
           <RouterLink
             to="/studio/process"
             class="author-nav-link"
