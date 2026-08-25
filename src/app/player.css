@@ -289,8 +289,8 @@ body:has(.player-page) {
 
 .process-question-card {
   position: relative;
-  width: 343px;
-  max-width: 100%;
+  width: 95%;
+  max-width: 95%;
   margin: auto;
   border-radius: 12px;
   border: 1px solid #e3e5ef;
@@ -574,7 +574,15 @@ body:has(.player-page) {
 }
 
 .process-results-question-text,
-.process-results-question-explanation,
+.process-results-question-explanation {
+  margin: 0;
+  font-size: 13.2px;
+  font-weight: 400;
+  line-height: 17.6px;
+  letter-spacing: -0.5px;
+  word-break: break-word;
+}
+
 .process-results-empty {
   margin: 0;
   font-size: 12px;
@@ -595,7 +603,7 @@ body:has(.player-page) {
 }
 
 .process-results-question-explanation {
-  color: var(--process-correct, #6aa1a6);
+  color: #403b3b;
 }
 
 .process-results-empty {
