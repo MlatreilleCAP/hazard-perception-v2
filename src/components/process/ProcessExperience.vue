@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { readProcessDefinition } from '@/activities/processDefinition'
 import ProcessResultsCard from '@/components/process/ProcessResultsCard.vue'
+import ProcessResultsFailCard from '@/components/process/ProcessResultsFailCard.vue'
 import ProcessSeverityPopover from '@/components/process/ProcessSeverityPopover.vue'
 import ProcessTheoryPopover from '@/components/process/ProcessTheoryPopover.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
@@ -44,6 +45,7 @@ const score = computed(() =>
 const results = computed(() =>
   processQuestionResults({ version: 2, questions: questions.value }, answers.value),
 )
+const passed = computed(() => score.value.max <= 0 || score.value.percent >= passThreshold.value)
 
 watch(
   () => process.value.segments[0]?.media?.media_asset_id,
@@ -125,9 +127,12 @@ function onQuestionComplete(): void {
         />
       </div>
       <ProcessResultsCard
-        v-if="phase === 'results'"
-        :points="score.earned"
-        :passed="score.max <= 0 || score.percent >= passThreshold"
+        v-if="phase === 'results' && passed"
+        :results="results"
+        @continue="emit('finished')"
+      />
+      <ProcessResultsFailCard
+        v-else-if="phase === 'results'"
         :results="results"
         @continue="emit('finished')"
       />

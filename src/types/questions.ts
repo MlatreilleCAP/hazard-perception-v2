@@ -213,17 +213,27 @@ export function scoreProcessQuestions(
   return { earned, max, percent }
 }
 
+export type ProcessQuestionResult = {
+  id: string
+  label: string
+  text: string
+  correct: boolean
+  explanation: string
+}
+
 export function processQuestionResults(
   bank: ProcessQuestionBank,
   answers: Record<string, number>,
-): Array<{ id: string; label: string; text: string; correct: boolean }> {
+): ProcessQuestionResult[] {
   return configuredSurveyQuestions(bank).map((question, index) => {
     const selected = answers[question.id]
+    const correct = typeof selected === 'number' ? isAnswerCorrect(question, selected) : false
     return {
       id: question.id,
       label: `Question ${index + 1}`,
       text: question.questionText.trim(),
-      correct: typeof selected === 'number' ? isAnswerCorrect(question, selected) : false,
+      correct,
+      explanation: !correct ? question.explanation.trim() : '',
     }
   })
 }

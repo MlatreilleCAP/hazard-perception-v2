@@ -24,6 +24,8 @@ let advanceTimer = 0
 const isCorrect = computed(
   () => submitted.value && isAnswerCorrect(props.question, draftIndex.value),
 )
+const showExplanation = computed(() => props.question.showExplanation === true)
+const explanationText = computed(() => props.question.explanation.trim())
 const points = computed(() =>
   submitted.value ? pointsForAnswer(props.question, draftIndex.value) : 0,
 )
@@ -41,7 +43,8 @@ function submit(): void {
   if (submitted.value) return
   submitted.value = true
   emit('answer', draftIndex.value)
-  advanceTimer = window.setTimeout(() => emit('complete'), 1600)
+  const delay = showExplanation.value && explanationText.value ? 2800 : 1600
+  advanceTimer = window.setTimeout(() => emit('complete'), delay)
 }
 
 onBeforeUnmount(() => {
@@ -76,5 +79,8 @@ onBeforeUnmount(() => {
     >
       Submit
     </button>
+    <p v-if="submitted && showExplanation && explanationText" class="process-question-feedback">
+      {{ explanationText }}
+    </p>
   </div>
 </template>

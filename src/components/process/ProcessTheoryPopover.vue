@@ -78,8 +78,8 @@ onBeforeUnmount(() => {
         {{ answer.text }}
       </button>
     </div>
-    <p v-if="feedback && showExplanation" class="process-question-feedback">
-      {{ explanationText || (feedback === 'correct' ? 'Correct.' : 'Incorrect.') }}
+    <p v-if="feedback && showExplanation && explanationText" class="process-question-feedback">
+      {{ explanationText }}
     </p>
   </div>
 </template>

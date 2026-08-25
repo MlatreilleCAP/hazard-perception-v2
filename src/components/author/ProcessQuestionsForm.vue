@@ -238,24 +238,21 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
           </div>
         </div>
 
-        <template v-if="question.kind === 'theory'">
-          <AuthorToggle
-            :id="`${question.id}-show-explanation`"
-            :model-value="question.showExplanation !== false"
-            label="Show explanation"
-            description="When off, learners won’t see explanation text after answering."
-            @update:model-value="updateQuestion(question.id, { ...question, showExplanation: $event })"
-          />
-          <AuthorField
-            v-if="question.showExplanation !== false"
-            :id="`${question.id}-explanation`"
-            :model-value="question.explanation"
-            label="Explanation text"
-            multiline
-            :rows="2"
-            @update:model-value="updateQuestion(question.id, { ...question, explanation: $event })"
-          />
-        </template>
+        <AuthorToggle
+          :id="`${question.id}-show-explanation`"
+          :model-value="question.showExplanation !== false"
+          label="Show explanation"
+          description="When off, learners won’t see this after answering. It still appears on the results screen for incorrect answers."
+          @update:model-value="updateQuestion(question.id, { ...question, showExplanation: $event })"
+        />
+        <AuthorField
+          :id="`${question.id}-explanation`"
+          :model-value="question.explanation"
+          label="Explanation text"
+          multiline
+          :rows="2"
+          @update:model-value="updateQuestion(question.id, { ...question, explanation: $event })"
+        />
       </article>
     </div>
   </section>
