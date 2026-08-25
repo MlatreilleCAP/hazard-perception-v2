@@ -35,6 +35,7 @@ export const useActivityStore = defineStore('activity', () => {
       await refreshList()
     } catch (cause) {
       error.value = cause instanceof Error ? cause.message : 'Failed to save activity'
+      throw cause
     }
   }
 
@@ -45,6 +46,21 @@ export const useActivityStore = defineStore('activity', () => {
       await refreshList()
     } catch (cause) {
       error.value = cause instanceof Error ? cause.message : 'Failed to publish activity'
+      throw cause
+    }
+  }
+
+  async function remove(id: string): Promise<void> {
+    error.value = null
+    try {
+      await services.persistence.delete(id)
+      if (current.value?.id === id) {
+        current.value = null
+      }
+      await refreshList()
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : 'Failed to remove activity'
+      throw cause
     }
   }
 
@@ -56,5 +72,6 @@ export const useActivityStore = defineStore('activity', () => {
     load,
     save,
     publish,
+    remove,
   }
 })

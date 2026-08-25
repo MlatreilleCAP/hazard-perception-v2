@@ -5,7 +5,10 @@ import AppShell from '@/app/AppShell.vue'
 
 const route = useRoute()
 const isChromeLess = computed(
-  () => route.meta.layout === 'auth' || route.meta.layout === 'landing',
+  () =>
+    route.meta.layout === 'auth' ||
+    route.meta.layout === 'landing' ||
+    route.meta.layout === 'author',
 )
 </script>
 

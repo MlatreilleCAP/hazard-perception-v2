@@ -5,6 +5,7 @@ import { router } from './router'
 import './style.css'
 import './app/auth.css'
 import './app/landing.css'
+import './app/author.css'
 import './app/shell.css'
 import '@/app/container'
 

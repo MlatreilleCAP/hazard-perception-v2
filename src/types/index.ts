@@ -40,6 +40,22 @@ export type {
 } from './database'
 export type { MediaAsset, MediaRef } from './media'
 export { ACTIVITY_MEDIA_BUCKET, collectMediaAssetIds } from './media'
+export type {
+  ProcessDefinition,
+  ProcessSegment,
+  ProcessSegmentIndex,
+} from './process'
+export {
+  PROCESS_NODE_TYPE,
+  PROCESS_TAG,
+  isProcessActivity,
+} from './process'
+export type {
+  ProcessAnswerOption,
+  ProcessQuestionBank,
+  ProcessQuestionKind,
+  ProcessSurveyQuestion,
+} from './questions'
 export type { ActivityRepository, PersistenceDriver } from './repository'
 export type {
   RuntimeAdapter,

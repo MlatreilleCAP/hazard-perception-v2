@@ -26,6 +26,7 @@ export class InMemoryActivityRepository implements ActivityRepository {
       version: activity.version,
       updatedAt: activity.metadata.updatedAt,
       published: activity.version >= 1,
+      tags: [...activity.metadata.tags],
     }))
   }
 
@@ -78,14 +79,14 @@ export class SupabaseActivityRepository implements ActivityRepository {
     await this.requireUserId()
     const { data, error } = await this.client
       .from('activities')
-      .select('id, title, updated_at, published_version_id')
+      .select('id, title, updated_at, published_version_id, tags')
       .order('updated_at', { ascending: false })
 
     throwIfError(error, 'Failed to list activities')
 
     const rows = (data ?? []) as Pick<
       ActivityRow,
-      'id' | 'title' | 'updated_at' | 'published_version_id'
+      'id' | 'title' | 'updated_at' | 'published_version_id' | 'tags'
     >[]
     const publishedIds = rows
       .map((row) => row.published_version_id)
@@ -115,6 +116,7 @@ export class SupabaseActivityRepository implements ActivityRepository {
         version,
         updatedAt: row.updated_at,
         published: Boolean(row.published_version_id) && version >= 1,
+        tags: row.tags ?? [],
       }
     })
   }

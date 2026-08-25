@@ -52,4 +52,5 @@ export interface ActivitySummary {
   version: number
   updatedAt: string
   published: boolean
+  tags: string[]
 }
