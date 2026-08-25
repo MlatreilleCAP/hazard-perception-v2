@@ -54,6 +54,21 @@
   background: var(--accent-bg);
 }
 
+.app-nav-button {
+  color: var(--text-h);
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--social-bg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.auth-user {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
 .app-main {
   padding: 28px 32px 48px;
   flex: 1;
