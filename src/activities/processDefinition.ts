@@ -2,6 +2,7 @@ import type { ActivityDefinition } from '@/types/activity'
 import { cloneJson } from '@/app/clone'
 import {
   DEFAULT_PROCESS_INSTRUCTION,
+  DEFAULT_PROCESS_INSTRUCTION_PILL,
   PROCESS_NODE_TYPE,
   cloneProcessDefinition,
   createDefaultProcessDefinition,
@@ -40,6 +41,18 @@ export function readProcessDefinition(
       typeof process.instructionText === 'string'
         ? process.instructionText
         : DEFAULT_PROCESS_INSTRUCTION,
+    instructionPill:
+      typeof process.instructionPill === 'string'
+        ? process.instructionPill
+        : DEFAULT_PROCESS_INSTRUCTION_PILL,
+    secondInstructionText:
+      typeof process.secondInstructionText === 'string'
+        ? process.secondInstructionText
+        : '',
+    secondInstructionPill:
+      typeof process.secondInstructionPill === 'string'
+        ? process.secondInstructionPill
+        : DEFAULT_PROCESS_INSTRUCTION_PILL,
     segments: Array.isArray(process.segments) ? process.segments : [],
     secondSegmentScoreThreshold: process.secondSegmentScoreThreshold ?? null,
     thirdSegmentScoreThreshold: null,

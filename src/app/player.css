@@ -346,12 +346,14 @@ body:has(.player-page) {
 }
 
 .process-theory-answer.correct,
+.process-severity-option.correct,
 .process-points-pill.correct {
   background: #59c4b6;
   color: #fff;
 }
 
 .process-theory-answer.incorrect,
+.process-severity-option.incorrect,
 .process-points-pill.incorrect {
   background: #fb5ca1;
   color: #fff;
@@ -360,6 +362,11 @@ body:has(.player-page) {
 .process-severity-option.selected {
   background: #707591;
   color: #fff;
+}
+
+.process-question-card .process-instruction-begin {
+  width: 100%;
+  margin-top: 4px;
 }
 
 .process-question-feedback {

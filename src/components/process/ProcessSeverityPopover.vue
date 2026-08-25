@@ -29,6 +29,7 @@ const explanationText = computed(() => props.question.explanation.trim())
 const points = computed(() =>
   submitted.value ? pointsForAnswer(props.question, draftIndex.value) : 0,
 )
+const awaitingContinue = computed(() => submitted.value && showExplanation.value)
 
 watch(
   () => props.question.id,
@@ -39,12 +40,29 @@ watch(
   },
 )
 
+function answerState(index: number): 'default' | 'correct' | 'incorrect' | 'selected' {
+  if (!submitted.value) {
+    return draftIndex.value === index ? 'selected' : 'default'
+  }
+  if (showExplanation.value) {
+    if (index === props.question.correctIndex) return 'correct'
+    if (draftIndex.value === index && index !== props.question.correctIndex) return 'incorrect'
+    return 'default'
+  }
+  return draftIndex.value === index ? 'selected' : 'default'
+}
+
 function submit(): void {
   if (submitted.value) return
   submitted.value = true
   emit('answer', draftIndex.value)
-  const delay = showExplanation.value && explanationText.value ? 2800 : 1600
-  advanceTimer = window.setTimeout(() => emit('complete'), delay)
+  if (!showExplanation.value) {
+    advanceTimer = window.setTimeout(() => emit('complete'), 1600)
+  }
+}
+
+function continueToNext(): void {
+  emit('complete')
 }
 
 onBeforeUnmount(() => {
@@ -64,7 +82,7 @@ onBeforeUnmount(() => {
         :key="answer.index"
         type="button"
         class="process-severity-option"
-        :class="{ selected: draftIndex === answer.index }"
+        :class="answerState(answer.index)"
         :disabled="submitted"
         @click="draftIndex = answer.index"
       >
@@ -72,6 +90,7 @@ onBeforeUnmount(() => {
       </button>
     </div>
     <button
+      v-if="!awaitingContinue"
       type="button"
       class="process-instruction-begin"
       :disabled="submitted"
@@ -79,8 +98,16 @@ onBeforeUnmount(() => {
     >
       Submit
     </button>
-    <p v-if="submitted && showExplanation && explanationText" class="process-question-feedback">
+    <p v-if="awaitingContinue && explanationText" class="process-question-feedback">
       {{ explanationText }}
     </p>
+    <button
+      v-if="awaitingContinue"
+      type="button"
+      class="process-instruction-begin"
+      @click="continueToNext"
+    >
+      Continue
+    </button>
   </div>
 </template>

@@ -64,6 +64,30 @@ const instructionText = computed({
   },
 })
 
+const instructionPill = computed({
+  get: () => process.value?.instructionPill ?? 'Process',
+  set: (value: string) => {
+    if (!process.value) return
+    process.value = { ...process.value, instructionPill: value }
+  },
+})
+
+const secondInstructionText = computed({
+  get: () => process.value?.secondInstructionText ?? '',
+  set: (value: string) => {
+    if (!process.value) return
+    process.value = { ...process.value, secondInstructionText: value }
+  },
+})
+
+const secondInstructionPill = computed({
+  get: () => process.value?.secondInstructionPill ?? 'Process',
+  set: (value: string) => {
+    if (!process.value) return
+    process.value = { ...process.value, secondInstructionPill: value }
+  },
+})
+
 onMounted(async () => {
   await load()
 })
@@ -312,6 +336,11 @@ async function remove(): Promise<void> {
           Shown over the paused first frame of Video 1 until the learner taps Begin.
         </p>
         <AuthorField
+          id="process-instruction-pill"
+          v-model="instructionPill"
+          label="Pill label"
+        />
+        <AuthorField
           id="process-instruction"
           v-model="instructionText"
           label="Instruction text"
@@ -329,6 +358,7 @@ async function remove(): Promise<void> {
           label="Video 1"
           :model-value="working.segments[0]?.media ?? null"
           :instruction-text="instructionText"
+          :instruction-pill="instructionPill"
           @update:model-value="setMedia(0, $event)"
           @duration="setDuration(0, $event)"
         />
@@ -367,6 +397,25 @@ async function remove(): Promise<void> {
 
       <template v-if="enableSecond && working.segments[1]">
         <section class="author-stack-sm">
+          <AuthorSectionHeader title="Instruction" />
+          <p class="author-muted">
+            Shown over the paused first frame of Video 2 until the learner taps Begin.
+          </p>
+          <AuthorField
+            id="process-second-instruction-pill"
+            v-model="secondInstructionPill"
+            label="Pill label"
+          />
+          <AuthorField
+            id="process-second-instruction"
+            v-model="secondInstructionText"
+            label="Instruction text"
+            multiline
+            :rows="3"
+          />
+        </section>
+
+        <section class="author-stack-sm">
           <AuthorSectionHeader title="Video 2" />
           <p class="author-muted">
             Remedial video shown when the learner scores below the video 1 threshold.
@@ -376,6 +425,8 @@ async function remove(): Promise<void> {
             :activity-id="activityId"
             label="Video 2"
             :model-value="working.segments[1].media"
+            :instruction-text="secondInstructionText"
+            :instruction-pill="secondInstructionPill"
             @update:model-value="setMedia(1, $event)"
             @duration="setDuration(1, $event)"
           />

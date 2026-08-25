@@ -5,6 +5,7 @@ import ProcessInstructionCard from '@/components/process/ProcessInstructionCard.
 const props = defineProps<{
   src: string
   instructionText: string
+  instructionPill?: string
   compact?: boolean
   holdEnd?: boolean
 }>()
@@ -113,7 +114,11 @@ onBeforeUnmount(() => {
       @ended="finishPlayback"
     />
     <div v-if="showInstruction" class="process-instruction-overlay">
-      <ProcessInstructionCard :text="instructionText.trim()" @begin="begin" />
+      <ProcessInstructionCard
+        :text="instructionText.trim()"
+        :tag="instructionPill?.trim() || undefined"
+        @begin="begin"
+      />
     </div>
   </div>
 </template>

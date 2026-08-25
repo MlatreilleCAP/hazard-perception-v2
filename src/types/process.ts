@@ -13,6 +13,8 @@ export const PROCESS_NODE_TYPE = 'process.comprehension'
 export const DEFAULT_PROCESS_INSTRUCTION =
   'Watch the following video segment and answer questions. Your results will determine whether additional training is necessary.'
 
+export const DEFAULT_PROCESS_INSTRUCTION_PILL = 'Process'
+
 export type ProcessSegmentIndex = 0 | 1 | 2
 
 export interface ProcessSegment {
@@ -26,6 +28,12 @@ export interface ProcessDefinition {
   version: 1
   /** Shown once over the paused first frame of Video 1. Empty skips the overlay. */
   instructionText: string
+  /** Pill label on the Video 1 instruction card. Empty uses "Process". */
+  instructionPill: string
+  /** Shown once over the paused first frame of Video 2. Empty skips the overlay. */
+  secondInstructionText: string
+  /** Pill label on the Video 2 instruction card. Empty uses "Process". */
+  secondInstructionPill: string
   segments: ProcessSegment[]
   secondSegmentScoreThreshold: number | null
   thirdSegmentScoreThreshold: null
@@ -44,6 +52,9 @@ export function createDefaultProcessDefinition(): ProcessDefinition {
   return {
     version: 1,
     instructionText: DEFAULT_PROCESS_INSTRUCTION,
+    instructionPill: DEFAULT_PROCESS_INSTRUCTION_PILL,
+    secondInstructionText: '',
+    secondInstructionPill: DEFAULT_PROCESS_INSTRUCTION_PILL,
     segments: [createEmptyProcessSegment()],
     secondSegmentScoreThreshold: null,
     thirdSegmentScoreThreshold: null,
@@ -85,6 +96,18 @@ export function normalizeProcessDefinition(
       typeof definition.instructionText === 'string'
         ? definition.instructionText
         : '',
+    instructionPill:
+      typeof definition.instructionPill === 'string'
+        ? definition.instructionPill
+        : DEFAULT_PROCESS_INSTRUCTION_PILL,
+    secondInstructionText:
+      typeof definition.secondInstructionText === 'string'
+        ? definition.secondInstructionText
+        : '',
+    secondInstructionPill:
+      typeof definition.secondInstructionPill === 'string'
+        ? definition.secondInstructionPill
+        : DEFAULT_PROCESS_INSTRUCTION_PILL,
     segments: segments.length > 0 ? segments : [createEmptyProcessSegment()],
     secondSegmentScoreThreshold: definition.secondSegmentScoreThreshold ?? null,
     thirdSegmentScoreThreshold: null,
@@ -97,12 +120,18 @@ export function buildPersistableProcessDefinition(
   enableThird: boolean,
 ): ProcessDefinition {
   const instructionText = definition.instructionText ?? ''
+  const instructionPill = definition.instructionPill ?? DEFAULT_PROCESS_INSTRUCTION_PILL
+  const secondInstructionText = definition.secondInstructionText ?? ''
+  const secondInstructionPill = definition.secondInstructionPill ?? DEFAULT_PROCESS_INSTRUCTION_PILL
   const segment1 = normalizeProcessSegment(definition.segments[0])
 
   if (!enableSecond) {
     return {
       version: 1,
       instructionText,
+      instructionPill,
+      secondInstructionText: '',
+      secondInstructionPill: DEFAULT_PROCESS_INSTRUCTION_PILL,
       segments: [segment1],
       secondSegmentScoreThreshold: null,
       thirdSegmentScoreThreshold: null,
@@ -114,6 +143,9 @@ export function buildPersistableProcessDefinition(
     return {
       version: 1,
       instructionText,
+      instructionPill,
+      secondInstructionText,
+      secondInstructionPill,
       segments: [segment1, segment2],
       secondSegmentScoreThreshold: definition.secondSegmentScoreThreshold ?? 70,
       thirdSegmentScoreThreshold: null,
@@ -124,6 +156,9 @@ export function buildPersistableProcessDefinition(
   return {
     version: 1,
     instructionText,
+    instructionPill,
+    secondInstructionText,
+    secondInstructionPill,
     segments: [segment1, segment2, { ...segment3, questions: emptyQuestionBank() }],
     secondSegmentScoreThreshold: definition.secondSegmentScoreThreshold ?? 70,
     thirdSegmentScoreThreshold: null,

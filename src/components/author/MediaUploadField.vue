@@ -11,6 +11,7 @@ const props = defineProps<{
   activityId: string
   modelValue: MediaRef | null
   instructionText?: string
+  instructionPill?: string
 }>()
 
 const emit = defineEmits<{
@@ -147,6 +148,7 @@ function clear(): void {
       v-if="previewUrl && instructionText?.trim()"
       :src="previewUrl"
       :instruction-text="instructionText"
+      :instruction-pill="instructionPill"
       compact
     />
     <video v-else-if="previewUrl" class="author-video" :src="previewUrl" controls playsinline />

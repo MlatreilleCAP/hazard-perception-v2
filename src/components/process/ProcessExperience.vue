@@ -8,6 +8,7 @@ import ProcessTheoryPopover from '@/components/process/ProcessTheoryPopover.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
 import { services } from '@/app/container'
 import type { ActivityDefinition } from '@/types/activity'
+import type { ProcessSegmentIndex } from '@/types/process'
 import {
   configuredSurveyQuestions,
   emptyQuestionBank,
@@ -25,6 +26,7 @@ const emit = defineEmits<{
 
 type Phase = 'playing' | 'questions' | 'results'
 
+const segmentIndex = ref<ProcessSegmentIndex>(0)
 const src = ref<string | null>(null)
 const error = ref<string | null>(null)
 const phase = ref<Phase>('playing')
@@ -33,30 +35,76 @@ const answers = ref<Record<string, number>>({})
 const stage = ref<{ holdLastFrame?: () => void } | null>(null)
 
 const process = computed(() => readProcessDefinition(props.definition))
-const instructionText = computed(() => process.value.instructionText)
 const passThreshold = computed(() => process.value.secondSegmentScoreThreshold ?? 70)
-const questions = computed(() =>
+
+const video1Questions = computed(() =>
   configuredSurveyQuestions(process.value.segments[0]?.questions ?? emptyQuestionBank()),
 )
-const currentQuestion = computed(() => questions.value[questionIndex.value] ?? null)
+const activeQuestions = computed(() =>
+  configuredSurveyQuestions(
+    process.value.segments[segmentIndex.value]?.questions ?? emptyQuestionBank(),
+  ),
+)
+const currentQuestion = computed(() => activeQuestions.value[questionIndex.value] ?? null)
+
 const score = computed(() =>
-  scoreProcessQuestions({ version: 2, questions: questions.value }, answers.value),
+  scoreProcessQuestions({ version: 2, questions: video1Questions.value }, answers.value),
 )
 const results = computed(() =>
-  processQuestionResults({ version: 2, questions: questions.value }, answers.value),
+  processQuestionResults({ version: 2, questions: video1Questions.value }, answers.value),
 )
 const passed = computed(() => score.value.max <= 0 || score.value.percent >= passThreshold.value)
 
+const hasVideo2 = computed(() =>
+  Boolean(process.value.segments[1]?.media?.media_asset_id),
+)
+const hasVideo3 = computed(() =>
+  Boolean(process.value.segments[2]?.media?.media_asset_id),
+)
+
+const instructionText = computed(() => {
+  if (segmentIndex.value === 0) return process.value.instructionText
+  if (segmentIndex.value === 1) return process.value.secondInstructionText
+  return ''
+})
+
+const instructionPill = computed(() => {
+  if (segmentIndex.value === 0) return process.value.instructionPill
+  if (segmentIndex.value === 1) return process.value.secondInstructionPill
+  return ''
+})
+
+const activeMediaId = computed(
+  () => process.value.segments[segmentIndex.value]?.media?.media_asset_id ?? null,
+)
+
+function resetSession(): void {
+  segmentIndex.value = 0
+  phase.value = 'playing'
+  questionIndex.value = 0
+  answers.value = {}
+}
+
 watch(
   () => process.value.segments[0]?.media?.media_asset_id,
+  () => {
+    resetSession()
+  },
+)
+
+watch(
+  activeMediaId,
   async (mediaId) => {
     src.value = null
     error.value = null
-    phase.value = 'playing'
-    questionIndex.value = 0
-    answers.value = {}
     if (!mediaId) {
-      error.value = 'This process has no Video 1 yet.'
+      if (segmentIndex.value === 0) {
+        error.value = 'This process has no Video 1 yet.'
+      } else if (segmentIndex.value === 1) {
+        error.value = 'Video 2 is not configured for this process.'
+      } else {
+        error.value = 'Video 3 is not configured for this process.'
+      }
       return
     }
     try {
@@ -68,6 +116,12 @@ watch(
   { immediate: true },
 )
 
+function startSegment(index: ProcessSegmentIndex): void {
+  segmentIndex.value = index
+  phase.value = 'playing'
+  questionIndex.value = 0
+}
+
 function storeAnswer(questionId: string, answerIndex: number): void {
   answers.value = { ...answers.value, [questionId]: answerIndex }
 }
@@ -77,11 +131,31 @@ function showResults(): void {
   phase.value = 'results'
 }
 
+function completeActiveSegment(): void {
+  if (segmentIndex.value === 0) {
+    showResults()
+    return
+  }
+  if (segmentIndex.value === 1) {
+    if (hasVideo3.value) {
+      startSegment(2)
+      return
+    }
+    emit('finished')
+    return
+  }
+  emit('finished')
+}
+
 function onVideoEnded(): void {
   if (phase.value !== 'playing') return
   stage.value?.holdLastFrame?.()
-  if (questions.value.length === 0) {
-    showResults()
+  if (segmentIndex.value === 2) {
+    emit('finished')
+    return
+  }
+  if (activeQuestions.value.length === 0) {
+    completeActiveSegment()
     return
   }
   questionIndex.value = 0
@@ -90,11 +164,27 @@ function onVideoEnded(): void {
 
 function onQuestionComplete(): void {
   const next = questionIndex.value + 1
-  if (next >= questions.value.length) {
-    showResults()
+  if (next >= activeQuestions.value.length) {
+    completeActiveSegment()
     return
   }
   questionIndex.value = next
+}
+
+function onResultsContinue(): void {
+  if (passed.value) {
+    if (hasVideo3.value) {
+      startSegment(2)
+      return
+    }
+    emit('finished')
+    return
+  }
+  if (hasVideo2.value) {
+    startSegment(1)
+    return
+  }
+  emit('finished')
 }
 </script>
 
@@ -104,9 +194,11 @@ function onQuestionComplete(): void {
     <template v-else-if="src">
       <ProcessVideoStage
         v-if="phase !== 'results'"
+        :key="segmentIndex"
         ref="stage"
         :src="src"
         :instruction-text="instructionText"
+        :instruction-pill="instructionPill"
         :hold-end="phase !== 'playing'"
         @ended="onVideoEnded"
       />
@@ -129,12 +221,12 @@ function onQuestionComplete(): void {
       <ProcessResultsCard
         v-if="phase === 'results' && passed"
         :results="results"
-        @continue="emit('finished')"
+        @continue="onResultsContinue"
       />
       <ProcessResultsFailCard
         v-else-if="phase === 'results'"
         :results="results"
-        @continue="emit('finished')"
+        @continue="onResultsContinue"
       />
     </template>
     <p v-else class="process-player-message">Loading video…</p>
