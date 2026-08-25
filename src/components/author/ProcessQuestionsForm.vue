@@ -46,6 +46,12 @@ function commit(next: ProcessSurveyQuestion[]): void {
   emit('update:modelValue', { version: 2, questions: next })
 }
 
+function snapshot(): ProcessQuestionBank {
+  return { version: 2, questions: questions.value.map((question) => cloneJson(question)) }
+}
+
+defineExpose({ snapshot })
+
 function addQuestion(kind: ProcessQuestionKind | ''): void {
   if (!kind) return
   const question =

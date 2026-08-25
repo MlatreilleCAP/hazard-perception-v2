@@ -80,10 +80,152 @@ export function emptyQuestionBank(): ProcessQuestionBank {
 }
 
 export function surveyQuestionIsConfigured(question: ProcessSurveyQuestion): boolean {
+  const text = question?.questionText?.trim() ?? ''
+  const answers = Array.isArray(question?.answers) ? question.answers : []
   return (
-    question.questionText.trim().length > 0 &&
-    question.answers.some((answer) => answer.text.trim().length > 0)
+    text.length > 0 &&
+    answers.some((answer) => {
+      const value = typeof answer === 'string' ? answer : answer?.text
+      return Boolean(value && String(value).trim())
+    })
   )
+}
+
+function parseAnswerOption(value: unknown, fallbackPoints: number): ProcessAnswerOption {
+  if (typeof value === 'string') {
+    return createAnswerOption(value, fallbackPoints)
+  }
+  if (!value || typeof value !== 'object') {
+    return createAnswerOption('', fallbackPoints)
+  }
+  const raw = value as Partial<ProcessAnswerOption>
+  const text = typeof raw.text === 'string' ? raw.text : ''
+  const points =
+    typeof raw.points === 'number' && Number.isFinite(raw.points)
+      ? Math.max(0, Math.floor(raw.points))
+      : fallbackPoints
+  return createAnswerOption(text, points)
+}
+
+function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Partial<ProcessSurveyQuestion> & { answers?: unknown }
+  const kind = raw.kind === 'severity' || raw.kind === 'theory' ? raw.kind : 'theory'
+  const answersRaw = Array.isArray(raw.answers) ? raw.answers : []
+  const correctIndexRaw =
+    typeof raw.correctIndex === 'number' ? Math.floor(raw.correctIndex) : 0
+  const answers =
+    answersRaw.length > 0
+      ? answersRaw.map((item, index) =>
+          parseAnswerOption(item, index === correctIndexRaw ? DEFAULT_ANSWER_POINTS : 0),
+        )
+      : [
+          createAnswerOption('', DEFAULT_ANSWER_POINTS),
+          createAnswerOption('', 0),
+        ]
+  const correctIndex = Math.min(answers.length - 1, Math.max(0, correctIndexRaw))
+  const questionText = typeof raw.questionText === 'string' ? raw.questionText : ''
+  return {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : newQuestionId(),
+    kind,
+    questionText,
+    answers,
+    correctIndex,
+    explanation: typeof raw.explanation === 'string' ? raw.explanation : '',
+    showExplanation:
+      typeof raw.showExplanation === 'boolean' ? raw.showExplanation : kind !== 'severity',
+  }
+}
+
+export function readQuestionBank(value: unknown): ProcessQuestionBank {
+  if (Array.isArray(value)) {
+    return {
+      version: 2,
+      questions: value.map(parseSurveyQuestion).filter((item): item is ProcessSurveyQuestion => item !== null),
+    }
+  }
+  if (value && typeof value === 'object') {
+    const nested = (value as ProcessQuestionBank).questions
+    if (Array.isArray(nested)) {
+      return {
+        version: 2,
+        questions: nested
+          .map(parseSurveyQuestion)
+          .filter((item): item is ProcessSurveyQuestion => item !== null),
+      }
+    }
+  }
+  return emptyQuestionBank()
+}
+
+export function configuredSurveyQuestions(
+  bank: ProcessQuestionBank | unknown,
+): ProcessSurveyQuestion[] {
+  return readQuestionBank(bank).questions.filter(surveyQuestionIsConfigured)
+}
+
+export function configuredAnswerEntries(question: ProcessSurveyQuestion) {
+  return question.answers
+    .map((answer, index) => ({
+      text: (typeof answer?.text === 'string' ? answer.text : '').trim(),
+      index,
+      points: answer?.points ?? 0,
+    }))
+    .filter(({ text }) => text.length > 0)
+}
+
+export function pointsForAnswer(
+  question: ProcessSurveyQuestion,
+  answerIndex: number,
+): number {
+  return question.answers[answerIndex]?.points ?? 0
+}
+
+export function isAnswerCorrect(
+  question: ProcessSurveyQuestion,
+  answerIndex: number,
+): boolean {
+  return answerIndex === question.correctIndex
+}
+
+export function scoreProcessQuestions(
+  bank: ProcessQuestionBank,
+  answers: Record<string, number>,
+): { earned: number; max: number; percent: number } {
+  const questions = configuredSurveyQuestions(bank)
+  let earned = 0
+  let max = 0
+
+  for (const question of questions) {
+    const maxForQuestion = Math.max(
+      0,
+      ...question.answers.map((answer) => answer.points),
+      pointsForAnswer(question, question.correctIndex),
+    )
+    max += maxForQuestion
+    const selected = answers[question.id]
+    if (typeof selected === 'number') {
+      earned += pointsForAnswer(question, selected)
+    }
+  }
+
+  const percent = max <= 0 ? 0 : Math.round((earned / max) * 100)
+  return { earned, max, percent }
+}
+
+export function processQuestionResults(
+  bank: ProcessQuestionBank,
+  answers: Record<string, number>,
+): Array<{ id: string; label: string; text: string; correct: boolean }> {
+  return configuredSurveyQuestions(bank).map((question, index) => {
+    const selected = answers[question.id]
+    return {
+      id: question.id,
+      label: `Question ${index + 1}`,
+      text: question.questionText.trim(),
+      correct: typeof selected === 'number' ? isAnswerCorrect(question, selected) : false,
+    }
+  })
 }
 
 export function questionBankMaxPoints(bank: ProcessQuestionBank): number {

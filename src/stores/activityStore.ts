@@ -1,12 +1,18 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { services } from '@/app/container'
+import { cloneJson } from '@/app/clone'
 import type { ActivityDefinition, ActivitySummary } from '@/types'
 
 export const useActivityStore = defineStore('activity', () => {
   const summaries = ref<ActivitySummary[]>([])
   const current = ref<ActivityDefinition | null>(null)
   const error = ref<string | null>(null)
+  const preview = ref<ActivityDefinition | null>(null)
+
+  function stagePreview(definition: ActivityDefinition): void {
+    preview.value = cloneJson(definition)
+  }
 
   async function refreshList(): Promise<void> {
     error.value = null
@@ -67,7 +73,9 @@ export const useActivityStore = defineStore('activity', () => {
   return {
     summaries,
     current,
+    preview,
     error,
+    stagePreview,
     refreshList,
     load,
     save,

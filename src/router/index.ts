@@ -68,7 +68,7 @@ export const router = createRouter({
       path: '/player',
       name: 'player',
       component: PlayerView,
-      meta: { title: 'Runtime Player', requiresAuth: true },
+      meta: { layout: 'player', title: 'Runtime Player', requiresAuth: true },
     },
   ],
 })

@@ -8,7 +8,8 @@ const isChromeLess = computed(
   () =>
     route.meta.layout === 'auth' ||
     route.meta.layout === 'landing' ||
-    route.meta.layout === 'author',
+    route.meta.layout === 'author' ||
+    route.meta.layout === 'player',
 )
 </script>
 

@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { services } from '@/app/container'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
+import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
 import type { MediaAsset, MediaRef } from '@/types/media'
 
 const props = defineProps<{
@@ -9,6 +10,7 @@ const props = defineProps<{
   label: string
   activityId: string
   modelValue: MediaRef | null
+  instructionText?: string
 }>()
 
 const emit = defineEmits<{
@@ -130,6 +132,12 @@ function clear(): void {
       </button>
     </div>
 
-    <video v-if="previewUrl" class="author-video" :src="previewUrl" controls playsinline />
+    <ProcessVideoStage
+      v-if="previewUrl && instructionText?.trim()"
+      :src="previewUrl"
+      :instruction-text="instructionText"
+      compact
+    />
+    <video v-else-if="previewUrl" class="author-video" :src="previewUrl" controls playsinline />
   </div>
 </template>

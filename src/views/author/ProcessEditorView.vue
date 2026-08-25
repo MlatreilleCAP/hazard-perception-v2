@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   readProcessDefinition,
@@ -40,6 +40,7 @@ const titleError = ref<string | null>(null)
 const process = ref<ProcessDefinition | null>(null)
 const enableSecond = ref(false)
 const enableThird = ref(false)
+const video1Questions = ref<{ snapshot: () => ProcessQuestionBank } | null>(null)
 
 const activityId = computed(() => String(route.params.id ?? ''))
 const isPublished = computed(
@@ -53,6 +54,14 @@ const working = computed(() => {
     enableSecond.value,
     enableThird.value,
   )
+})
+
+const instructionText = computed({
+  get: () => process.value?.instructionText ?? '',
+  set: (value: string) => {
+    if (!process.value) return
+    process.value = { ...process.value, instructionText: value }
+  },
 })
 
 onMounted(async () => {
@@ -149,6 +158,7 @@ function onEnableThird(checked: boolean): void {
   const segmentTwo = process.value.segments[1] ?? createEmptyProcessSegment()
   if (!process.value.segments[2]) {
     process.value = {
+      ...process.value,
       version: 1,
       segments: [
         process.value.segments[0] ?? createEmptyProcessSegment(),
@@ -161,11 +171,23 @@ function onEnableThird(checked: boolean): void {
   }
 }
 
-async function save(): Promise<void> {
-  if (!activities.current || !process.value) return
-  titleError.value = title.value.trim() ? null : 'Title is required'
-  if (titleError.value) return
+function flushVideo1Questions(): void {
+  if (!process.value) return
+  const bank = video1Questions.value?.snapshot()
+  if (!bank) return
+  const segments = [...process.value.segments]
+  const current = segments[0] ?? createEmptyProcessSegment()
+  segments[0] = { ...current, questions: bank }
+  process.value = { ...process.value, segments }
+}
 
+async function save(): Promise<boolean> {
+  if (!activities.current || !process.value) return false
+  titleError.value = title.value.trim() ? null : 'Title is required'
+  if (titleError.value) return false
+
+  await nextTick()
+  flushVideo1Questions()
   saving.value = true
   saveMessage.value = null
   try {
@@ -179,15 +201,24 @@ async function save(): Promise<void> {
     next.metadata.title = title.value.trim()
     next.metadata.description = description.value.trim()
     await activities.save(next)
+    activities.stagePreview(next)
     saveMessage.value = 'Saved'
     window.setTimeout(() => {
       saveMessage.value = null
     }, 2000)
+    return true
   } catch (cause) {
     window.alert(cause instanceof Error ? cause.message : 'Failed to save process')
+    return false
   } finally {
     saving.value = false
   }
+}
+
+async function openPreview(): Promise<void> {
+  const saved = await save()
+  if (!saved || !activityId.value) return
+  await router.push({ path: '/player', query: { activity: activityId.value, preview: '1' } })
 }
 
 async function publish(): Promise<void> {
@@ -199,7 +230,8 @@ async function publish(): Promise<void> {
   }
   publishing.value = true
   try {
-    await save()
+    const saved = await save()
+    if (!saved || !activities.current) return
     await activities.publish(activities.current.id)
   } catch (cause) {
     window.alert(cause instanceof Error ? cause.message : 'Failed to publish process')
@@ -251,13 +283,13 @@ async function remove(): Promise<void> {
           <AuthorStatusChip :label="isPublished ? 'PUBLISHED' : 'DRAFT'" />
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 16px">
-          <RouterLink
-            :to="{ path: '/player', query: { activity: activityId } }"
-            class="author-pill author-pill-ghost"
-            style="text-decoration: none"
+          <AuthorPillButton
+            variant="ghost"
+            :disabled="saving || publishing || deleting"
+            @click="openPreview"
           >
-            Preview
-          </RouterLink>
+            {{ saving ? 'Saving…' : 'Preview' }}
+          </AuthorPillButton>
           <AuthorPillButton
             variant="primary"
             :disabled="saving || publishing || deleting"
@@ -275,6 +307,20 @@ async function remove(): Promise<void> {
       </section>
 
       <section class="author-stack-sm">
+        <AuthorSectionHeader title="Instruction" />
+        <p class="author-muted">
+          Shown over the paused first frame of Video 1 until the learner taps Begin.
+        </p>
+        <AuthorField
+          id="process-instruction"
+          v-model="instructionText"
+          label="Instruction text"
+          multiline
+          :rows="3"
+        />
+      </section>
+
+      <section class="author-stack-sm">
         <AuthorSectionHeader title="Video 1" />
         <p class="author-muted">Upload a video or add one from the media library.</p>
         <MediaUploadField
@@ -282,15 +328,16 @@ async function remove(): Promise<void> {
           :activity-id="activityId"
           label="Video 1"
           :model-value="working.segments[0]?.media ?? null"
+          :instruction-text="instructionText"
           @update:model-value="setMedia(0, $event)"
           @duration="setDuration(0, $event)"
         />
       </section>
 
       <ProcessQuestionsForm
-        :key="working.segments[0]?.id"
-        :segment-id="working.segments[0]?.id ?? 'segment-1'"
-        :model-value="working.segments[0]?.questions ?? { version: 2, questions: [] }"
+        ref="video1Questions"
+        :segment-id="process?.segments[0]?.id ?? 'segment-1'"
+        :model-value="process?.segments[0]?.questions ?? { version: 2, questions: [] }"
         @update:model-value="setQuestions(0, $event)"
       />
 
