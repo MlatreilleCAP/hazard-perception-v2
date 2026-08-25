@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { safeNextPath } from '@/app/safeNextPath'
 import { useAuthStore } from '@/stores/authStore'
+import ArchitectureView from '@/views/ArchitectureView.vue'
 import AuthCallbackView from '@/views/AuthCallbackView.vue'
 import HomeView from '@/views/HomeView.vue'
 import LoginView from '@/views/LoginView.vue'
@@ -22,7 +23,18 @@ export const router = createRouter({
       component: AuthCallbackView,
       meta: { layout: 'auth', title: 'Signing in · AlertDriving' },
     },
-    { path: '/', name: 'home', component: HomeView, meta: { title: 'Architecture' } },
+    {
+      path: '/',
+      name: 'home',
+      component: HomeView,
+      meta: { layout: 'landing', title: 'Driver Coaching Demo' },
+    },
+    {
+      path: '/architecture',
+      name: 'architecture',
+      component: ArchitectureView,
+      meta: { title: 'Architecture' },
+    },
     {
       path: '/studio',
       name: 'studio',

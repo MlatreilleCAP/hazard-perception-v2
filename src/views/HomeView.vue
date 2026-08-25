@@ -1,81 +1,147 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { createEmptyActivity } from '@/activities/createEmptyActivity'
-import { useActivityStore } from '@/stores/activityStore'
-import { useAppStore } from '@/stores/appStore'
-import { useRuntimeStore } from '@/stores/runtimeStore'
+import { RouterLink, useRouter } from 'vue-router'
+import { LANDING_FAQS, LANDING_FEATURES, LANDING_NAV_LINKS } from '@/app/landingFeatures'
+import DemoCatalog from '@/components/landing/DemoCatalog.vue'
+import FeatureVisual from '@/components/landing/FeatureVisual.vue'
+import { useAuthStore } from '@/stores/authStore'
 
-const app = useAppStore()
-const activities = useActivityStore()
-const runtime = useRuntimeStore()
+const auth = useAuthStore()
+const router = useRouter()
 
-onMounted(async () => {
-  await activities.refreshList()
-})
-
-function runEngineSmoke(): void {
-  runtime.playDefinition(createEmptyActivity('Engine smoke activity'))
+async function signOut(): Promise<void> {
+  await auth.signOut()
+  await router.replace('/')
 }
 </script>
 
 <template>
-  <section class="panel">
-    <h2>Architecture status</h2>
-    <p>
-      Activity persistence uses the v2 <code>activities</code> and
-      <code>activity_versions</code> tables. The engine smoke test still runs a
-      local definition and does not write to the database.
-    </p>
+  <div class="landing-page">
+    <div class="landing-grid" aria-hidden="true" />
 
-    <dl class="status-grid">
-      <div>
-        <dt>Vue shell</dt>
-        <dd>ready</dd>
-      </div>
-      <div>
-        <dt>Vue Router</dt>
-        <dd>{{ $route.name }}</dd>
-      </div>
-      <div>
-        <dt>Pinia</dt>
-        <dd>booted {{ app.bootedAt }}</dd>
-      </div>
-      <div>
-        <dt>Supabase configured</dt>
-        <dd>{{ app.supabase.configured ? 'yes' : 'no' }}</dd>
-      </div>
-      <div>
-        <dt>Supabase client</dt>
-        <dd>{{ app.supabase.initialized ? 'initialized' : 'not initialized' }}</dd>
-      </div>
-      <div>
-        <dt>Production queries</dt>
-        <dd>{{ app.supabase.queriedProduction ? 'yes' : 'none' }}</dd>
-      </div>
-      <div>
-        <dt>Persistence</dt>
-        <dd>{{ app.persistenceMode }}</dd>
-      </div>
-      <div>
-        <dt>Activities listed</dt>
-        <dd>{{ activities.summaries.length }}</dd>
-      </div>
-      <div>
-        <dt>Node plugins</dt>
-        <dd>{{ app.nodePlugins.map((plugin) => plugin.type).join(', ') }}</dd>
-      </div>
-    </dl>
+    <header class="landing-header">
+      <div class="landing-header-inner">
+        <RouterLink to="/" class="landing-logo">
+          <img src="/AD_Logo.svg" alt="AlertDriving" />
+        </RouterLink>
 
-    <p v-if="activities.error" class="error">{{ activities.error }}</p>
+        <nav class="landing-nav" aria-label="Primary">
+          <a v-for="link in LANDING_NAV_LINKS" :key="link.href" :href="link.href">
+            {{ link.label }}
+          </a>
+        </nav>
 
-    <h3>Engine smoke test</h3>
-    <p>Runs start → end in memory. Does not create an attempt or activity row.</p>
-    <button type="button" class="counter" @click="runEngineSmoke">Run engine smoke</button>
-    <p v-if="runtime.error" class="error">{{ runtime.error }}</p>
-    <p v-if="runtime.session">
-      Session {{ runtime.session.status }} · node
-      {{ runtime.session.currentNodeId }} · events
-      {{ runtime.session.eventLog.length }}
-    </p>
-  </section>
+        <div class="landing-header-actions">
+          <template v-if="auth.isSignedIn">
+            <RouterLink to="/studio" class="landing-text-link">Studio</RouterLink>
+            <button type="button" class="landing-signout" @click="signOut">Sign out</button>
+          </template>
+          <RouterLink v-else to="/login?next=/" class="landing-text-link">Sign in</RouterLink>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="landing-hero">
+        <div class="landing-eyebrow landing-fade" style="--delay: 500ms">
+          <span aria-hidden="true">✨</span>
+          Build Safer Drivers With Coaching That Feels Personal.
+        </div>
+
+        <h1 class="landing-fade" style="--delay: 600ms">
+          Turn Your
+          <span class="landing-gradient">Drivers</span>
+          Into Safer Decision-Makers — Automatically.
+        </h1>
+
+        <p class="landing-lede landing-fade" style="--delay: 700ms">
+          Practice hazard perception, complete interactive lessons, and build safer
+          habits with AI-powered driver coaching.
+        </p>
+
+        <div class="landing-hero-actions landing-fade" style="--delay: 800ms">
+          <RouterLink to="/login?mode=signup&next=/" class="landing-demo-button">
+            Request Demo
+          </RouterLink>
+        </div>
+
+        <div id="how-it-works" class="landing-sizzle landing-fade" style="--delay: 1000ms">
+          <div class="landing-sizzle-frame">
+            <video
+              class="demo-sizzle-video"
+              src="/inroads_sizzle_reel_v1.mp4"
+              poster="/demo-sizzle-poster.png"
+              controls
+              playsinline
+              preload="metadata"
+            >
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        </div>
+      </section>
+
+      <section id="demos" class="landing-demos">
+        <div class="landing-demos-intro">
+          <h2>
+            Explore Every
+            <span class="landing-gradient">Demo</span>
+          </h2>
+          <p>
+            Interactive lessons and hazard perception scenarios in one place —
+            browse the catalog and start training instantly.
+          </p>
+        </div>
+        <DemoCatalog />
+      </section>
+
+      <section id="features" class="landing-features">
+        <div class="landing-features-grid-bg" aria-hidden="true" />
+        <div class="landing-features-inner">
+          <div class="landing-features-intro">
+            <h2>
+              Features Designed To Help You Grow
+              <span class="landing-gradient">Safer Drivers</span>
+              Effortlessly
+            </h2>
+            <p>
+              Everything you need to train, coach, and measure hazard perception —
+              all in one place.
+            </p>
+          </div>
+
+          <div class="feature-grid">
+            <article v-for="feature in LANDING_FEATURES" :key="feature.title" class="feature-card">
+              <div class="feature-card-visual">
+                <FeatureVisual :kind="feature.visual" />
+              </div>
+              <div class="feature-card-copy">
+                <h3>{{ feature.title }}</h3>
+                <p>{{ feature.description }}</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="landing-faq">
+        <h2>FAQs</h2>
+        <div class="faq-list">
+          <details v-for="item in LANDING_FAQS" :key="item.q" class="faq-item">
+            <summary>
+              <span>{{ item.q }}</span>
+              <span class="faq-plus" aria-hidden="true">+</span>
+            </summary>
+            <p>{{ item.a }}</p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="landing-footer">
+      <div class="landing-footer-inner">
+        <img src="/AD_Logo.svg" alt="AlertDriving" class="landing-footer-logo" />
+        <p>AlertDriving Driver Coaching</p>
+      </div>
+    </footer>
+  </div>
 </template>

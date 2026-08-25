@@ -4,10 +4,12 @@ import { useRoute } from 'vue-router'
 import AppShell from '@/app/AppShell.vue'
 
 const route = useRoute()
-const isAuthLayout = computed(() => route.meta.layout === 'auth')
+const isChromeLess = computed(
+  () => route.meta.layout === 'auth' || route.meta.layout === 'landing',
+)
 </script>
 
 <template>
-  <RouterView v-if="isAuthLayout" />
+  <RouterView v-if="isChromeLess" />
   <AppShell v-else />
 </template>

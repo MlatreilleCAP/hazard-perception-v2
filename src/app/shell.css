@@ -1,4 +1,6 @@
-#app {
+.app-shell {
+  display: flex;
+  flex-direction: column;
   width: min(960px, 100%);
   max-width: 100%;
   margin: 0 auto;
@@ -6,12 +8,6 @@
   text-align: left;
   border-inline: 1px solid var(--border);
   box-sizing: border-box;
-}
-
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  min-height: 100svh;
 }
 
 .app-header {

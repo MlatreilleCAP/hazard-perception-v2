@@ -14,7 +14,8 @@ async function signOut(): Promise<void> {
 
 <template>
   <nav class="app-nav" aria-label="Primary">
-    <RouterLink to="/">Architecture</RouterLink>
+    <RouterLink to="/">Demo</RouterLink>
+    <RouterLink to="/architecture">Architecture</RouterLink>
     <RouterLink to="/studio">Studio</RouterLink>
     <RouterLink to="/player">Player</RouterLink>
     <RouterLink v-if="!auth.isSignedIn" to="/login">Sign in</RouterLink>

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useActivityStore } from '@/stores/activityStore'
 import { useRuntimeStore } from '@/stores/runtimeStore'
 
+const route = useRoute()
 const activities = useActivityStore()
 const runtime = useRuntimeStore()
 const published = computed(() =>
@@ -11,6 +13,11 @@ const published = computed(() =>
 
 onMounted(async () => {
   await activities.refreshList()
+  const activityId =
+    typeof route.query.activity === 'string' ? route.query.activity : null
+  if (activityId) {
+    await runtime.play(activityId)
+  }
 })
 
 async function playFirstPublished(): Promise<void> {
