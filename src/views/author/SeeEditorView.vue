@@ -10,13 +10,7 @@ import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import SeeTimelineEditor from '@/components/author/SeeTimelineEditor.vue'
 import { useActivityStore } from '@/stores/activityStore'
 import type { MediaRef } from '@/types/media'
-import {
-  SEE_DIFFICULTIES,
-  isSeeActivity,
-  type SeeDefinition,
-  type SeeDifficulty,
-  type SeeHazard,
-} from '@/types/see'
+import { isSeeActivity, type SeeDefinition, type SeeHazard } from '@/types/see'
 
 const route = useRoute()
 const router = useRouter()
@@ -93,14 +87,6 @@ function setDurationSeconds(duration: number): void {
 function setHazards(hazards: SeeHazard[]): void {
   if (!see.value) return
   see.value = { ...see.value, hazards }
-}
-
-function setDifficulty(value: string): void {
-  if (!see.value) return
-  const difficulty = (SEE_DIFFICULTIES as readonly string[]).includes(value)
-    ? (value as SeeDifficulty)
-    : 'medium'
-  see.value = { ...see.value, difficulty }
 }
 
 async function save(): Promise<boolean> {
@@ -222,14 +208,6 @@ async function remove(): Promise<void> {
         <AuthorSectionHeader title="Hazard Info" />
         <AuthorField id="see-title" v-model="title" label="Title" placeholder="Hazard Title goes here" :error="titleError ?? undefined" />
         <AuthorField id="see-description" v-model="description" label="Description" placeholder="Description" multiline :rows="1" />
-        <AuthorField
-          id="see-difficulty"
-          :model-value="see.difficulty"
-          label="Difficulty"
-          :options="SEE_DIFFICULTIES"
-          placeholder="Select difficulty"
-          @update:model-value="setDifficulty"
-        />
       </section>
 
       <section v-if="!see.media" class="author-stack-sm">

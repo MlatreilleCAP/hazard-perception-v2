@@ -57,7 +57,7 @@ export {
   PROCESS_TAG,
   isProcessActivity,
 } from './process'
-export type { SeeDefinition, SeeDifficulty, SeeHazard } from './see'
+export type { SeeDefinition, SeeHazard } from './see'
 export { SEE_NODE_TYPE, SEE_TAG, isSeeActivity } from './see'
 export type {
   ProcessAnswerOption,

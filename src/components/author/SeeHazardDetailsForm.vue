@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
-import { CORE_COMPETENCIES, isCoreCompetency, type HazardDetails } from '@/types/hazard'
+import MediaUploadField from '@/components/author/MediaUploadField.vue'
+import { CORE_COMPETENCIES, isCoreCompetency } from '@/types/hazard'
+import type { SeeHazard } from '@/types/see'
 
 const props = defineProps<{
   hazardId: string
-  modelValue: HazardDetails
+  activityId: string
+  modelValue: SeeHazard
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: HazardDetails]
+  'update:modelValue': [value: SeeHazard]
 }>()
 
-function patch(next: Partial<HazardDetails>): void {
+function patch(next: Partial<SeeHazard>): void {
   emit('update:modelValue', { ...props.modelValue, ...next })
 }
 </script>
@@ -37,5 +40,22 @@ function patch(next: Partial<HazardDetails>): void {
         @update:model-value="patch({ hazardType: $event })"
       />
     </div>
+    <AuthorField
+      :id="`${hazardId}-explanation`"
+      :model-value="modelValue.explanation ?? ''"
+      label="Hazard Explanation"
+      placeholder="Explain the hazard to the learner"
+      multiline
+      :rows="3"
+      @update:model-value="patch({ explanation: $event })"
+    />
+    <MediaUploadField
+      :id="`${hazardId}-explanation-image`"
+      :activity-id="activityId"
+      label="Explanation image"
+      kind="image"
+      :model-value="modelValue.explanationImage ?? null"
+      @update:model-value="patch({ explanationImage: $event })"
+    />
   </section>
 </template>

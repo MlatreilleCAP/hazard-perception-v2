@@ -9,7 +9,7 @@ import SeeHazardOverlay from '@/components/author/SeeHazardOverlay.vue'
 import SeeTimelineTrack from '@/components/author/SeeTimelineTrack.vue'
 import { DEFAULT_HAZARD_RADIUS } from '@/lib/hazards/constants'
 import { getHazardStateAtTime } from '@/lib/hazards/interpolate'
-import type { HazardDetails, TrajectoryPoint } from '@/types/hazard'
+import type { TrajectoryPoint } from '@/types/hazard'
 import type { MediaRef } from '@/types/media'
 import type { ProcessQuestionBank } from '@/types/questions'
 import {
@@ -211,7 +211,7 @@ function onTrajectoryChange(hazard: SeeHazard, trajectory: TrajectoryPoint[]): v
   updateHazard(hazard.id, { trajectory })
 }
 
-function onDetailsChange(details: HazardDetails): void {
+function onDetailsChange(details: SeeHazard): void {
   if (!selectedHazard.value) return
   updateHazard(selectedHazard.value.id, details)
 }
@@ -338,6 +338,7 @@ watch(previewUrl, () => {
   <template v-else-if="selectedHazard">
     <SeeHazardDetailsForm
       :hazard-id="selectedHazard.id"
+      :activity-id="activityId"
       :model-value="selectedHazard"
       @update:model-value="onDetailsChange"
     />

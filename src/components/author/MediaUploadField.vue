@@ -1,18 +1,30 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { services } from '@/app/container'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
-import { formatMediaSize, maxVideoUploadBytes, videoUploadSizeError, type MediaAsset, type MediaRef } from '@/types/media'
+import {
+  formatMediaSize,
+  imageUploadSizeError,
+  MAX_IMAGE_UPLOAD_BYTES,
+  maxVideoUploadBytes,
+  videoUploadSizeError,
+  type MediaAsset,
+  type MediaRef,
+} from '@/types/media'
 
-const props = defineProps<{
-  id: string
-  label: string
-  activityId: string
-  modelValue: MediaRef | null
-  instructionText?: string
-  instructionPill?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    id: string
+    label: string
+    activityId: string
+    modelValue: MediaRef | null
+    instructionText?: string
+    instructionPill?: string
+    kind?: 'video' | 'audio' | 'image'
+  }>(),
+  { kind: 'video' },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: MediaRef | null]
@@ -47,7 +59,35 @@ watch(
   { immediate: true },
 )
 
-const maxUploadLabel = formatMediaSize(maxVideoUploadBytes())
+const isAudio = computed(() => props.kind === 'audio')
+const isImage = computed(() => props.kind === 'image')
+const kindLabel = computed(() =>
+  isImage.value ? 'image' : isAudio.value ? 'audio' : 'video',
+)
+const maxUploadLabel = computed(() =>
+  formatMediaSize(isImage.value ? MAX_IMAGE_UPLOAD_BYTES : maxVideoUploadBytes()),
+)
+const accept = computed(() => {
+  if (isImage.value) return 'image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif'
+  if (isAudio.value) return 'audio/mpeg,audio/mp4,audio/wav,audio/ogg,audio/webm,.mp3,.m4a,.wav,.ogg'
+  return 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov'
+})
+const formatHint = computed(() => {
+  if (isImage.value) return `JPG, PNG, WebP, or GIF · max ${maxUploadLabel.value}`
+  if (isAudio.value) return `MP3, M4A, WAV, or OGG · max ${maxUploadLabel.value}`
+  return `MP4, WebM, or MOV · max ${maxUploadLabel.value}`
+})
+const emptyLibraryLabel = computed(() => {
+  if (isImage.value) return 'No images yet.'
+  if (isAudio.value) return 'No audio yet.'
+  return 'No videos yet.'
+})
+
+async function uploadFile(file: File): Promise<MediaAsset> {
+  if (isImage.value) return services.media.uploadImage(props.activityId, file)
+  if (isAudio.value) return services.media.uploadAudio(props.activityId, file)
+  return services.media.uploadVideo(props.activityId, file)
+}
 
 async function handleFile(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
@@ -55,7 +95,9 @@ async function handleFile(event: Event): Promise<void> {
   input.value = ''
   if (!file) return
 
-  const sizeError = videoUploadSizeError(file.size)
+  const sizeError = isImage.value
+    ? imageUploadSizeError(file.size)
+    : videoUploadSizeError(file.size)
   if (sizeError) {
     error.value = sizeError
     return
@@ -64,13 +106,14 @@ async function handleFile(event: Event): Promise<void> {
   uploading.value = true
   error.value = null
   try {
-    const asset = await services.media.uploadVideo(props.activityId, file)
+    const asset = await uploadFile(file)
     emit('update:modelValue', { media_asset_id: asset.id })
     if (asset.durationMs && asset.durationMs > 0) {
       emit('duration', asset.durationMs)
     }
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to upload video'
+    error.value =
+      cause instanceof Error ? cause.message : `Failed to upload ${kindLabel.value}`
   } finally {
     uploading.value = false
   }
@@ -81,7 +124,11 @@ async function openLibrary(): Promise<void> {
   libraryLoading.value = true
   error.value = null
   try {
-    libraryAssets.value = await services.media.listVideoAssets()
+    libraryAssets.value = isImage.value
+      ? await services.media.listImageAssets()
+      : isAudio.value
+        ? await services.media.listAudioAssets()
+        : await services.media.listVideoAssets()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Failed to load media'
     libraryOpen.value = false
@@ -113,7 +160,7 @@ function clear(): void {
         ref="fileInput"
         class="sr-only"
         type="file"
-        accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+        :accept="accept"
         @change="handleFile"
       />
       <AuthorPillButton variant="ghost" :disabled="uploading" @click="fileInput?.click()">
@@ -127,13 +174,15 @@ function clear(): void {
       </AuthorPillButton>
     </div>
     <p class="author-muted" style="margin-top: 4px; font-size: 12px">
-      MP4, WebM, or MOV · max {{ maxUploadLabel }}
+      {{ formatHint }}
     </p>
     <p v-if="error" class="author-error">{{ error }}</p>
 
     <div v-if="libraryOpen" class="media-library">
       <p v-if="libraryLoading" class="author-muted">Loading media…</p>
-      <p v-else-if="libraryAssets.length === 0" class="author-muted">No videos yet.</p>
+      <p v-else-if="libraryAssets.length === 0" class="author-muted">
+        {{ emptyLibraryLabel }}
+      </p>
       <button
         v-for="asset in libraryAssets"
         :key="asset.id"
@@ -144,8 +193,15 @@ function clear(): void {
       </button>
     </div>
 
+    <img
+      v-if="previewUrl && isImage"
+      class="author-image"
+      :src="previewUrl"
+      alt=""
+    />
+    <audio v-else-if="previewUrl && isAudio" class="author-audio" :src="previewUrl" controls />
     <ProcessVideoStage
-      v-if="previewUrl && instructionText?.trim()"
+      v-else-if="previewUrl && instructionText?.trim()"
       :src="previewUrl"
       :instruction-text="instructionText"
       :instruction-pill="instructionPill"

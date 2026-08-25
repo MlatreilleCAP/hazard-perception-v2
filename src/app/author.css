@@ -584,6 +584,25 @@
   object-position: left;
 }
 
+.author-audio {
+  display: block;
+  width: 100%;
+  max-width: 28rem;
+  margin-top: 8px;
+}
+
+.author-image {
+  display: block;
+  max-height: 16rem;
+  width: auto;
+  max-width: 100%;
+  margin-top: 8px;
+  border-radius: 16px;
+  border: 1px solid var(--editor-border);
+  background: #fff;
+  object-fit: contain;
+}
+
 .author-panel {
   display: flex;
   flex-direction: column;

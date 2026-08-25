@@ -23,6 +23,9 @@ export const ACTIVITY_MEDIA_BUCKET = 'activity-media' as const
 /** Matches activity-media bucket limit in supabase/migrations (500 MiB). */
 export const MAX_VIDEO_UPLOAD_BYTES = 524_288_000
 
+/** Hazard explanation stills and other still images. */
+export const MAX_IMAGE_UPLOAD_BYTES = 10_485_760
+
 export function formatMediaSize(bytes: number): string {
   if (bytes >= 1024 * 1024) {
     const mib = bytes / (1024 * 1024)
@@ -45,6 +48,11 @@ export function videoUploadSizeError(fileSizeBytes: number): string | null {
   const limit = maxVideoUploadBytes()
   if (fileSizeBytes <= limit) return null
   return `Video is ${formatMediaSize(fileSizeBytes)}. Maximum upload size is ${formatMediaSize(limit)}. Compress the file or raise the Storage limit in Supabase (global and activity-media bucket).`
+}
+
+export function imageUploadSizeError(fileSizeBytes: number): string | null {
+  if (fileSizeBytes <= MAX_IMAGE_UPLOAD_BYTES) return null
+  return `Image is ${formatMediaSize(fileSizeBytes)}. Maximum upload size is ${formatMediaSize(MAX_IMAGE_UPLOAD_BYTES)}.`
 }
 
 const PUBLIC_MEDIA_KEYS = new Set([

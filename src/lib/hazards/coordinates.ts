@@ -5,6 +5,37 @@ export type ContentRect = {
   height: number
 }
 
+/** Ignore pans smaller than this so a tap can still register. */
+export const VIDEO_PAN_SLOP_PX = 10
+
+/**
+ * Original hazard player: shift the centered landscape pan so more of the
+ * left side of the clip is visible (forward roadway).
+ */
+export const SEE_INITIAL_PAN_OFFSET_X = 92
+
+export function videoAspectRatio(
+  videoWidth: number,
+  videoHeight: number,
+  fallback = 16 / 9,
+): number {
+  if (!videoWidth || !videoHeight) return fallback
+  return videoWidth / videoHeight
+}
+
+/**
+ * Size a landscape clip for a portrait viewport: fill height, overflow width.
+ */
+export function landscapeVideoDisplaySize(
+  viewportWidth: number,
+  viewportHeight: number,
+  aspectRatio: number,
+): { width: number; height: number } {
+  const height = Math.max(0, viewportHeight)
+  const width = Math.max(height * aspectRatio, Math.max(0, viewportWidth))
+  return { width, height }
+}
+
 export function getVideoContentRect(video: HTMLVideoElement): ContentRect {
   const container = video.getBoundingClientRect()
   const { videoWidth: vw, videoHeight: vh } = video
@@ -19,7 +50,7 @@ export function getVideoContentRect(video: HTMLVideoElement): ContentRect {
   }
 
   const objectFit = getComputedStyle(video).objectFit
-  if (objectFit === 'fill' || objectFit === 'cover') {
+  if (objectFit === 'fill') {
     return {
       left: container.left,
       top: container.top,
@@ -28,7 +59,10 @@ export function getVideoContentRect(video: HTMLVideoElement): ContentRect {
     }
   }
 
-  const scale = Math.min(container.width / vw, container.height / vh)
+  const scale =
+    objectFit === 'cover'
+      ? Math.max(container.width / vw, container.height / vh)
+      : Math.min(container.width / vw, container.height / vh)
   const width = vw * scale
   const height = vh * scale
 

@@ -21,21 +21,19 @@ import {
 export const SEE_TAG = 'see'
 export const SEE_NODE_TYPE = 'see.hazard'
 
-export const SEE_DIFFICULTIES = ['easy', 'medium', 'hard'] as const
-export type SeeDifficulty = (typeof SEE_DIFFICULTIES)[number]
-
 export interface SeeHazard extends HazardDetails {
   id: string
   startTime: number
   endTime: number
   trajectory: TrajectoryPoint[]
   radius: number
+  explanation: string
+  explanationImage: MediaRef | null
   questions: ProcessQuestionBank
 }
 
 export interface SeeDefinition {
   version: 1
-  difficulty: SeeDifficulty
   duration: number
   media: MediaRef | null
   hazards: SeeHazard[]
@@ -100,6 +98,8 @@ export function createEmptySeeHazard(
     hazardType: '',
     severity: defaultHazardDetails.severity,
     notes: '',
+    explanation: '',
+    explanationImage: null,
     questions: emptyQuestionBank(),
   }
 }
@@ -107,7 +107,6 @@ export function createEmptySeeHazard(
 export function createDefaultSeeDefinition(): SeeDefinition {
   return {
     version: 1,
-    difficulty: 'medium',
     duration: 0,
     media: null,
     hazards: [],
@@ -146,10 +145,6 @@ function readSeverity(value: unknown): HazardSeverity {
   return value === 'low' || value === 'high' ? value : 'medium'
 }
 
-function readDifficulty(value: unknown): SeeDifficulty {
-  return value === 'easy' || value === 'hard' ? value : 'medium'
-}
-
 export function normalizeSeeHazard(hazard: Partial<SeeHazard> | undefined): SeeHazard {
   const startTime = typeof hazard?.startTime === 'number' ? Math.max(0, hazard.startTime) : 0
   const endTime =
@@ -168,6 +163,13 @@ export function normalizeSeeHazard(hazard: Partial<SeeHazard> | undefined): SeeH
     hazardType: typeof hazard?.hazardType === 'string' ? hazard.hazardType : '',
     severity: readSeverity(hazard?.severity),
     notes: typeof hazard?.notes === 'string' ? hazard.notes : '',
+    explanation:
+      typeof hazard?.explanation === 'string'
+        ? hazard.explanation
+        : typeof hazard?.notes === 'string'
+          ? hazard.notes
+          : '',
+    explanationImage: readMediaRef(hazard?.explanationImage),
     questions: readQuestionBank(hazard?.questions),
   }
 }
@@ -176,7 +178,6 @@ export function normalizeSeeDefinition(definition: SeeDefinition): SeeDefinition
   const hazards = (definition.hazards ?? []).map((hazard) => normalizeSeeHazard(hazard))
   return {
     version: 1,
-    difficulty: readDifficulty(definition.difficulty),
     duration: typeof definition.duration === 'number' && definition.duration > 0 ? definition.duration : 0,
     media: readMediaRef(definition.media),
     hazards: hazards.sort((a, b) => a.startTime - b.startTime),
@@ -194,8 +195,4 @@ export function seeMaxScore(definition: SeeDefinition): number {
 
 export function isSeeActivity(tags: string[] | undefined): boolean {
   return Boolean(tags?.includes(SEE_TAG))
-}
-
-export function difficultyLabel(difficulty: SeeDifficulty): string {
-  return difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
 }

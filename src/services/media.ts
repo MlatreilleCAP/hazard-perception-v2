@@ -2,6 +2,7 @@ import { getSupabase } from '@/services/supabase'
 import {
   ACTIVITY_MEDIA_BUCKET,
   collectMediaAssetIds,
+  imageUploadSizeError,
   videoUploadSizeError,
   type MediaAsset,
 } from '@/types/media'
@@ -75,11 +76,39 @@ export class MediaService {
   }
 
   async listVideoAssets(): Promise<MediaAsset[]> {
+    return this.listAssetsByMime('video/%')
+  }
+
+  async listAudioAssets(): Promise<MediaAsset[]> {
+    return this.listAssetsByMime('audio/%')
+  }
+
+  async listImageAssets(): Promise<MediaAsset[]> {
+    return this.listAssetsByMime('image/%')
+  }
+
+  async uploadVideo(activityId: string, file: File): Promise<MediaAsset> {
+    return this.uploadMedia(activityId, file, 'video/mp4')
+  }
+
+  async uploadAudio(activityId: string, file: File): Promise<MediaAsset> {
+    return this.uploadMedia(activityId, file, 'audio/mpeg')
+  }
+
+  async uploadImage(activityId: string, file: File): Promise<MediaAsset> {
+    const sizeError = imageUploadSizeError(file.size)
+    if (sizeError) {
+      throw new Error(sizeError)
+    }
+    return this.uploadMedia(activityId, file, 'image/jpeg')
+  }
+
+  private async listAssetsByMime(mimePattern: string): Promise<MediaAsset[]> {
     const client = requireClient()
     const { data, error } = await client
       .from('media_assets')
       .select('*')
-      .ilike('mime_type', 'video/%')
+      .ilike('mime_type', mimePattern)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -89,7 +118,11 @@ export class MediaService {
     return ((data ?? []) as MediaAssetRow[]).map(mapAsset)
   }
 
-  async uploadVideo(activityId: string, file: File): Promise<MediaAsset> {
+  private async uploadMedia(
+    activityId: string,
+    file: File,
+    fallbackMime: string,
+  ): Promise<MediaAsset> {
     const sizeError = videoUploadSizeError(file.size)
     if (sizeError) {
       throw new Error(sizeError)
@@ -110,14 +143,15 @@ export class MediaService {
 
     const id = crypto.randomUUID()
     const path = `${activityId}/${id}`
-    const durationMs = await readVideoDurationMs(file)
+    const mimeType = file.type || fallbackMime
+    const durationMs = await readMediaDurationMs(file)
 
     const { error: insertError } = await client.from('media_assets').insert({
       id,
       activity_id: activityId,
       bucket: ACTIVITY_MEDIA_BUCKET,
       path,
-      mime_type: file.type || 'video/mp4',
+      mime_type: mimeType,
       size_bytes: file.size,
       duration_ms: durationMs,
       created_by: userId,
@@ -129,7 +163,7 @@ export class MediaService {
     const { error: uploadError } = await client.storage
       .from(ACTIVITY_MEDIA_BUCKET)
       .upload(path, file, {
-        contentType: file.type || 'video/mp4',
+        contentType: mimeType,
         upsert: false,
       })
     if (uploadError) {
@@ -146,15 +180,20 @@ export class MediaService {
   }
 }
 
-async function readVideoDurationMs(file: File): Promise<number | null> {
-  if (!file.type.startsWith('video/')) return null
+async function readMediaDurationMs(file: File): Promise<number | null> {
+  const kind = file.type.startsWith('audio/')
+    ? 'audio'
+    : file.type.startsWith('video/')
+      ? 'video'
+      : null
+  if (!kind) return null
 
   return new Promise((resolve) => {
-    const video = document.createElement('video')
+    const element = document.createElement(kind)
     const objectUrl = URL.createObjectURL(file)
-    video.preload = 'metadata'
-    video.onloadedmetadata = () => {
-      const seconds = video.duration
+    element.preload = 'metadata'
+    element.onloadedmetadata = () => {
+      const seconds = element.duration
       URL.revokeObjectURL(objectUrl)
       if (!Number.isFinite(seconds) || seconds <= 0) {
         resolve(null)
@@ -162,11 +201,11 @@ async function readVideoDurationMs(file: File): Promise<number | null> {
       }
       resolve(Math.round(seconds * 1000))
     }
-    video.onerror = () => {
+    element.onerror = () => {
       URL.revokeObjectURL(objectUrl)
       resolve(null)
     }
-    video.src = objectUrl
+    element.src = objectUrl
   })
 }
 
