@@ -14,8 +14,8 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="process-results-page" role="main" aria-label="Process results">
-    <p class="process-results-announcement">Process Section Passed!</p>
+  <div class="process-results-page" role="main" aria-label="Process results — section passed">
+    <p class="process-results-announcement is-emphasis">SECTION PASSED</p>
     <section class="process-results-score-card" aria-hidden="true">
       <div class="process-results-lottie-fill">
         <ProcessResultsLottie :animation-data="passAnimation" />
