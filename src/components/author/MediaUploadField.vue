@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 import { services } from '@/app/container'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
-import type { MediaAsset, MediaRef } from '@/types/media'
+import { formatMediaSize, maxVideoUploadBytes, videoUploadSizeError, type MediaAsset, type MediaRef } from '@/types/media'
 
 const props = defineProps<{
   id: string
@@ -46,11 +46,19 @@ watch(
   { immediate: true },
 )
 
+const maxUploadLabel = formatMediaSize(maxVideoUploadBytes())
+
 async function handleFile(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   if (!file) return
+
+  const sizeError = videoUploadSizeError(file.size)
+  if (sizeError) {
+    error.value = sizeError
+    return
+  }
 
   uploading.value = true
   error.value = null
@@ -117,6 +125,9 @@ function clear(): void {
         Remove
       </AuthorPillButton>
     </div>
+    <p class="author-muted" style="margin-top: 4px; font-size: 12px">
+      MP4, WebM, or MOV · max {{ maxUploadLabel }}
+    </p>
     <p v-if="error" class="author-error">{{ error }}</p>
 
     <div v-if="libraryOpen" class="media-library">

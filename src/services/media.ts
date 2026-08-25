@@ -2,6 +2,7 @@ import { getSupabase } from '@/services/supabase'
 import {
   ACTIVITY_MEDIA_BUCKET,
   collectMediaAssetIds,
+  videoUploadSizeError,
   type MediaAsset,
 } from '@/types/media'
 import type { MediaAssetRow } from '@/types/database'
@@ -89,6 +90,11 @@ export class MediaService {
   }
 
   async uploadVideo(activityId: string, file: File): Promise<MediaAsset> {
+    const sizeError = videoUploadSizeError(file.size)
+    if (sizeError) {
+      throw new Error(sizeError)
+    }
+
     const client = requireClient()
     const {
       data: { session },
@@ -128,6 +134,11 @@ export class MediaService {
       })
     if (uploadError) {
       await client.from('media_assets').delete().eq('id', id)
+      if (/maximum allowed size/i.test(uploadError.message)) {
+        throw new Error(
+          `${uploadError.message}. In Supabase Dashboard, raise Storage → Settings global limit and the activity-media bucket limit (currently configured for up to 500 MB in this app).`,
+        )
+      }
       throw new Error(`Failed to upload media: ${uploadError.message}`)
     }
 

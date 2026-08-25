@@ -20,6 +20,33 @@ export interface MediaAsset {
 
 export const ACTIVITY_MEDIA_BUCKET = 'activity-media' as const
 
+/** Matches activity-media bucket limit in supabase/migrations (500 MiB). */
+export const MAX_VIDEO_UPLOAD_BYTES = 524_288_000
+
+export function formatMediaSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    const mib = bytes / (1024 * 1024)
+    return `${mib % 1 === 0 ? mib : mib.toFixed(1)} MB`
+  }
+  const kib = bytes / 1024
+  return `${kib % 1 === 0 ? kib : kib.toFixed(1)} KB`
+}
+
+export function maxVideoUploadBytes(): number {
+  const configured = import.meta.env.VITE_MAX_VIDEO_UPLOAD_BYTES
+  if (typeof configured === 'string' && configured.trim()) {
+    const parsed = Number.parseInt(configured, 10)
+    if (Number.isFinite(parsed) && parsed > 0) return parsed
+  }
+  return MAX_VIDEO_UPLOAD_BYTES
+}
+
+export function videoUploadSizeError(fileSizeBytes: number): string | null {
+  const limit = maxVideoUploadBytes()
+  if (fileSizeBytes <= limit) return null
+  return `Video is ${formatMediaSize(fileSizeBytes)}. Maximum upload size is ${formatMediaSize(limit)}. Compress the file or raise the Storage limit in Supabase (global and activity-media bucket).`
+}
+
 const PUBLIC_MEDIA_KEYS = new Set([
   'url',
   'src',
