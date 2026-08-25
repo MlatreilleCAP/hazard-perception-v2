@@ -1,4 +1,5 @@
 import type { ActivityDefinition } from '@/types/activity'
+import { cloneJson } from '@/app/clone'
 import {
   PROCESS_NODE_TYPE,
   cloneProcessDefinition,
@@ -26,7 +27,7 @@ export function writeProcessDefinition(
   definition: ActivityDefinition,
   process: ProcessDefinition,
 ): ActivityDefinition {
-  const next = structuredClone(definition)
+  const next = cloneJson(definition)
   const node = next.nodes.find((item) => item.type === PROCESS_NODE_TYPE)
   if (!node) {
     throw new Error('Process activity is missing the process.comprehension node')

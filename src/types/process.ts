@@ -1,3 +1,4 @@
+import { cloneJson } from '@/app/clone'
 import type { MediaRef } from '@/types/media'
 import {
   emptyQuestionBank,
@@ -49,7 +50,7 @@ export function processMaxScore(definition: ProcessDefinition): number {
 }
 
 export function cloneProcessDefinition(definition: ProcessDefinition): ProcessDefinition {
-  return structuredClone(definition)
+  return cloneJson(definition)
 }
 
 export function buildPersistableProcessDefinition(

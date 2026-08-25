@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { cloneJson } from '@/app/clone'
 import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorToggle from '@/components/author/AuthorToggle.vue'
@@ -27,14 +28,14 @@ const emit = defineEmits<{
 
 const addKind = ref<ProcessQuestionKind | ''>('')
 const questions = ref<ProcessSurveyQuestion[]>(
-  props.modelValue.questions.map((question) => structuredClone(question)),
+  props.modelValue.questions.map((question) => cloneJson(question)),
 )
 
 watch(
   () => props.segmentId,
   () => {
     questions.value = props.modelValue.questions.map((question) =>
-      structuredClone(question),
+      cloneJson(question),
     )
     addKind.value = ''
   },

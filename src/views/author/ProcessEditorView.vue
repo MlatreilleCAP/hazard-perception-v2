@@ -28,10 +28,12 @@ const router = useRouter()
 const activities = useActivityStore()
 
 const loading = ref(true)
+const loadError = ref<string | null>(null)
 const saving = ref(false)
 const deleting = ref(false)
 const publishing = ref(false)
 const saveMessage = ref<string | null>(null)
+let loadGeneration = 0
 const title = ref('')
 const description = ref('')
 const titleError = ref<string | null>(null)
@@ -62,22 +64,34 @@ watch(activityId, () => {
 })
 
 async function load(): Promise<void> {
+  const generation = ++loadGeneration
   loading.value = true
-  await activities.refreshList()
-  await activities.load(activityId.value)
-  const current = activities.current
-  if (!current || !isProcessActivity(current.metadata.tags)) {
+  loadError.value = null
+  try {
+    await activities.refreshList()
+    await activities.load(activityId.value)
+    if (generation !== loadGeneration) return
+    const current = activities.current
+    if (!current || !isProcessActivity(current.metadata.tags)) {
+      process.value = null
+      return
+    }
+    title.value = current.metadata.title
+    description.value = current.metadata.description
+    const parsed = readProcessDefinition(current)
+    process.value = parsed
+    enableSecond.value = parsed.segments.length > 1
+    enableThird.value = parsed.segments.length > 2
+  } catch (cause) {
+    if (generation !== loadGeneration) return
     process.value = null
-    loading.value = false
-    return
+    loadError.value =
+      cause instanceof Error ? cause.message : 'Failed to load process'
+  } finally {
+    if (generation === loadGeneration) {
+      loading.value = false
+    }
   }
-  title.value = current.metadata.title
-  description.value = current.metadata.description
-  const parsed = readProcessDefinition(current)
-  process.value = parsed
-  enableSecond.value = parsed.segments.length > 1
-  enableThird.value = parsed.segments.length > 2
-  loading.value = false
 }
 
 function patchSegment(
@@ -221,7 +235,7 @@ async function remove(): Promise<void> {
     </div>
 
     <div v-else-if="!activities.current || !working" class="author-page-inner author-stack-sm">
-      <p class="author-error">{{ activities.error ?? 'Process not found' }}</p>
+      <p class="author-error">{{ loadError ?? activities.error ?? 'Process not found' }}</p>
       <RouterLink to="/studio/process">Back to list</RouterLink>
     </div>
 
