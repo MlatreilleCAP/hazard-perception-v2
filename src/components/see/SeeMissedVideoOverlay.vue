@@ -7,10 +7,13 @@ const props = withDefaults(
     src: string
     instructionText?: string
     instructionPill?: string
+    /** Keep the last frame visible (e.g. while questions show over the clip). */
+    holdEnd?: boolean
   }>(),
   {
     instructionText: '',
     instructionPill: 'See',
+    holdEnd: false,
   },
 )
 
@@ -20,24 +23,48 @@ const emit = defineEmits<{
 
 const video = ref<HTMLVideoElement | null>(null)
 const started = ref(false)
-const showContinue = ref(false)
+const finished = ref(false)
 
 const trimmedInstruction = computed(() => props.instructionText.trim())
 const showInstruction = computed(
-  () => Boolean(trimmedInstruction.value) && !started.value && !showContinue.value,
+  () => Boolean(trimmedInstruction.value) && !started.value && !props.holdEnd && !finished.value,
 )
 
 watch(
   () => props.src,
   () => {
     started.value = false
-    showContinue.value = false
+    finished.value = false
   },
 )
+
+watch(
+  () => props.holdEnd,
+  (hold) => {
+    if (hold) holdLastFrame()
+  },
+)
+
+function holdLastFrame(): void {
+  const el = video.value
+  if (!el) return
+  el.pause()
+  if (Number.isFinite(el.duration) && el.duration > 0) {
+    try {
+      el.currentTime = Math.max(0, el.duration - 0.05)
+    } catch {
+      /* last frame may still be painted */
+    }
+  }
+}
 
 function primeFirstFrame(): void {
   const el = video.value
   if (!el) return
+  if (props.holdEnd || finished.value) {
+    holdLastFrame()
+    return
+  }
   el.pause()
   try {
     if (el.currentTime < 0.001) {
@@ -58,16 +85,10 @@ function begin(): void {
 }
 
 function onEnded(): void {
-  const el = video.value
-  if (el && Number.isFinite(el.duration) && el.duration > 0) {
-    el.pause()
-    try {
-      el.currentTime = Math.max(0, el.duration - 0.05)
-    } catch {
-      /* last frame may still be painted */
-    }
-  }
-  showContinue.value = true
+  if (finished.value) return
+  finished.value = true
+  holdLastFrame()
+  emit('continue')
 }
 
 onBeforeUnmount(() => {
@@ -92,11 +113,6 @@ onBeforeUnmount(() => {
         :tag="instructionPill.trim() || 'See'"
         @begin="begin"
       />
-    </div>
-    <div v-if="showContinue" class="see-missed-video-continue">
-      <button type="button" class="process-instruction-begin" @click="emit('continue')">
-        Continue
-      </button>
     </div>
   </div>
 </template>

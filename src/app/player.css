@@ -872,6 +872,10 @@ body:has(.player-page) {
   background: #000;
 }
 
+.see-stage > .process-dim-overlay {
+  z-index: 9;
+}
+
 .see-missed-video-player {
   position: absolute;
   inset: 0;
@@ -879,27 +883,6 @@ body:has(.player-page) {
   height: 100%;
   object-fit: cover;
   object-position: center;
-}
-
-.see-missed-video-continue {
-  position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  z-index: 1;
-  padding: 36px 24px max(36px, env(safe-area-inset-bottom));
-  animation: see-missed-continue-up 420ms ease both;
-}
-
-@keyframes see-missed-continue-up {
-  from {
-    opacity: 0;
-    transform: translateY(100%);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .see-results-score {

@@ -121,11 +121,11 @@ const overlayQuestion = computed(() =>
     ? overlayQuestions.value[overlay.value.questionIndex] ?? null
     : null,
 )
-const missedVideoSrc = computed(() =>
-  overlay.value?.step === 'missed-video'
-    ? missedVideoUrls.value[overlay.value.hazardId] ?? null
-    : null,
-)
+const missedVideoSrc = computed(() => {
+  const step = overlay.value?.step
+  if (step !== 'missed-video' && step !== 'question') return null
+  return missedVideoUrls.value[overlay.value.hazardId] ?? null
+})
 const questionResults = computed((): ProcessQuestionResult[] => {
   const bank = {
     version: 2 as const,
@@ -367,8 +367,10 @@ function goToResults(): void {
 
 function startQuestionFlow(): void {
   if (!overlay.value) return
+  if (overlay.value.step === 'question') return
+  const hazardId = overlay.value.hazardId
   if (overlayQuestions.value.length > 0) {
-    overlay.value = { step: 'question', hazardId: overlay.value.hazardId, questionIndex: 0 }
+    overlay.value = { step: 'question', hazardId, questionIndex: 0 }
     return
   }
   finishHazard()
@@ -652,11 +654,12 @@ onBeforeUnmount(() => {
     <template v-else-if="src">
       <div v-if="phase === 'coaching'" class="see-stage">
         <SeeMissedVideoOverlay
-          v-if="overlay?.step === 'missed-video' && missedVideoSrc"
-          :key="overlay.hazardId"
+          v-if="missedVideoSrc && (overlay?.step === 'missed-video' || overlay?.step === 'question')"
+          :key="overlay?.hazardId"
           :src="missedVideoSrc"
           :instruction-text="overlayHazard?.instructionText ?? ''"
           :instruction-pill="overlayHazard?.instructionPill ?? 'See'"
+          :hold-end="overlay?.step === 'question'"
           @continue="startQuestionFlow"
         />
         <div v-if="overlay?.step === 'question' && overlayQuestion" class="process-dim-overlay">
@@ -732,11 +735,12 @@ onBeforeUnmount(() => {
           />
         </div>
         <SeeMissedVideoOverlay
-          v-if="overlay?.step === 'missed-video' && missedVideoSrc"
-          :key="overlay.hazardId"
+          v-if="missedVideoSrc && (overlay?.step === 'missed-video' || overlay?.step === 'question')"
+          :key="overlay?.hazardId"
           :src="missedVideoSrc"
           :instruction-text="overlayHazard?.instructionText ?? ''"
           :instruction-pill="overlayHazard?.instructionPill ?? 'See'"
+          :hold-end="overlay?.step === 'question'"
           @continue="startQuestionFlow"
         />
         <div v-if="overlay?.step === 'question' && overlayQuestion" class="process-dim-overlay">
