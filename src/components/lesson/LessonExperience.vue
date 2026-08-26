@@ -59,6 +59,7 @@ let preloadGeneration = 0
 let prefetchToken = 0
 let preloaderDismissTimer = 0
 let introHoldTimer = 0
+let observeSectionReady = false
 let preloadLottieCycleDone = false
 let preloadLottieWaiters: Array<() => void> = []
 
@@ -77,9 +78,20 @@ function clearIntroHoldTimer(): void {
 
 function releaseIntroHold(): void {
   clearIntroHoldTimer()
-  if (!holdIntro.value && !introSrc.value) return
+  if (!holdIntro.value) return
   holdIntro.value = false
   introSrc.value = null
+}
+
+function mountSection(index: number): boolean {
+  const item = orderedItems.value[index]
+  if (!item) return false
+  const cached = sectionCache.value.get(item.refId)
+  if (!cached) return false
+  observeSectionReady = false
+  sectionDefinition.value = cloneJson(cached)
+  sectionIndex.value = index
+  return true
 }
 
 function resetPreloadLottieGate(): void {
@@ -176,6 +188,7 @@ function showPlaying(index: number, options?: { coverUntilReady?: boolean }): vo
     armPreloaderDismissFallback()
   }
 
+  observeSectionReady = false
   sectionDefinition.value = cloneJson(cached)
   sectionIndex.value = index
   phase.value = 'playing'
@@ -312,6 +325,7 @@ async function preloadAndEnter(index: number): Promise<void> {
       if (generation !== preloadGeneration) return
       if (showingIntro) {
         dismissPreloader()
+        mountSection(0)
         return
       }
     }
@@ -329,13 +343,18 @@ function onIntroEnded(): void {
   if (lesson.value.introShowOnFirstVisitOnly !== false) {
     markLessonIntroSeen(props.definition.id)
   }
-  // Keep the intro last frame painted until Observe has a frame ready.
+  if (!sectionDefinition.value) {
+    mountSection(0)
+  }
+  phase.value = 'playing'
   holdIntro.value = true
   clearIntroHoldTimer()
   introHoldTimer = window.setTimeout(() => {
     releaseIntroHold()
-  }, 8000)
-  showPlaying(0, { coverUntilReady: false })
+  }, 2000)
+  if (observeSectionReady) {
+    releaseIntroHold()
+  }
 }
 
 function onSectionReady(): void {
@@ -343,7 +362,10 @@ function onSectionReady(): void {
 }
 
 function onObserveReady(): void {
-  releaseIntroHold()
+  observeSectionReady = true
+  if (holdIntro.value) {
+    releaseIntroHold()
+  }
   onSectionReady()
 }
 
@@ -359,6 +381,7 @@ async function startLesson(): Promise<void> {
   holdIntro.value = false
   sectionDefinition.value = null
   sectionCache.value = new Map()
+  observeSectionReady = false
   error.value = null
 
   if (orderedItems.value.length === 0) {
@@ -493,11 +516,18 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <p v-if="phase === 'error'" class="process-player-message">{{ error }}</p>
-    <template v-else-if="phase === 'playing' && sectionDefinition && currentItem">
+    <template
+      v-else-if="
+        sectionDefinition &&
+        currentItem &&
+        (phase === 'playing' || phase === 'intro')
+      "
+    >
       <SeeExperience
         v-if="currentItem.kind === 'see'"
         :key="sectionDefinition.id"
         :definition="sectionDefinition"
+        :suppress-autoplay="phase === 'intro' || holdIntro"
         @ready="onObserveReady"
         @finished="onSeeFinished"
       />

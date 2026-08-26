@@ -40,9 +40,14 @@ import {
 } from '@/types/questions'
 import { DEFAULT_SEE_INSTRUCTION_PILL } from '@/types/see'
 
-const props = defineProps<{
-  definition: ActivityDefinition
-}>()
+const props = withDefaults(
+  defineProps<{
+    definition: ActivityDefinition
+    /** When true, load the first frame but wait for parent before starting playback. */
+    suppressAutoplay?: boolean
+  }>(),
+  { suppressAutoplay: false },
+)
 
 const emit = defineEmits<{
   ready: []
@@ -712,11 +717,21 @@ function onVideoMetadata(): void {
     await waitForAnimationPaint()
     if (token !== readyToken) return
     emitReadyOnce()
-    if (phase.value === 'ready' && !instructionText.value.trim()) {
+    if (phase.value === 'ready' && !instructionText.value.trim() && !props.suppressAutoplay) {
       begin()
     }
   })()
 }
+
+watch(
+  () => props.suppressAutoplay,
+  (suppressed) => {
+    if (suppressed) return
+    if (phase.value === 'ready' && !instructionText.value.trim()) {
+      begin()
+    }
+  },
+)
 
 function onPointerDown(event: PointerEvent): void {
   if (!clicksEnabled.value || event.button !== 0) return
