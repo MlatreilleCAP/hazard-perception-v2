@@ -16,6 +16,11 @@ export type LessonPreloadResult = {
   retain: Array<HTMLVideoElement | HTMLImageElement>
 }
 
+export type LessonIntroPreloadResult = {
+  src: string
+  retain: Array<HTMLVideoElement | HTMLImageElement>
+}
+
 function preloadImage(url: string, timeoutMs: number): Promise<HTMLImageElement> {
   return new Promise((resolve) => {
     const image = new Image()
@@ -63,7 +68,6 @@ function preloadVideo(url: string, timeoutMs: number): Promise<HTMLVideoElement>
     const timer = window.setTimeout(done, timeoutMs)
     video.oncanplaythrough = done
     video.onloadeddata = () => {
-      // Enough to paint/start; full canplaythrough may never fire on long clips.
       if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) done()
     }
     video.onerror = done
@@ -83,62 +87,35 @@ async function preloadMediaUrl(
   return preloadVideo(url, timeoutMs)
 }
 
-/**
- * Load section definition(s) and warm their signed media (plus optional intro).
- */
-export async function preloadLessonAssets(options: {
-  introMediaId: string | null
-  items: LessonCompositionItem[]
-  /** Load published snapshots for learners; drafts for studio preview. */
-  published?: boolean
-  label?: string
-  onProgress?: (progress: LessonPreloadProgress) => void
-}): Promise<LessonPreloadResult> {
-  const { introMediaId, items, onProgress, published = true } = options
-  const loadSection = published
-    ? services.persistence.getPublished.bind(services.persistence)
-    : services.persistence.getById.bind(services.persistence)
-  const progressLabel = options.label?.trim() || 'Loading…'
-  const sections = new Map<string, ActivityDefinition>()
+async function preloadMediaIds(
+  mediaIds: string[],
+  progressLabel: string,
+  onProgress?: (progress: LessonPreloadProgress) => void,
+  initialLoaded = 0,
+): Promise<Array<HTMLVideoElement | HTMLImageElement>> {
   const retain: Array<HTMLVideoElement | HTMLImageElement> = []
+  const total = Math.max(1, initialLoaded + mediaIds.length)
+  let loadedCount = initialLoaded
 
-  const report = (loaded: number, total: number, label: string) => {
-    onProgress?.({ loaded, total, label })
+  const report = (loaded: number) => {
+    onProgress?.({ loaded, total, label: progressLabel })
   }
 
-  report(0, Math.max(1, items.length), progressLabel)
+  report(loadedCount)
 
-  await Promise.all(
-    items.map(async (item) => {
-      const loaded = await loadSection(item.refId)
-      if (!loaded) {
-        throw new Error(`${item.title} could not be loaded.`)
-      }
-      sections.set(item.refId, cloneJson(loaded))
-    }),
-  )
-
-  const mediaIds = new Set<string>()
-  if (introMediaId) mediaIds.add(introMediaId)
-  for (const definition of sections.values()) {
-    for (const id of collectMediaAssetIds(definition)) {
-      mediaIds.add(id)
-    }
+  if (mediaIds.length === 0) {
+    report(total)
+    return retain
   }
-
-  const ids = [...mediaIds]
-  const total = Math.max(1, items.length + ids.length)
-  let loadedCount = items.length
-  report(loadedCount, total, progressLabel)
 
   const concurrency = 3
   let cursor = 0
 
   async function worker(): Promise<void> {
-    while (cursor < ids.length) {
+    while (cursor < mediaIds.length) {
       const index = cursor
       cursor += 1
-      const mediaId = ids[index]
+      const mediaId = mediaIds[index]
       if (!mediaId) continue
       try {
         const asset = await services.media.getAsset(mediaId)
@@ -146,21 +123,65 @@ export async function preloadLessonAssets(options: {
         const element = await preloadMediaUrl(url, asset.mimeType, 60_000)
         retain.push(element)
       } catch {
-        // Skip missing/failed assets; section runtime still surfaces errors.
+        // Skip missing/failed assets; runtime still surfaces errors.
       } finally {
         loadedCount += 1
-        report(loadedCount, total, progressLabel)
+        report(loadedCount)
       }
     }
   }
 
   await Promise.all(
-    Array.from({ length: Math.min(concurrency, Math.max(1, ids.length)) }, () =>
-      worker(),
-    ),
+    Array.from({ length: Math.min(concurrency, mediaIds.length) }, () => worker()),
   )
 
-  report(total, total, progressLabel)
+  report(total)
+  return retain
+}
+
+/** Warm the lesson intro clip only. */
+export async function preloadIntroMedia(options: {
+  mediaId: string
+  label?: string
+  onProgress?: (progress: LessonPreloadProgress) => void
+}): Promise<LessonIntroPreloadResult> {
+  const progressLabel = options.label?.trim() || 'Loading intro…'
+  options.onProgress?.({ loaded: 0, total: 1, label: progressLabel })
+
+  const asset = await services.media.getAsset(options.mediaId)
+  const src = await services.media.getSignedUrl(options.mediaId)
+  const element = await preloadMediaUrl(src, asset.mimeType, 60_000)
+
+  options.onProgress?.({ loaded: 1, total: 1, label: progressLabel })
+  return { src, retain: [element] }
+}
+
+/** Load one lesson section and warm its media. */
+export async function preloadLessonSection(options: {
+  item: LessonCompositionItem
+  /** Load published snapshots for learners; drafts for studio preview. */
+  published?: boolean
+  label?: string
+  onProgress?: (progress: LessonPreloadProgress) => void
+}): Promise<LessonPreloadResult> {
+  const { item, onProgress, published = true } = options
+  const loadSection = published
+    ? services.persistence.getPublished.bind(services.persistence)
+    : services.persistence.getById.bind(services.persistence)
+  const progressLabel = options.label?.trim() || `Loading ${item.title}…`
+  const sections = new Map<string, ActivityDefinition>()
+
+  onProgress?.({ loaded: 0, total: 1, label: progressLabel })
+
+  const loaded = await loadSection(item.refId)
+  if (!loaded) {
+    throw new Error(`${item.title} could not be loaded.`)
+  }
+  sections.set(item.refId, cloneJson(loaded))
+
+  const mediaIds = [...collectMediaAssetIds(loaded)]
+  const retain = await preloadMediaIds(mediaIds, progressLabel, onProgress, 1)
+
   return { sections, retain }
 }
 
@@ -176,4 +197,11 @@ export function releaseLessonPreloadRetain(
     }
   }
   retain.length = 0
+}
+
+export function sectionPreloadLabel(kind: LessonCompositionItem['kind']): string {
+  if (kind === 'see') return 'Loading Observe…'
+  if (kind === 'process') return 'Loading Process…'
+  if (kind === 'anticipate') return 'Loading Anticipate…'
+  return 'Loading…'
 }
