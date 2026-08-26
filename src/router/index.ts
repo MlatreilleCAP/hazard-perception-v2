@@ -9,6 +9,9 @@ import PlayerView from '@/views/PlayerView.vue'
 import ProcessEditorView from '@/views/author/ProcessEditorView.vue'
 import ProcessListView from '@/views/author/ProcessListView.vue'
 import ProcessNewView from '@/views/author/ProcessNewView.vue'
+import LessonEditorView from '@/views/author/LessonEditorView.vue'
+import LessonListView from '@/views/author/LessonListView.vue'
+import LessonNewView from '@/views/author/LessonNewView.vue'
 import SeeEditorView from '@/views/author/SeeEditorView.vue'
 import SeeListView from '@/views/author/SeeListView.vue'
 import SeeNewView from '@/views/author/SeeNewView.vue'
@@ -82,6 +85,24 @@ export const router = createRouter({
           name: 'process-edit',
           component: ProcessEditorView,
           meta: { layout: 'author', title: 'Edit Process', requiresAuth: true },
+        },
+        {
+          path: 'lesson',
+          name: 'lesson-list',
+          component: LessonListView,
+          meta: { layout: 'author', title: 'Full Lessons', requiresAuth: true },
+        },
+        {
+          path: 'lesson/new',
+          name: 'lesson-new',
+          component: LessonNewView,
+          meta: { layout: 'author', title: 'New Lesson', requiresAuth: true },
+        },
+        {
+          path: 'lesson/:id',
+          name: 'lesson-edit',
+          component: LessonEditorView,
+          meta: { layout: 'author', title: 'Lesson composer', requiresAuth: true },
         },
       ],
     },

@@ -721,6 +721,114 @@ body:has(.player-page) {
   color: #403b3b;
 }
 
+.lesson-experience {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.lesson-experience.is-results {
+  overflow: auto;
+  background: #fff;
+  color: #403b3b;
+}
+
+.lesson-results-page {
+  gap: 16px;
+}
+
+.lesson-results-title {
+  margin: 0;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: #403b3b;
+}
+
+.lesson-results-percent {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-inter);
+  font-size: 32px;
+  font-weight: 700;
+  color: #403b3b;
+}
+
+.lesson-results-sections {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lesson-results-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.lesson-results-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lesson-results-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #403b3b;
+}
+
+.lesson-results-section-pts {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #707591;
+}
+
+.lesson-results-bar {
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e3e5ef;
+}
+
+.lesson-results-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #6aa1a6;
+  transition: width 0.45s ease;
+}
+
+.lesson-results-bar-fill.is-fail {
+  background: #eb5e95;
+}
+
+.lesson-results-bar-fill.is-partial {
+  background: #f8db7d;
+}
+
+.lesson-results-bar-fill.is-neutral {
+  background: #c7c7c7;
+}
+
+.lesson-results-section-summary {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: #403b3b;
+}
+
 .see-stage {
   position: relative;
   width: 100%;

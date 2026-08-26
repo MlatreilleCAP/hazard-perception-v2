@@ -9,6 +9,9 @@ const processOpen = computed(
 const seeOpen = computed(
   () => route.path === '/studio/see' || route.path.startsWith('/studio/see/'),
 )
+const lessonOpen = computed(
+  () => route.path === '/studio/lesson' || route.path.startsWith('/studio/lesson/'),
+)
 </script>
 
 <template>
@@ -54,7 +57,13 @@ const seeOpen = computed(
             Process
           </RouterLink>
           <span class="author-nav-disabled">Anticipate</span>
-          <span class="author-nav-disabled">Full Lessons</span>
+          <RouterLink
+            to="/studio/lesson"
+            class="author-nav-link"
+            :class="{ active: lessonOpen }"
+          >
+            Full Lessons
+          </RouterLink>
         </div>
       </div>
       <span class="author-nav-disabled">Interactive activities</span>

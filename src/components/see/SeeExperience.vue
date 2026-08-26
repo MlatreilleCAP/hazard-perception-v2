@@ -50,7 +50,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  finished: []
+  finished: [payload?: { spotted: number; total: number }]
 }>()
 
 type Phase = 'ready' | 'playing' | 'results' | 'coaching' | 'question-results'
@@ -412,7 +412,7 @@ function finishHazard(): void {
   }
 
   if (phase.value === 'coaching') {
-    emit('finished')
+    emitFinished()
     return
   }
 
@@ -439,14 +439,21 @@ function showQuestionResults(): void {
   phase.value = 'question-results'
 }
 
+function emitFinished(): void {
+  emit('finished', {
+    spotted: spotted.value,
+    total: totalHazards.value,
+  })
+}
+
 function onQuestionResultsContinue(): void {
-  emit('finished')
+  emitFinished()
 }
 
 function onResultsContinue(): void {
   const hazardId = postResultsHazardId.value
   if (!hazardId) {
-    emit('finished')
+    emitFinished()
     return
   }
   const hazard = sortedHazards.value.find((item) => item.id === hazardId)
@@ -462,7 +469,7 @@ function onResultsContinue(): void {
     phase.value = 'coaching'
     return
   }
-  emit('finished')
+  emitFinished()
 }
 
 function onFeedbackContinue(): void {
@@ -827,7 +834,7 @@ onBeforeUnmount(() => {
         variant="passed"
         :attempts="foundInAttempts"
         :explanations="passExplanations"
-        @continue="$emit('finished')"
+        @continue="emitFinished"
       />
       <SeeResultsPassCard
         v-else-if="coachingRequired"
@@ -857,7 +864,7 @@ onBeforeUnmount(() => {
           {{ spotted }} of {{ totalHazards }} hazard{{ totalHazards === 1 ? '' : 's' }} spotted
         </p>
         <ProcessResultsQuestionList v-if="questionResults.length > 0" :results="questionResults" />
-        <button type="button" class="process-instruction-begin" @click="$emit('finished')">
+        <button type="button" class="process-instruction-begin" @click="emitFinished">
           Continue
         </button>
       </div>

@@ -21,7 +21,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  finished: []
+  finished: [payload?: { percent: number; correctCount: number; totalCount: number }]
 }>()
 
 type Phase = 'playing' | 'questions' | 'results'
@@ -131,6 +131,14 @@ function showResults(): void {
   phase.value = 'results'
 }
 
+function emitFinished(): void {
+  emit('finished', {
+    percent: score.value.percent,
+    correctCount: results.value.filter((item) => item.correct).length,
+    totalCount: results.value.length,
+  })
+}
+
 function completeActiveSegment(): void {
   if (segmentIndex.value === 0) {
     showResults()
@@ -141,17 +149,17 @@ function completeActiveSegment(): void {
       startSegment(2)
       return
     }
-    emit('finished')
+    emitFinished()
     return
   }
-  emit('finished')
+  emitFinished()
 }
 
 function onVideoEnded(): void {
   if (phase.value !== 'playing') return
   stage.value?.holdLastFrame?.()
   if (segmentIndex.value === 2) {
-    emit('finished')
+    emitFinished()
     return
   }
   if (activeQuestions.value.length === 0) {
@@ -177,14 +185,14 @@ function onResultsContinue(): void {
       startSegment(2)
       return
     }
-    emit('finished')
+    emitFinished()
     return
   }
   if (hasVideo2.value) {
     startSegment(1)
     return
   }
-  emit('finished')
+  emitFinished()
 }
 </script>
 

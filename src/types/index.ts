@@ -57,6 +57,17 @@ export {
   PROCESS_TAG,
   isProcessActivity,
 } from './process'
+export type {
+  LessonComposition,
+  LessonCompositionItem,
+  LessonCompositionItemKind,
+  LessonDefinition,
+} from './lesson'
+export {
+  LESSON_NODE_TYPE,
+  LESSON_TAG,
+  isLessonActivity,
+} from './lesson'
 export type { SeeDefinition, SeeHazard } from './see'
 export { SEE_NODE_TYPE, SEE_TAG, isSeeActivity } from './see'
 export type {

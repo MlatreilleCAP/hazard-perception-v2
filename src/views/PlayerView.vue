@@ -3,11 +3,13 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { cloneJson } from '@/app/clone'
 import { services } from '@/app/container'
+import LessonExperience from '@/components/lesson/LessonExperience.vue'
 import ProcessExperience from '@/components/process/ProcessExperience.vue'
 import SeeExperience from '@/components/see/SeeExperience.vue'
 import { useActivityStore } from '@/stores/activityStore'
 import { useRuntimeStore } from '@/stores/runtimeStore'
 import type { ActivityDefinition } from '@/types/activity'
+import { isLessonActivity } from '@/types/lesson'
 import { isProcessActivity } from '@/types/process'
 import { isSeeActivity } from '@/types/see'
 
@@ -27,6 +29,10 @@ const isProcess = computed(
 const isSee = computed(
   () => Boolean(definition.value && isSeeActivity(definition.value.metadata.tags)),
 )
+const isLesson = computed(
+  () => Boolean(definition.value && isLessonActivity(definition.value.metadata.tags)),
+)
+const hasExperience = computed(() => isProcess.value || isSee.value || isLesson.value)
 
 const activityId = computed(() =>
   typeof route.query.activity === 'string' ? route.query.activity : null,
@@ -89,6 +95,10 @@ async function playFirstPublished(): Promise<void> {
 
 function onPreviewFinished(): void {
   if (!isPreview.value || !activityId.value) return
+  if (isLesson.value) {
+    void router.push(`/studio/lesson/${activityId.value}`)
+    return
+  }
   if (isSee.value) {
     void router.push(`/studio/see/${activityId.value}`)
     return
@@ -99,10 +109,16 @@ function onPreviewFinished(): void {
 
 <template>
   <div class="player-page">
-    <div v-if="(isProcess || isSee) && definition" class="player-phone-slot">
+    <div v-if="hasExperience && definition" class="player-phone-slot">
       <div class="player-phone" aria-label="iPhone 17 Pro preview (402 × 874)">
+        <LessonExperience
+          v-if="isLesson"
+          :key="definition.id"
+          :definition="definition"
+          @finished="onPreviewFinished"
+        />
         <SeeExperience
-          v-if="isSee"
+          v-else-if="isSee"
           :key="definition.id"
           :definition="definition"
           @finished="onPreviewFinished"
@@ -130,7 +146,7 @@ function onPreviewFinished(): void {
         <p v-if="activities.error" class="error">{{ activities.error }}</p>
         <p v-if="runtime.error" class="error">{{ runtime.error }}</p>
         <p v-if="published.length === 0">No published activities yet.</p>
-        <dl v-if="runtime.session && !isProcess && !isSee" class="status-grid">
+        <dl v-if="runtime.session && !hasExperience" class="status-grid">
           <div>
             <dt>Status</dt>
             <dd>{{ runtime.session.status }}</dd>

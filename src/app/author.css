@@ -1123,3 +1123,53 @@
   font-variant-numeric: tabular-nums;
   color: var(--editor-quiet);
 }
+
+.lesson-composer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 16px;
+}
+
+.lesson-composer-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lesson-composer-section-head h2 {
+  margin: 0;
+  font-family: var(--font-poppins);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--editor-ink);
+}
+
+.lesson-composer-edit-link {
+  font-family: var(--font-poppins);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--editor-teal);
+  text-underline-offset: 2px;
+}
+
+.lesson-composer-edit-link:hover {
+  text-decoration: underline;
+}
+
+.lesson-composer-fields {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .lesson-composer-fields {
+    grid-template-columns: minmax(160px, 1fr) minmax(220px, 2fr);
+    align-items: end;
+  }
+}
