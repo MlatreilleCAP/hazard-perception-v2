@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { services } from '@/app/container'
+import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
+import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import ProcessQuestionsForm from '@/components/author/ProcessQuestionsForm.vue'
 import SeeHazardDetailsForm from '@/components/author/SeeHazardDetailsForm.vue'
 import SeeHazardOverlay from '@/components/author/SeeHazardOverlay.vue'
@@ -221,6 +223,21 @@ function onQuestionsChange(questions: ProcessQuestionBank): void {
   updateHazard(selectedHazard.value.id, { questions })
 }
 
+function onMissedVideoChange(video: MediaRef | null): void {
+  if (!selectedHazard.value) return
+  updateHazard(selectedHazard.value.id, { missedVideo: video })
+}
+
+function onInstructionTextChange(value: string): void {
+  if (!selectedHazard.value) return
+  updateHazard(selectedHazard.value.id, { instructionText: value })
+}
+
+function onInstructionPillChange(value: string): void {
+  if (!selectedHazard.value) return
+  updateHazard(selectedHazard.value.id, { instructionPill: value })
+}
+
 async function replaceVideo(file: File): Promise<void> {
   replacing.value = true
   replaceError.value = null
@@ -342,6 +359,43 @@ watch(previewUrl, () => {
       :model-value="selectedHazard"
       @update:model-value="onDetailsChange"
     />
+    <section class="author-stack-sm">
+      <AuthorSectionHeader title="Instruction" />
+      <p class="author-muted">
+        Shown over the paused first frame of the hazard video until the learner taps Begin.
+      </p>
+      <AuthorField
+        :id="`${selectedHazard.id}-instruction-pill`"
+        :model-value="selectedHazard.instructionPill ?? 'See'"
+        label="Pill label"
+        @update:model-value="onInstructionPillChange"
+      />
+      <AuthorField
+        :id="`${selectedHazard.id}-instruction`"
+        :model-value="selectedHazard.instructionText ?? ''"
+        label="Instruction text"
+        placeholder="Instruction text goes here"
+        multiline
+        :rows="3"
+        @update:model-value="onInstructionTextChange"
+      />
+    </section>
+    <section class="author-stack-sm">
+      <AuthorSectionHeader title="Video" />
+      <p class="author-muted">
+        Shown when the learner misses this hazard. After Continue, this video plays,
+        then any configured severity and theory questions.
+      </p>
+      <MediaUploadField
+        :id="`${selectedHazard.id}-missed-video`"
+        :activity-id="activityId"
+        label="Hazard video"
+        :model-value="selectedHazard.missedVideo ?? null"
+        :instruction-text="selectedHazard.instructionText"
+        :instruction-pill="selectedHazard.instructionPill"
+        @update:model-value="onMissedVideoChange"
+      />
+    </section>
     <ProcessQuestionsForm
       :key="selectedHazard.id"
       :segment-id="selectedHazard.id"

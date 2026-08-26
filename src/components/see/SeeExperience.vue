@@ -9,6 +9,7 @@ import ProcessTheoryPopover from '@/components/process/ProcessTheoryPopover.vue'
 import AttemptTouchFeedback from '@/components/see/AttemptTouchFeedback.vue'
 import ClickConfetti from '@/components/see/ClickConfetti.vue'
 import SeeHazardFeedbackCard from '@/components/see/SeeHazardFeedbackCard.vue'
+import SeeMissedVideoOverlay from '@/components/see/SeeMissedVideoOverlay.vue'
 import SeeResultsPassCard from '@/components/see/SeeResultsPassCard.vue'
 import { playHitTapSound, playMissTapSound, stopHitTapSound, unlockTapAudio } from '@/lib/audio/tapFeedback'
 import {
@@ -19,9 +20,8 @@ import {
   videoAspectRatio,
 } from '@/lib/hazards/coordinates'
 import {
-  CORRECT_HIT_REVEAL_MS,
   ENGAGEMENT_DELAY_MS,
-  HIT_MARKER_DURATION_MS,
+  FIRST_ATTEMPT_RESULTS_DELAY_MS,
   MARKER_DURATION_MS,
   MAX_HAZARD_ATTEMPTS,
   OUT_OF_ATTEMPTS_CAPTION_MS,
@@ -48,11 +48,12 @@ const emit = defineEmits<{
   finished: []
 }>()
 
-type Phase = 'ready' | 'playing' | 'results'
+type Phase = 'ready' | 'playing' | 'results' | 'coaching'
 
 type Overlay =
   | { step: 'success'; hazardId: string; attempts: number }
   | { step: 'missed'; hazardId: string }
+  | { step: 'missed-video'; hazardId: string }
   | { step: 'question'; hazardId: string; questionIndex: number }
 
 type ClickMarker = {
@@ -85,6 +86,8 @@ const outOfAttemptsCaption = ref(false)
 const overlay = ref<Overlay | null>(null)
 const deferredMissQueue = ref<string[]>([])
 const hitAttempts = ref<Record<string, number>>({})
+const missedVideoUrls = ref<Record<string, string>>({})
+const explanationImageUrls = ref<Record<string, string>>({})
 
 let playFrame = 0
 let outOfAttemptsTimer = 0
@@ -116,6 +119,11 @@ const overlayQuestions = computed(() =>
 const overlayQuestion = computed(() =>
   overlay.value?.step === 'question'
     ? overlayQuestions.value[overlay.value.questionIndex] ?? null
+    : null,
+)
+const missedVideoSrc = computed(() =>
+  overlay.value?.step === 'missed-video'
+    ? missedVideoUrls.value[overlay.value.hazardId] ?? null
     : null,
 )
 const questionResults = computed((): ProcessQuestionResult[] => {
@@ -168,12 +176,46 @@ const totalHazards = computed(() => see.value.hazards.length)
 const allSpotted = computed(() => totalHazards.value > 0 && spotted.value >= totalHazards.value)
 const passedOnFirstAttempt = computed(
   () =>
-    sortedHazards.value.length > 0 &&
-    sortedHazards.value.every((hazard) => hitAttempts.value[hazard.id] === 1),
+    Object.keys(hitAttempts.value).length > 0 &&
+    Object.values(hitAttempts.value).every((attempts) => attempts === 1) &&
+    deferredMissIds.value.size === 0,
 )
 const passExplanations = computed(() =>
-  sortedHazards.value.map((hazard) => hazard.explanation.trim()).filter(Boolean),
+  sortedHazards.value
+    .filter((hazard) => hitAttempts.value[hazard.id] != null)
+    .map((hazard) => hazard.explanation.trim())
+    .filter(Boolean),
 )
+const coachingRequired = computed(
+  () =>
+    Object.values(hitAttempts.value).some((attempts) => attempts >= 2) &&
+    deferredMissIds.value.size === 0,
+)
+const foundInAttempts = computed(() => {
+  const counts = Object.values(hitAttempts.value)
+  return counts.length > 0 ? Math.max(...counts) : 1
+})
+const hazardMissed = computed(
+  () => totalHazards.value > 0 && spotted.value === 0,
+)
+const missExplanations = computed(() =>
+  sortedHazards.value
+    .filter((hazard) => hitAttempts.value[hazard.id] == null)
+    .map((hazard) => hazard.explanation.trim())
+    .filter(Boolean),
+)
+const missedExplanationImageUrl = computed(() => {
+  const missed = sortedHazards.value.find(
+    (hazard) => hitAttempts.value[hazard.id] == null && explanationImageUrls.value[hazard.id],
+  )
+  return missed ? explanationImageUrls.value[missed.id] ?? null : null
+})
+const postResultsHazardId = computed(() => {
+  if (passedOnFirstAttempt.value) return null
+  const lateHit = sortedHazards.value.find((hazard) => (hitAttempts.value[hazard.id] ?? 0) >= 2)
+  if (lateHit) return lateHit.id
+  return sortedHazards.value.find((hazard) => hitAttempts.value[hazard.id] == null)?.id ?? null
+})
 
 function resetSession(): void {
   resolvedIds.value = new Set()
@@ -211,6 +253,47 @@ watch(
     } catch (cause) {
       error.value = cause instanceof Error ? cause.message : 'Failed to load video'
     }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => sortedHazards.value.map((hazard) => hazard.missedVideo?.media_asset_id ?? '').join(','),
+  async () => {
+    const next: Record<string, string> = {}
+    await Promise.all(
+      sortedHazards.value.map(async (hazard) => {
+        const mediaId = hazard.missedVideo?.media_asset_id
+        if (!mediaId) return
+        try {
+          next[hazard.id] = await services.media.getSignedUrl(mediaId)
+        } catch {
+          /* skip unresolved clips */
+        }
+      }),
+    )
+    missedVideoUrls.value = next
+  },
+  { immediate: true },
+)
+
+watch(
+  () =>
+    sortedHazards.value.map((hazard) => hazard.explanationImage?.media_asset_id ?? '').join(','),
+  async () => {
+    const next: Record<string, string> = {}
+    await Promise.all(
+      sortedHazards.value.map(async (hazard) => {
+        const mediaId = hazard.explanationImage?.media_asset_id
+        if (!mediaId) return
+        try {
+          next[hazard.id] = await services.media.getSignedUrl(mediaId)
+        } catch {
+          /* skip unresolved stills */
+        }
+      }),
+    )
+    explanationImageUrls.value = next
   },
   { immediate: true },
 )
@@ -274,15 +357,6 @@ function deferMiss(hazardId: string): void {
   attemptCount.value = 0
 }
 
-function openNextDeferredMiss(): boolean {
-  const [next, ...rest] = deferredMissQueue.value
-  if (!next) return false
-  deferredMissQueue.value = rest
-  overlay.value = { step: 'missed', hazardId: next }
-  video.value?.pause()
-  return true
-}
-
 function goToResults(): void {
   cancelAnimationFrame(playFrame)
   video.value?.pause()
@@ -311,8 +385,13 @@ function finishHazard(): void {
     deferredMissQueue.value = deferredMissQueue.value.filter((id) => id !== hazardId)
   }
 
+  if (phase.value === 'coaching') {
+    emit('finished')
+    return
+  }
+
   if (clipEnded.value) {
-    if (openNextDeferredMiss()) return
+    markUnspottedHazardsMissed()
     goToResults()
     return
   }
@@ -320,7 +399,36 @@ function finishHazard(): void {
   void video.value?.play().catch(() => undefined)
 }
 
+function onResultsContinue(): void {
+  const hazardId = postResultsHazardId.value
+  if (!hazardId) {
+    emit('finished')
+    return
+  }
+  const hazard = sortedHazards.value.find((item) => item.id === hazardId)
+  const hasVideo = Boolean(missedVideoUrls.value[hazardId])
+  const hasQuestions = hazard ? configuredSurveyQuestions(hazard.questions).length > 0 : false
+  if (hasVideo) {
+    overlay.value = { step: 'missed-video', hazardId }
+    phase.value = 'coaching'
+    return
+  }
+  if (hasQuestions) {
+    overlay.value = { step: 'question', hazardId, questionIndex: 0 }
+    phase.value = 'coaching'
+    return
+  }
+  emit('finished')
+}
+
 function onFeedbackContinue(): void {
+  if (overlay.value?.step === 'missed') {
+    const url = missedVideoUrls.value[overlay.value.hazardId]
+    if (url) {
+      overlay.value = { step: 'missed-video', hazardId: overlay.value.hazardId }
+      return
+    }
+  }
   startQuestionFlow()
 }
 
@@ -388,7 +496,7 @@ function onTap(clientX: number, clientY: number): void {
     attempts: Math.min(Math.max(nextAttempts, 1), MAX_HAZARD_ATTEMPTS),
   }
   clickMarkers.value = [...clickMarkers.value, marker]
-  const markerDuration = isHit ? HIT_MARKER_DURATION_MS : MARKER_DURATION_MS
+  const markerDuration = isHit ? FIRST_ATTEMPT_RESULTS_DELAY_MS + 250 : MARKER_DURATION_MS
   window.setTimeout(() => {
     clickMarkers.value = clickMarkers.value.filter((item) => item.id !== marker.id)
   }, markerDuration)
@@ -414,12 +522,8 @@ function onTap(clientX: number, clientY: number): void {
     hitTimer = window.setTimeout(() => {
       hitTimer = 0
       celebrating.value = false
-      overlay.value = {
-        step: 'success',
-        hazardId: target.id,
-        attempts: nextAttempts,
-      }
-    }, CORRECT_HIT_REVEAL_MS)
+      goToResults()
+    }, FIRST_ATTEMPT_RESULTS_DELAY_MS)
     return
   }
 
@@ -501,13 +605,19 @@ watch(stage, (el) => {
   measureStage()
 })
 
+function markUnspottedHazardsMissed(): void {
+  for (const hazard of sortedHazards.value) {
+    if (!resolvedIds.value.has(hazard.id)) deferMiss(hazard.id)
+  }
+}
+
 function finishPlayback(): void {
   if (phase.value !== 'playing') return
   clipEnded.value = true
   if (celebrating.value || overlay.value) return
   cancelAnimationFrame(playFrame)
   video.value?.pause()
-  if (openNextDeferredMiss()) return
+  markUnspottedHazardsMissed()
   goToResults()
 }
 
@@ -540,7 +650,31 @@ onBeforeUnmount(() => {
   <div class="see-experience" :class="{ 'is-results': phase === 'results' }">
     <p v-if="error" class="process-player-message">{{ error }}</p>
     <template v-else-if="src">
-      <div v-if="phase !== 'results'" ref="stage" class="see-stage">
+      <div v-if="phase === 'coaching'" class="see-stage">
+        <SeeMissedVideoOverlay
+          v-if="overlay?.step === 'missed-video' && missedVideoSrc"
+          :key="overlay.hazardId"
+          :src="missedVideoSrc"
+          :instruction-text="overlayHazard?.instructionText ?? ''"
+          :instruction-pill="overlayHazard?.instructionPill ?? 'See'"
+          @continue="startQuestionFlow"
+        />
+        <div v-if="overlay?.step === 'question' && overlayQuestion" class="process-dim-overlay">
+          <ProcessSeverityPopover
+            v-if="overlayQuestion.kind === 'severity'"
+            :question="overlayQuestion"
+            @answer="storeAnswer(overlayQuestion, $event)"
+            @complete="onQuestionComplete"
+          />
+          <ProcessTheoryPopover
+            v-else
+            :question="overlayQuestion"
+            @answer="storeAnswer(overlayQuestion, $event)"
+            @complete="onQuestionComplete"
+          />
+        </div>
+      </div>
+      <div v-else-if="phase !== 'results'" ref="stage" class="see-stage">
         <div
           class="see-video-plane"
           :class="{ 'is-interactive': clicksEnabled }"
@@ -597,6 +731,14 @@ onBeforeUnmount(() => {
             @continue="onFeedbackContinue"
           />
         </div>
+        <SeeMissedVideoOverlay
+          v-if="overlay?.step === 'missed-video' && missedVideoSrc"
+          :key="overlay.hazardId"
+          :src="missedVideoSrc"
+          :instruction-text="overlayHazard?.instructionText ?? ''"
+          :instruction-pill="overlayHazard?.instructionPill ?? 'See'"
+          @continue="startQuestionFlow"
+        />
         <div v-if="overlay?.step === 'question' && overlayQuestion" class="process-dim-overlay">
           <ProcessSeverityPopover
             v-if="overlayQuestion.kind === 'severity'"
@@ -615,8 +757,24 @@ onBeforeUnmount(() => {
 
       <SeeResultsPassCard
         v-else-if="passedOnFirstAttempt"
+        variant="passed"
+        :attempts="foundInAttempts"
         :explanations="passExplanations"
         @continue="$emit('finished')"
+      />
+      <SeeResultsPassCard
+        v-else-if="coachingRequired"
+        variant="coaching"
+        :attempts="foundInAttempts"
+        :explanations="passExplanations"
+        @continue="onResultsContinue"
+      />
+      <SeeResultsPassCard
+        v-else-if="hazardMissed"
+        variant="missed"
+        :image-src="missedExplanationImageUrl"
+        :explanations="missExplanations"
+        @continue="onResultsContinue"
       />
       <div v-else class="process-results-page" role="main" aria-label="See results">
         <p class="process-results-announcement" :class="{ 'is-emphasis': !allSpotted }">

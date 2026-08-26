@@ -20,6 +20,7 @@ import {
 
 export const SEE_TAG = 'see'
 export const SEE_NODE_TYPE = 'see.hazard'
+export const DEFAULT_SEE_INSTRUCTION_PILL = 'See'
 
 export interface SeeHazard extends HazardDetails {
   id: string
@@ -29,6 +30,9 @@ export interface SeeHazard extends HazardDetails {
   radius: number
   explanation: string
   explanationImage: MediaRef | null
+  missedVideo: MediaRef | null
+  instructionText: string
+  instructionPill: string
   questions: ProcessQuestionBank
 }
 
@@ -100,6 +104,9 @@ export function createEmptySeeHazard(
     notes: '',
     explanation: '',
     explanationImage: null,
+    missedVideo: null,
+    instructionText: '',
+    instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
     questions: emptyQuestionBank(),
   }
 }
@@ -170,6 +177,12 @@ export function normalizeSeeHazard(hazard: Partial<SeeHazard> | undefined): SeeH
           ? hazard.notes
           : '',
     explanationImage: readMediaRef(hazard?.explanationImage),
+    missedVideo: readMediaRef(hazard?.missedVideo),
+    instructionText: typeof hazard?.instructionText === 'string' ? hazard.instructionText : '',
+    instructionPill:
+      typeof hazard?.instructionPill === 'string' && hazard.instructionPill.trim()
+        ? hazard.instructionPill
+        : DEFAULT_SEE_INSTRUCTION_PILL,
     questions: readQuestionBank(hazard?.questions),
   }
 }
