@@ -209,6 +209,19 @@ body:has(.player-page) {
   pointer-events: none;
 }
 
+.process-autoplay-prompt {
+  pointer-events: auto;
+  padding: 14px 28px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 92%);
+  color: #403b3b;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .process-instruction-card {
   --process-charcoal: #403b3b;
   --process-lilac: #e3e5ef;

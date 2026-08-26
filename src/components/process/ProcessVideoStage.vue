@@ -24,6 +24,7 @@ const videoB = ref<HTMLVideoElement | null>(null)
 const pendingSlot = ref<number | null>(null)
 const started = ref(false)
 const finished = ref(false)
+const showAutoplayPrompt = ref(false)
 let activateToken = 0
 
 const showInstruction = computed(
@@ -73,6 +74,29 @@ function holdLastFrame(): void {
   }
 }
 
+function configureInlinePlayback(el: HTMLVideoElement): void {
+  el.playsInline = true
+  el.setAttribute('playsinline', '')
+  el.setAttribute('webkit-playsinline', '')
+}
+
+async function startPlayback(el: HTMLVideoElement): Promise<boolean> {
+  configureInlinePlayback(el)
+  try {
+    await el.play()
+    return true
+  } catch {
+    // iOS and most mobile browsers block unmuted autoplay without a fresh gesture.
+  }
+  try {
+    el.muted = true
+    await el.play()
+    return true
+  } catch {
+    return false
+  }
+}
+
 function waitForEvent(el: HTMLVideoElement, event: string, timeoutMs: number): Promise<void> {
   if (event === 'loadeddata' && el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
     return Promise.resolve()
@@ -116,6 +140,14 @@ async function waitForFirstFrame(
   // Autoplay clips (e.g. lesson intro) should start as soon as data is ready.
   // Waiting on requestVideoFrameCallback while paused can stall for the full timeout.
   if (options?.autoplay) {
+    try {
+      if (el.currentTime < 0.001) el.currentTime = 0.001
+    } catch {
+      // Seek can fail before metadata is ready.
+    }
+    if (el.seeking) {
+      await waitForEvent(el, 'seeked', 1000)
+    }
     await waitForAnimationPaint()
     return
   }
@@ -170,6 +202,7 @@ async function activateSlot(slot: number): Promise<void> {
   const token = ++activateToken
   const el = videoAt(slot)
   if (!el) return
+  configureInlinePlayback(el)
   fitCompact(el)
   el.pause()
   const shouldPlay = !props.instructionText.trim() && !props.holdEnd
@@ -182,13 +215,17 @@ async function activateSlot(slot: number): Promise<void> {
   pendingSlot.value = null
   started.value = false
   finished.value = false
+  showAutoplayPrompt.value = false
   if (previous !== slot) {
     videoAt(previous)?.pause()
   }
 
   if (shouldPlay) {
-    started.value = true
-    void el.play().catch(() => undefined)
+    const playing = await startPlayback(el)
+    started.value = playing
+    if (!playing) {
+      showAutoplayPrompt.value = true
+    }
   }
 
   emit('ready')
@@ -231,17 +268,19 @@ watch(
     if (!wasHolding || props.instructionText.trim() || started.value || finished.value) return
     const el = activeVideo()
     if (!el) return
-    started.value = true
-    void el.play().catch(() => undefined)
+    void startPlayback(el).then((playing) => {
+      if (playing) started.value = true
+    })
   },
 )
 
 function begin(): void {
+  showAutoplayPrompt.value = false
   started.value = true
   emit('begin')
   const el = activeVideo()
   if (!el) return
-  void el.play().catch(() => undefined)
+  void startPlayback(el)
 }
 
 function finishPlayback(slot: number): void {
@@ -306,12 +345,21 @@ onBeforeUnmount(() => {
         @ended="finishPlayback(1)"
       />
     </div>
-    <div v-if="showInstruction" class="process-instruction-overlay">
+    <div v-if="showInstruction || showAutoplayPrompt" class="process-instruction-overlay">
       <ProcessInstructionCard
+        v-if="showInstruction"
         :text="instructionText.trim()"
         :tag="instructionPill?.trim() || undefined"
         @begin="begin"
       />
+      <button
+        v-else
+        type="button"
+        class="process-autoplay-prompt"
+        @click="begin"
+      >
+        Tap to play
+      </button>
     </div>
   </div>
 </template>

@@ -198,7 +198,10 @@ async function runIntroPreload(): Promise<boolean> {
     }
 
     releaseLessonPreloadRetain(preloadRetain)
-    preloadRetain = intro.retain
+    // Release the hidden preload element before playback — keeping two decoders
+    // on the same clip breaks intro playback on mobile Safari.
+    releaseLessonPreloadRetain(intro.retain)
+    preloadRetain = []
     introSrc.value = intro.src
     phase.value = 'intro'
     return true
@@ -269,6 +272,7 @@ function onIntroEnded(): void {
 
 function onSectionReady(): void {
   dismissSectionCover()
+  clearPreloadRetain()
 }
 
 async function startLesson(): Promise<void> {
