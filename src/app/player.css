@@ -796,6 +796,12 @@ body:has(.player-page) {
   overflow: hidden;
 }
 
+.lesson-intro-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+}
+
 .lesson-preloader {
   display: flex;
   width: 100%;

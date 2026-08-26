@@ -45,6 +45,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  ready: []
   finished: [
     payload?: {
       spotted: number
@@ -107,9 +108,63 @@ let outOfAttemptsTimer = 0
 let missTimer = 0
 let hitTimer = 0
 let didCenterPan = false
+let didEmitReady = false
+let readyToken = 0
 let resizeObserver: ResizeObserver | null = null
 let pointerStart: { x: number; y: number; pan: number; pointerId: number } | null = null
 let pointerPanned = false
+
+function emitReadyOnce(): void {
+  if (didEmitReady) return
+  didEmitReady = true
+  emit('ready')
+}
+
+function waitForAnimationPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve())
+    })
+  })
+}
+
+async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
+  if (el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+    await new Promise<void>((resolve) => {
+      let settled = false
+      const done = () => {
+        if (settled) return
+        settled = true
+        el.removeEventListener('loadeddata', done)
+        window.clearTimeout(timer)
+        resolve()
+      }
+      const timer = window.setTimeout(done, 5000)
+      el.addEventListener('loadeddata', done)
+    })
+  }
+
+  try {
+    if (el.currentTime < 0.001) el.currentTime = 0.001
+  } catch {
+    // Seek can fail before metadata is ready.
+  }
+
+  const requestFrame = el.requestVideoFrameCallback?.bind(el)
+  if (requestFrame) {
+    await new Promise<void>((resolve) => {
+      const timer = window.setTimeout(() => resolve(), 5000)
+      requestFrame(() => {
+        window.clearTimeout(timer)
+        resolve()
+      })
+    })
+    await waitForAnimationPaint()
+    return
+  }
+
+  await waitForAnimationPaint()
+}
 
 const see = computed(() => readSeeDefinition(props.definition))
 const sortedHazards = computed(() =>
@@ -265,6 +320,8 @@ function resetSession(): void {
 watch(
   () => see.value.media?.media_asset_id,
   async (mediaId) => {
+    const token = ++readyToken
+    didEmitReady = false
     src.value = null
     error.value = null
     phase.value = 'ready'
@@ -274,12 +331,17 @@ watch(
     panX.value = 0
     if (!mediaId) {
       error.value = 'This scenario has no video yet.'
+      emitReadyOnce()
       return
     }
     try {
-      src.value = await services.media.getSignedUrl(mediaId)
+      const nextSrc = await services.media.getSignedUrl(mediaId)
+      if (token !== readyToken) return
+      src.value = nextSrc
     } catch (cause) {
+      if (token !== readyToken) return
       error.value = cause instanceof Error ? cause.message : 'Failed to load video'
+      emitReadyOnce()
     }
   },
   { immediate: true },
@@ -602,6 +664,15 @@ function onVideoMetadata(): void {
   requestAnimationFrame(() => {
     measureStage()
   })
+  const token = readyToken
+  void (async () => {
+    await waitForFirstFrame(el)
+    if (token !== readyToken) return
+    measureStage()
+    await waitForAnimationPaint()
+    if (token !== readyToken) return
+    emitReadyOnce()
+  })()
 }
 
 function onPointerDown(event: PointerEvent): void {
@@ -697,6 +768,7 @@ function onQuestionComplete(): void {
 }
 
 onBeforeUnmount(() => {
+  readyToken += 1
   cancelAnimationFrame(playFrame)
   window.clearTimeout(outOfAttemptsTimer)
   window.clearTimeout(missTimer)
@@ -862,6 +934,6 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </template>
-    <p v-else class="process-player-message">Loading video…</p>
+    <div v-else class="see-stage" aria-busy="true" aria-label="Loading video" />
   </div>
 </template>

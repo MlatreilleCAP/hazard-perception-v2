@@ -39,6 +39,7 @@ type Phase = 'preloading' | 'intro' | 'playing' | 'results' | 'error'
 const phase = ref<Phase>('preloading')
 const error = ref<string | null>(null)
 const introSrc = ref<string | null>(null)
+const holdIntro = ref(false)
 const sectionIndex = ref(0)
 const sectionDefinition = ref<ActivityDefinition | null>(null)
 const sectionCache = ref<Map<string, ActivityDefinition>>(new Map())
@@ -49,6 +50,54 @@ const preloadProgress = ref<LessonPreloadProgress>({
 })
 let preloadRetain: Array<HTMLVideoElement | HTMLImageElement> = []
 let preloadGeneration = 0
+let introHoldTimer = 0
+let preloadLottieCycleDone = false
+let preloadLottieWaiters: Array<() => void> = []
+
+const preloadLottieDurationMs = (() => {
+  const data = preloadAnimation as { fr?: number; ip?: number; op?: number }
+  const fr = data.fr && data.fr > 0 ? data.fr : 60
+  const ip = typeof data.ip === 'number' ? data.ip : 0
+  const op = typeof data.op === 'number' ? data.op : fr * 2
+  return Math.max(500, Math.round(((op - ip) / fr) * 1000))
+})()
+
+function clearIntroHoldTimer(): void {
+  window.clearTimeout(introHoldTimer)
+  introHoldTimer = 0
+}
+
+function releaseIntroHold(): void {
+  clearIntroHoldTimer()
+  if (!holdIntro.value && !introSrc.value) return
+  holdIntro.value = false
+  introSrc.value = null
+}
+
+function resetPreloadLottieGate(): void {
+  const waiters = preloadLottieWaiters
+  preloadLottieWaiters = []
+  preloadLottieCycleDone = false
+  for (const resolve of waiters) resolve()
+}
+
+function onPreloadLottieComplete(): void {
+  if (preloadLottieCycleDone) return
+  preloadLottieCycleDone = true
+  const waiters = preloadLottieWaiters
+  preloadLottieWaiters = []
+  for (const resolve of waiters) resolve()
+}
+
+function waitForPreloadLottieCycle(): Promise<void> {
+  if (preloadLottieCycleDone) return Promise.resolve()
+  return new Promise((resolve) => {
+    preloadLottieWaiters.push(resolve)
+    window.setTimeout(() => {
+      onPreloadLottieComplete()
+    }, preloadLottieDurationMs + 400)
+  })
+}
 
 const sectionResults = ref<
   Partial<Record<'see' | 'process' | 'anticipate', LessonSectionResult>>
@@ -129,7 +178,10 @@ async function preloadAndEnter(index: number): Promise<void> {
   error.value = null
   sectionDefinition.value = null
   introSrc.value = null
+  holdIntro.value = false
+  clearIntroHoldTimer()
   clearPreloadRetain()
+  resetPreloadLottieGate()
   preloadProgress.value = { loaded: 0, total: 1, label: 'Loading…' }
 
   const includeIntro = index === 0 && shouldPlayIntro()
@@ -145,17 +197,20 @@ async function preloadAndEnter(index: number): Promise<void> {
           : `Loading ${item.title}…`
 
   try {
-    const result = await preloadLessonAssets({
-      introMediaId: includeIntro
-        ? (lesson.value.introMedia?.media_asset_id ?? null)
-        : null,
-      items: [item],
-      label,
-      onProgress: (progress) => {
-        if (generation !== preloadGeneration) return
-        preloadProgress.value = progress
-      },
-    })
+    const [result] = await Promise.all([
+      preloadLessonAssets({
+        introMediaId: includeIntro
+          ? (lesson.value.introMedia?.media_asset_id ?? null)
+          : null,
+        items: [item],
+        label,
+        onProgress: (progress) => {
+          if (generation !== preloadGeneration) return
+          preloadProgress.value = progress
+        },
+      }),
+      waitForPreloadLottieCycle(),
+    ])
     if (generation !== preloadGeneration) {
       releaseLessonPreloadRetain(result.retain)
       return
@@ -182,16 +237,27 @@ function onIntroEnded(): void {
   if (lesson.value.introShowOnFirstVisitOnly !== false) {
     markLessonIntroSeen(props.definition.id)
   }
-  introSrc.value = null
+  // Keep the intro last frame painted until Observe has a frame ready.
+  holdIntro.value = true
+  clearIntroHoldTimer()
+  introHoldTimer = window.setTimeout(() => {
+    releaseIntroHold()
+  }, 8000)
   showPlaying(0)
+}
+
+function onObserveReady(): void {
+  releaseIntroHold()
 }
 
 async function startLesson(): Promise<void> {
   preloadGeneration += 1
   clearPreloadRetain()
+  clearIntroHoldTimer()
   sectionResults.value = {}
   sectionIndex.value = 0
   introSrc.value = null
+  holdIntro.value = false
   sectionDefinition.value = null
   sectionCache.value = new Map()
   error.value = null
@@ -296,6 +362,7 @@ watch(
 
 onBeforeUnmount(() => {
   preloadGeneration += 1
+  clearIntroHoldTimer()
   clearPreloadRetain()
 })
 </script>
@@ -317,21 +384,20 @@ onBeforeUnmount(() => {
       :aria-label="preloadProgress.label"
     >
       <div class="lesson-preloader-lottie" aria-hidden="true">
-        <ProcessResultsLottie :animation-data="preloadAnimation" loop />
+        <ProcessResultsLottie
+          :animation-data="preloadAnimation"
+          loop
+          @complete="onPreloadLottieComplete"
+        />
       </div>
     </div>
     <p v-else-if="phase === 'error'" class="process-player-message">{{ error }}</p>
-    <ProcessVideoStage
-      v-else-if="phase === 'intro' && introSrc"
-      :src="introSrc"
-      instruction-text=""
-      @ended="onIntroEnded"
-    />
     <template v-else-if="phase === 'playing' && sectionDefinition && currentItem">
       <SeeExperience
         v-if="currentItem.kind === 'see'"
         :key="sectionDefinition.id"
         :definition="sectionDefinition"
+        @ready="onObserveReady"
         @finished="onSeeFinished"
       />
       <ProcessExperience
@@ -347,8 +413,16 @@ onBeforeUnmount(() => {
         @finished="onAnticipateFinished"
       />
     </template>
+    <ProcessVideoStage
+      v-if="introSrc && (phase === 'intro' || holdIntro)"
+      class="lesson-intro-cover"
+      :src="introSrc"
+      instruction-text=""
+      :hold-end="holdIntro"
+      @ended="onIntroEnded"
+    />
     <LessonResultsCard
-      v-else-if="phase === 'results'"
+      v-if="phase === 'results'"
       :title="resultsModel.title"
       :percent="resultsModel.percent"
       :passed="resultsModel.passed"
