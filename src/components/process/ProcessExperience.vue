@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { readProcessDefinition } from '@/activities/processDefinition'
-import ProcessResultsCard from '@/components/process/ProcessResultsCard.vue'
-import ProcessResultsFailCard from '@/components/process/ProcessResultsFailCard.vue'
 import ProcessSeverityPopover from '@/components/process/ProcessSeverityPopover.vue'
 import ProcessTheoryPopover from '@/components/process/ProcessTheoryPopover.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
@@ -31,7 +29,7 @@ const emit = defineEmits<{
   ]
 }>()
 
-type Phase = 'playing' | 'questions' | 'results'
+type Phase = 'playing' | 'questions'
 
 const segmentIndex = ref<ProcessSegmentIndex>(0)
 const src = ref<string | null>(null)
@@ -39,7 +37,6 @@ const error = ref<string | null>(null)
 const phase = ref<Phase>('playing')
 const questionIndex = ref(0)
 const answers = ref<Record<string, number>>({})
-const stage = ref<{ holdLastFrame?: () => void } | null>(null)
 
 const process = computed(() => readProcessDefinition(props.definition))
 const passThreshold = computed(() => process.value.secondSegmentScoreThreshold ?? 70)
@@ -149,11 +146,6 @@ function storeAnswer(questionId: string, answerIndex: number): void {
   answers.value = { ...answers.value, [questionId]: answerIndex }
 }
 
-function showResults(): void {
-  stage.value?.holdLastFrame?.()
-  phase.value = 'results'
-}
-
 function emitFinished(): void {
   emit('finished', {
     percent: score.value.percent,
@@ -169,7 +161,7 @@ function emitFinished(): void {
 
 function completeActiveSegment(): void {
   if (segmentIndex.value === 0) {
-    showResults()
+    void afterVideo1Questions()
     return
   }
   if (segmentIndex.value === 1) {
@@ -185,7 +177,6 @@ function completeActiveSegment(): void {
 
 function onVideoEnded(): void {
   if (phase.value !== 'playing') return
-  stage.value?.holdLastFrame?.()
   if (segmentIndex.value === 2) {
     emitFinished()
     return
@@ -207,7 +198,7 @@ function onQuestionComplete(): void {
   questionIndex.value = next
 }
 
-async function onResultsContinue(): Promise<void> {
+async function afterVideo1Questions(): Promise<void> {
   if (passed.value) {
     if (hasVideo3.value) {
       await startSegment(2)
@@ -225,12 +216,10 @@ async function onResultsContinue(): Promise<void> {
 </script>
 
 <template>
-  <div class="process-experience" :class="{ 'is-results': phase === 'results' }">
+  <div class="process-experience">
     <p v-if="error" class="process-player-message">{{ error }}</p>
     <template v-else-if="src">
       <ProcessVideoStage
-        v-if="phase !== 'results'"
-        ref="stage"
         :src="src"
         :instruction-text="instructionText"
         :instruction-pill="instructionPill"
@@ -253,16 +242,6 @@ async function onResultsContinue(): Promise<void> {
           @complete="onQuestionComplete"
         />
       </div>
-      <ProcessResultsCard
-        v-if="phase === 'results' && passed"
-        :results="results"
-        @continue="onResultsContinue"
-      />
-      <ProcessResultsFailCard
-        v-else-if="phase === 'results'"
-        :results="results"
-        @continue="onResultsContinue"
-      />
     </template>
     <p v-else class="process-player-message">Loading video…</p>
   </div>

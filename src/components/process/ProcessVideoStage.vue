@@ -61,8 +61,12 @@ function holdLastFrame(): void {
   el.pause()
   const duration = el.duration
   if (!Number.isFinite(duration) || duration <= 0.15) return
+  const holdTime = Math.max(0, duration - 0.04)
   try {
-    el.currentTime = Math.max(0, duration - 0.08)
+    // Only seek forward — seeking backward causes a visible frame jump when questions appear.
+    if (el.currentTime < holdTime) {
+      el.currentTime = holdTime
+    }
   } catch {
     // Ignore seek errors after native ended.
   }

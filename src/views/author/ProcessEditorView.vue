@@ -333,7 +333,7 @@ async function remove(): Promise<void> {
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Instruction" />
         <p class="author-muted">
-          Shown over the paused first frame of Video 1 until the learner taps Begin.
+          Shown over the paused first frame of Video 1 until the learner taps Start.
         </p>
         <AuthorField
           id="process-instruction-pill"
@@ -399,7 +399,7 @@ async function remove(): Promise<void> {
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Instruction" />
           <p class="author-muted">
-            Shown over the paused first frame of Video 2 until the learner taps Begin.
+            Shown over the paused first frame of Video 2 until the learner taps Start.
           </p>
           <AuthorField
             id="process-second-instruction-pill"

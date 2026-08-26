@@ -363,7 +363,7 @@ watch(previewUrl, () => {
     <section class="author-stack-sm">
       <AuthorSectionHeader title="Instruction" />
       <p class="author-muted">
-        Shown over the paused first frame of the hazard video until the learner taps Begin.
+        Shown over the paused first frame of the hazard video until the learner taps Start.
       </p>
       <AuthorField
         :id="`${selectedHazard.id}-instruction-pill`"

@@ -21,6 +21,8 @@ import {
 export const SEE_TAG = 'see'
 export const SEE_NODE_TYPE = 'see.hazard'
 export const DEFAULT_SEE_INSTRUCTION_PILL = 'Observe'
+export const DEFAULT_SEE_INSTRUCTION =
+  'Watch the following video and tap hazards as they develop.'
 
 export interface SeeHazard extends HazardDetails {
   id: string
@@ -40,6 +42,10 @@ export interface SeeDefinition {
   version: 1
   duration: number
   media: MediaRef | null
+  /** Shown over the paused first frame of the scenario video. Empty skips the overlay. */
+  instructionText: string
+  /** Pill label on the scenario instruction card. Empty uses "Observe". */
+  instructionPill: string
   hazards: SeeHazard[]
 }
 
@@ -116,6 +122,8 @@ export function createDefaultSeeDefinition(): SeeDefinition {
     version: 1,
     duration: 0,
     media: null,
+    instructionText: DEFAULT_SEE_INSTRUCTION,
+    instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
     hazards: [],
   }
 }
@@ -193,6 +201,14 @@ export function normalizeSeeDefinition(definition: SeeDefinition): SeeDefinition
     version: 1,
     duration: typeof definition.duration === 'number' && definition.duration > 0 ? definition.duration : 0,
     media: readMediaRef(definition.media),
+    instructionText:
+      typeof definition.instructionText === 'string'
+        ? definition.instructionText
+        : DEFAULT_SEE_INSTRUCTION,
+    instructionPill:
+      typeof definition.instructionPill === 'string'
+        ? definition.instructionPill
+        : DEFAULT_SEE_INSTRUCTION_PILL,
     hazards: hazards.sort((a, b) => a.startTime - b.startTime),
   }
 }

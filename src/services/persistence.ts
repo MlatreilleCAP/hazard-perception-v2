@@ -80,6 +80,7 @@ export class SupabaseActivityRepository implements ActivityRepository {
     const { data, error } = await this.client
       .from('activities')
       .select('id, title, updated_at, published_version_id, tags')
+      .is('removed_at', null)
       .order('updated_at', { ascending: false })
 
     throwIfError(error, 'Failed to list activities')
@@ -190,8 +191,10 @@ export class SupabaseActivityRepository implements ActivityRepository {
 
   async delete(id: ActivityId): Promise<void> {
     await this.requireUserId()
-    const { error } = await this.client.from('activities').delete().eq('id', id)
-    throwIfError(error, 'Failed to delete activity')
+    const { error } = await this.client.rpc('remove_activity', {
+      p_activity_id: id,
+    })
+    throwIfError(error, 'Failed to remove activity')
   }
 
   private async createActivity(
@@ -229,7 +232,7 @@ export class SupabaseActivityRepository implements ActivityRepository {
   ): Promise<ActivityDefinition | null> {
     await this.requireUserId()
     const activity = await this.getActivityRow(id)
-    if (!activity) return null
+    if (!activity || activity.removed_at) return null
 
     if (status === 'published') {
       if (!activity.published_version_id) return null

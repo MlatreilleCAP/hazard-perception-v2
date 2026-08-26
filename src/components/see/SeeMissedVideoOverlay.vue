@@ -50,12 +50,14 @@ function holdLastFrame(): void {
   const el = video.value
   if (!el) return
   el.pause()
-  if (Number.isFinite(el.duration) && el.duration > 0) {
-    try {
-      el.currentTime = Math.max(0, el.duration - 0.05)
-    } catch {
-      /* last frame may still be painted */
+  if (!Number.isFinite(el.duration) || el.duration <= 0.15) return
+  const holdTime = Math.max(0, el.duration - 0.04)
+  try {
+    if (el.currentTime < holdTime) {
+      el.currentTime = holdTime
     }
+  } catch {
+    /* last frame may still be painted */
   }
 }
 

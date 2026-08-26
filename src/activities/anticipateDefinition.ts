@@ -2,6 +2,8 @@ import type { ActivityDefinition } from '@/types/activity'
 import { cloneJson } from '@/app/clone'
 import {
   ANTICIPATE_NODE_TYPE,
+  DEFAULT_ANTICIPATE_INSTRUCTION,
+  DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
   anticipateMaxScore,
   cloneAnticipateDefinition,
   createDefaultAnticipateDefinition,
@@ -18,7 +20,7 @@ function rawAnticipateConfig(config: Record<string, unknown> | undefined): unkno
   if (config.anticipate && typeof config.anticipate === 'object') {
     return config.anticipate
   }
-  if (config.templateId === 'freeze_frame_branch' || config.branchQuestion) {
+  if (Array.isArray(config.segments)) {
     return config
   }
   return null
@@ -32,7 +34,29 @@ export function readAnticipateDefinition(
   if (!parsed || typeof parsed !== 'object') {
     return createDefaultAnticipateDefinition()
   }
-  return normalizeAnticipateDefinition(parsed as Partial<AnticipateDefinition>)
+  const anticipate = parsed as AnticipateDefinition
+  return normalizeAnticipateDefinition({
+    version: 1,
+    instructionText:
+      typeof anticipate.instructionText === 'string'
+        ? anticipate.instructionText
+        : DEFAULT_ANTICIPATE_INSTRUCTION,
+    instructionPill:
+      typeof anticipate.instructionPill === 'string'
+        ? anticipate.instructionPill
+        : DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
+    secondInstructionText:
+      typeof anticipate.secondInstructionText === 'string'
+        ? anticipate.secondInstructionText
+        : '',
+    secondInstructionPill:
+      typeof anticipate.secondInstructionPill === 'string'
+        ? anticipate.secondInstructionPill
+        : DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
+    segments: Array.isArray(anticipate.segments) ? anticipate.segments : [],
+    secondSegmentScoreThreshold: anticipate.secondSegmentScoreThreshold ?? null,
+    thirdSegmentScoreThreshold: null,
+  })
 }
 
 export function writeAnticipateDefinition(
@@ -44,11 +68,10 @@ export function writeAnticipateDefinition(
   if (!node) {
     throw new Error('Anticipate activity is missing the anticipate.scenario node')
   }
-  const normalized = normalizeAnticipateDefinition(anticipate)
-  node.config = { anticipate: cloneAnticipateDefinition(normalized) }
+  node.config = { anticipate: cloneAnticipateDefinition(anticipate) }
   next.scoring = {
     ...next.scoring,
-    maxScore: anticipateMaxScore(normalized),
+    maxScore: anticipateMaxScore(anticipate),
   }
   next.metadata = {
     ...next.metadata,

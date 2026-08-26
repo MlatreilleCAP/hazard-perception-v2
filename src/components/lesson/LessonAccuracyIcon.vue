@@ -1,10 +1,13 @@
 <script setup lang="ts">
-withDefaults(
+import { computed, ref, watch } from 'vue'
+
+const props = withDefaults(
   defineProps<{
     /** How many of the three arcs should be green (0–3). */
     filled: number
+    animate?: boolean
   }>(),
-  { filled: 0 },
+  { filled: 0, animate: false },
 )
 
 const SIZE = 27
@@ -37,6 +40,30 @@ const segments = [0, 1, 2].map((index) => ({
   index,
   d: arcPath(index),
 }))
+
+const displayedFilled = ref(0)
+
+watch(
+  [() => props.animate, () => props.filled],
+  ([animate, filled]) => {
+    if (!animate) {
+      displayedFilled.value = filled
+      return
+    }
+    displayedFilled.value = 0
+    requestAnimationFrame(() => {
+      displayedFilled.value = filled
+    })
+  },
+  { immediate: true },
+)
+
+const segmentStroke = computed(
+  () => (index: number) =>
+    index < displayedFilled.value
+      ? 'var(--process-correct, #60a1a7)'
+      : '#c9d5d7',
+)
 </script>
 
 <template>
@@ -50,9 +77,11 @@ const segments = [0, 1, 2].map((index) => ({
     <path
       v-for="segment in segments"
       :key="segment.index"
+      class="lesson-accuracy-icon-segment"
+      :class="{ 'is-filled': segment.index < displayedFilled }"
       :d="segment.d"
       fill="none"
-      :stroke="segment.index < filled ? 'var(--process-correct, #59c4b6)' : '#c9d5d7'"
+      :stroke="segmentStroke(segment.index)"
       :stroke-width="STROKE"
       stroke-linecap="butt"
     />

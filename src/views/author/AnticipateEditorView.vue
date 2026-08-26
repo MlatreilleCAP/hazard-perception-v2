@@ -9,22 +9,19 @@ import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
+import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import ProcessQuestionsForm from '@/components/author/ProcessQuestionsForm.vue'
 import { useActivityStore } from '@/stores/activityStore'
-import {
-  isAnticipateActivity,
-  normalizeAnticipateDefinition,
-  normalizeBranchQuestion,
-  validateAnticipateForPublish,
-  type AnticipateDefinition,
-} from '@/types/anticipate'
 import type { MediaRef } from '@/types/media'
 import {
-  ANSWER_LABELS,
-  createTheorySurveyQuestion,
-  type ProcessQuestionBank,
-} from '@/types/questions'
+  buildPersistableAnticipateDefinition,
+  createEmptyAnticipateSegment,
+  isAnticipateActivity,
+  type AnticipateDefinition,
+  type AnticipateSegmentIndex,
+} from '@/types/anticipate'
+import type { ProcessQuestionBank } from '@/types/questions'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,15 +38,23 @@ const title = ref('')
 const description = ref('')
 const titleError = ref<string | null>(null)
 const anticipate = ref<AnticipateDefinition | null>(null)
-const branchQuestionsForm = ref<{ snapshot: () => ProcessQuestionBank } | null>(null)
-const postBranchQuestions = ref<{ snapshot: () => ProcessQuestionBank } | null>(null)
-const remedialQuestionsForm = ref<{ snapshot: () => ProcessQuestionBank } | null>(null)
+const enableSecond = ref(false)
+const enableThird = ref(false)
+const video1Questions = ref<{ snapshot: () => ProcessQuestionBank } | null>(null)
 
 const activityId = computed(() => String(route.params.id ?? ''))
 const isPublished = computed(
-  () =>
-    activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
+  () => activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
 )
+
+const working = computed(() => {
+  if (!anticipate.value) return null
+  return buildPersistableAnticipateDefinition(
+    anticipate.value,
+    enableSecond.value,
+    enableThird.value,
+  )
+})
 
 const instructionText = computed({
   get: () => anticipate.value?.instructionText ?? '',
@@ -67,10 +72,21 @@ const instructionPill = computed({
   },
 })
 
-const branchQuestionBank = computed((): ProcessQuestionBank => ({
-  version: 2,
-  questions: anticipate.value ? [anticipate.value.branchQuestion] : [createTheorySurveyQuestion()],
-}))
+const secondInstructionText = computed({
+  get: () => anticipate.value?.secondInstructionText ?? '',
+  set: (value: string) => {
+    if (!anticipate.value) return
+    anticipate.value = { ...anticipate.value, secondInstructionText: value }
+  },
+})
+
+const secondInstructionPill = computed({
+  get: () => anticipate.value?.secondInstructionPill ?? 'Anticipate',
+  set: (value: string) => {
+    if (!anticipate.value) return
+    anticipate.value = { ...anticipate.value, secondInstructionPill: value }
+  },
+})
 
 onMounted(async () => {
   await load()
@@ -95,7 +111,10 @@ async function load(): Promise<void> {
     }
     title.value = current.metadata.title
     description.value = current.metadata.description
-    anticipate.value = readAnticipateDefinition(current)
+    const parsed = readAnticipateDefinition(current)
+    anticipate.value = parsed
+    enableSecond.value = parsed.segments.length > 1
+    enableThird.value = parsed.segments.length > 2
   } catch (cause) {
     if (generation !== loadGeneration) return
     anticipate.value = null
@@ -108,79 +127,87 @@ async function load(): Promise<void> {
   }
 }
 
-function setMainMedia(media: MediaRef | null): void {
+function patchSegment(
+  index: AnticipateSegmentIndex,
+  patch: Partial<NonNullable<AnticipateDefinition['segments'][number]>>,
+): void {
   if (!anticipate.value) return
-  anticipate.value = { ...anticipate.value, media }
-}
-
-function setMainDuration(durationMs: number): void {
-  if (!anticipate.value) return
+  const segments = [...anticipate.value.segments]
+  const current = segments[index] ?? createEmptyAnticipateSegment()
+  segments[index] = { ...current, ...patch }
   anticipate.value = {
     ...anticipate.value,
-    durationMs: durationMs > 0 ? durationMs : anticipate.value.durationMs,
+    segments,
+    secondSegmentScoreThreshold:
+      index > 0
+        ? (anticipate.value.secondSegmentScoreThreshold ?? 70)
+        : anticipate.value.secondSegmentScoreThreshold,
+    thirdSegmentScoreThreshold: null,
   }
 }
 
-function setDefaultBranchMedia(media: MediaRef | null): void {
-  if (!anticipate.value) return
-  anticipate.value = { ...anticipate.value, defaultBranchMedia: media }
+function setQuestions(index: AnticipateSegmentIndex, questions: ProcessQuestionBank): void {
+  patchSegment(index, { questions })
 }
 
-function setAnswerMedia(index: number, media: MediaRef | null): void {
-  if (!anticipate.value) return
-  const branchMediaByAnswer = [...anticipate.value.branchMediaByAnswer]
-  while (branchMediaByAnswer.length <= index) {
-    branchMediaByAnswer.push(null)
+function setMedia(index: AnticipateSegmentIndex, media: MediaRef | null): void {
+  patchSegment(index, { media })
+}
+
+function setDuration(index: AnticipateSegmentIndex, durationMs: number): void {
+  const current = anticipate.value?.segments[index]
+  patchSegment(index, {
+    durationMs: durationMs > 0 ? durationMs : current?.durationMs ?? 0,
+  })
+}
+
+function onEnableSecond(checked: boolean): void {
+  enableSecond.value = checked
+  if (!checked) {
+    enableThird.value = false
+    return
   }
-  branchMediaByAnswer[index] = media
-  anticipate.value = { ...anticipate.value, branchMediaByAnswer }
-}
-
-function onBranchBankUpdate(bank: ProcessQuestionBank): void {
   if (!anticipate.value) return
-  const nextQuestion = normalizeBranchQuestion(
-    bank.questions[0] ?? createTheorySurveyQuestion(),
-  )
-  const previousMedia = anticipate.value.branchMediaByAnswer
-  const branchMediaByAnswer = nextQuestion.answers.map(
-    (_, index) => previousMedia[index] ?? null,
-  )
-  anticipate.value = {
-    ...anticipate.value,
-    branchQuestion: nextQuestion,
-    branchMediaByAnswer,
+  if (!anticipate.value.segments[1]) {
+    anticipate.value = {
+      ...anticipate.value,
+      segments: [
+        anticipate.value.segments[0] ?? createEmptyAnticipateSegment(),
+        createEmptyAnticipateSegment(),
+      ],
+      secondSegmentScoreThreshold: anticipate.value.secondSegmentScoreThreshold ?? 70,
+      thirdSegmentScoreThreshold: null,
+    }
   }
 }
 
-function setQuestions(questions: ProcessQuestionBank): void {
-  if (!anticipate.value) return
-  anticipate.value = { ...anticipate.value, questions }
+function onEnableThird(checked: boolean): void {
+  enableThird.value = checked
+  if (!checked || !anticipate.value) return
+  const segmentTwo = anticipate.value.segments[1] ?? createEmptyAnticipateSegment()
+  if (!anticipate.value.segments[2]) {
+    anticipate.value = {
+      ...anticipate.value,
+      version: 1,
+      segments: [
+        anticipate.value.segments[0] ?? createEmptyAnticipateSegment(),
+        segmentTwo,
+        createEmptyAnticipateSegment(),
+      ],
+      secondSegmentScoreThreshold: anticipate.value.secondSegmentScoreThreshold ?? 70,
+      thirdSegmentScoreThreshold: null,
+    }
+  }
 }
 
-function setRemedialMedia(media: MediaRef | null): void {
+function flushVideo1Questions(): void {
   if (!anticipate.value) return
-  anticipate.value = { ...anticipate.value, remedialMedia: media }
-}
-
-function setRemedialQuestions(questions: ProcessQuestionBank): void {
-  if (!anticipate.value) return
-  anticipate.value = { ...anticipate.value, remedialQuestions: questions }
-}
-
-function flushQuestions(): void {
-  if (!anticipate.value) return
-  const branchBank = branchQuestionsForm.value?.snapshot()
-  if (branchBank) {
-    onBranchBankUpdate(branchBank)
-  }
-  const postBank = postBranchQuestions.value?.snapshot()
-  if (postBank) {
-    anticipate.value = { ...anticipate.value, questions: postBank }
-  }
-  const remedialBank = remedialQuestionsForm.value?.snapshot()
-  if (remedialBank) {
-    anticipate.value = { ...anticipate.value, remedialQuestions: remedialBank }
-  }
+  const bank = video1Questions.value?.snapshot()
+  if (!bank) return
+  const segments = [...anticipate.value.segments]
+  const current = segments[0] ?? createEmptyAnticipateSegment()
+  segments[0] = { ...current, questions: bank }
+  anticipate.value = { ...anticipate.value, segments }
 }
 
 async function save(): Promise<boolean> {
@@ -189,11 +216,15 @@ async function save(): Promise<boolean> {
   if (titleError.value) return false
 
   await nextTick()
-  flushQuestions()
+  flushVideo1Questions()
   saving.value = true
   saveMessage.value = null
   try {
-    const nextAnticipate = normalizeAnticipateDefinition(anticipate.value)
+    const nextAnticipate = buildPersistableAnticipateDefinition(
+      anticipate.value,
+      enableSecond.value,
+      enableThird.value,
+    )
     anticipate.value = nextAnticipate
     const next = writeAnticipateDefinition(activities.current, nextAnticipate)
     next.metadata.title = title.value.trim()
@@ -216,18 +247,14 @@ async function save(): Promise<boolean> {
 async function openPreview(): Promise<void> {
   const saved = await save()
   if (!saved || !activityId.value) return
-  await router.push({
-    path: '/player',
-    query: { activity: activityId.value, preview: '1' },
-  })
+  await router.push({ path: '/player', query: { activity: activityId.value, preview: '1' } })
 }
 
 async function publish(): Promise<void> {
-  if (!activities.current || !anticipate.value) return
-  flushQuestions()
-  const publishError = validateAnticipateForPublish(anticipate.value)
-  if (publishError) {
-    window.alert(publishError)
+  if (!activities.current) return
+  const current = working.value
+  if (!current?.segments[0]?.media?.media_asset_id) {
+    window.alert('Add Video 1 before publishing.')
     return
   }
   publishing.value = true
@@ -268,10 +295,7 @@ async function remove(): Promise<void> {
       <p class="author-muted">Loading anticipate…</p>
     </div>
 
-    <div
-      v-else-if="!activities.current || !anticipate"
-      class="author-page-inner author-stack-sm"
-    >
+    <div v-else-if="!activities.current || !working" class="author-page-inner author-stack-sm">
       <p class="author-error">{{ loadError ?? activities.error ?? 'Anticipate not found' }}</p>
       <RouterLink to="/studio/anticipate">Back to list</RouterLink>
     </div>
@@ -281,13 +305,7 @@ async function remove(): Promise<void> {
         <div class="author-header-left">
           <RouterLink to="/studio/anticipate" class="author-back" aria-label="Back">
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
-              <path
-                d="M10 3.5 5.5 8 10 12.5"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
+              <path d="M10 3.5 5.5 8 10 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </RouterLink>
           <h1 class="author-header-title">Edit Anticipate</h1>
@@ -313,26 +331,14 @@ async function remove(): Promise<void> {
 
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Hazard Info" />
-        <AuthorField
-          id="anticipate-title"
-          v-model="title"
-          label="Title"
-          :error="titleError ?? undefined"
-        />
-        <AuthorField
-          id="anticipate-description"
-          v-model="description"
-          label="Description"
-          multiline
-          :rows="1"
-        />
-        <p class="author-muted">Template: Freeze Frame - Branch</p>
+        <AuthorField id="anticipate-title" v-model="title" label="Title" :error="titleError ?? undefined" />
+        <AuthorField id="anticipate-description" v-model="description" label="Description" multiline :rows="1" />
       </section>
 
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Instruction" />
         <p class="author-muted">
-          Shown over the paused first frame of the main video until the learner taps Begin.
+          Shown over the paused first frame of Video 1 until the learner taps Start.
         </p>
         <AuthorField
           id="anticipate-instruction-pill"
@@ -349,114 +355,127 @@ async function remove(): Promise<void> {
       </section>
 
       <section class="author-stack-sm">
-        <AuthorSectionHeader title="Main video" />
-        <p class="author-muted">
-          Plays to the end, then pauses on the last frame for the branch question.
-        </p>
+        <AuthorSectionHeader title="Anticipate Video Clip" />
+        <p class="author-muted">Upload a video or add one from the media library.</p>
         <MediaUploadField
-          :id="`${activityId}-main-video`"
+          :id="`${activityId}-video-1`"
           :activity-id="activityId"
-          label="Main video"
-          :model-value="anticipate.media"
+          label="Video 1"
+          :model-value="working.segments[0]?.media ?? null"
           :instruction-text="instructionText"
           :instruction-pill="instructionPill"
-          @update:model-value="setMainMedia"
-          @duration="setMainDuration"
+          @update:model-value="setMedia(0, $event)"
+          @duration="setDuration(0, $event)"
         />
-        <p v-if="anticipate.durationMs > 0" class="author-muted">
-          Video duration: {{ (anticipate.durationMs / 1000).toFixed(1) }}s
-        </p>
       </section>
 
-      <section class="author-stack-sm">
-        <ProcessQuestionsForm
-          ref="branchQuestionsForm"
-          segment-id="anticipate-branch"
-          title="Branch Question"
-          description="Multiple-choice question shown when the main video ends. Each answer can point to a branch video; empty slots use the default branch video."
-          :model-value="branchQuestionBank"
-          @update:model-value="onBranchBankUpdate"
-        />
+      <ProcessQuestionsForm
+        ref="video1Questions"
+        :segment-id="anticipate?.segments[0]?.id ?? 'segment-1'"
+        :model-value="anticipate?.segments[0]?.questions ?? { version: 2, questions: [] }"
+        @update:model-value="setQuestions(0, $event)"
+      />
 
-        <div
-          v-for="(answer, index) in anticipate.branchQuestion.answers"
-          :key="`branch-media-${anticipate.branchQuestion.id}-${index}`"
-          class="author-panel author-stack-sm"
-        >
-          <p class="author-field-label">
-            Branch video {{ ANSWER_LABELS[index] ?? index + 1 }}
-            <span v-if="answer.text.trim()" class="author-muted">
-              — {{ answer.text.trim() }}
-            </span>
+      <section class="author-panel">
+        <AuthorToggle
+          :id="`${activityId}-enable-second`"
+          :model-value="enableSecond"
+          label="Add second video"
+          description="Shown to learners when their video 1 score is below the threshold."
+          @update:model-value="onEnableSecond"
+        />
+        <AuthorField
+          v-if="enableSecond"
+          :id="`${activityId}-threshold-2`"
+          :model-value="String(working.secondSegmentScoreThreshold ?? 70)"
+          label="Show video 2 when video 1 score is below (%)"
+          type="number"
+          @update:model-value="
+            anticipate &&
+              (anticipate = {
+                ...anticipate,
+                secondSegmentScoreThreshold: Math.min(100, Math.max(0, Math.round(Number($event) || 0))),
+              })
+          "
+        />
+      </section>
+
+      <template v-if="enableSecond && working.segments[1]">
+        <section class="author-stack-sm">
+          <AuthorSectionHeader title="Instruction" />
+          <p class="author-muted">
+            Shown over the paused first frame of Video 2 until the learner taps Start.
+          </p>
+          <AuthorField
+            id="anticipate-second-instruction-pill"
+            v-model="secondInstructionPill"
+            label="Pill label"
+          />
+          <AuthorField
+            id="anticipate-second-instruction"
+            v-model="secondInstructionText"
+            label="Instruction text"
+            multiline
+            :rows="3"
+          />
+        </section>
+
+        <section class="author-stack-sm">
+          <AuthorSectionHeader title="Video 2" />
+          <p class="author-muted">
+            Remedial video shown when the learner scores below the video 1 threshold.
           </p>
           <MediaUploadField
-            :id="`${activityId}-branch-${index}`"
+            :id="`${activityId}-video-2`"
             :activity-id="activityId"
-            :label="`Branch video ${ANSWER_LABELS[index] ?? index + 1} (optional)`"
-            :model-value="anticipate.branchMediaByAnswer[index] ?? null"
-            @update:model-value="setAnswerMedia(index, $event)"
+            label="Video 2"
+            :model-value="working.segments[1].media"
+            :instruction-text="secondInstructionText"
+            :instruction-pill="secondInstructionPill"
+            @update:model-value="setMedia(1, $event)"
+            @duration="setDuration(1, $event)"
           />
-        </div>
+        </section>
 
-        <MediaUploadField
-          :id="`${activityId}-default-branch`"
-          :activity-id="activityId"
-          label="Default / fallback branch video"
-          :model-value="anticipate.defaultBranchMedia"
-          @update:model-value="setDefaultBranchMedia"
-        />
-      </section>
-
-      <section class="author-stack-sm">
         <ProcessQuestionsForm
-          ref="postBranchQuestions"
-          segment-id="anticipate-post-branch"
-          title="Theory"
-          description="Severity and theory questions after the branch video. Customize the text, answers, correct answer, and points for each answer."
-          :model-value="anticipate.questions"
-          @update:model-value="setQuestions"
+          :key="working.segments[1].id"
+          :segment-id="working.segments[1].id"
+          :model-value="working.segments[1].questions"
+          @update:model-value="setQuestions(1, $event)"
         />
-      </section>
 
-      <section class="author-stack-sm">
-        <AuthorSectionHeader title="Coaching Lesson" />
+        <section class="author-panel">
+          <AuthorToggle
+            :id="`${activityId}-enable-third`"
+            :model-value="enableThird"
+            label="Add third video"
+            description="Always shown after video 1. If video 2 is required by the score threshold, it plays first."
+            @update:model-value="onEnableThird"
+          />
+        </section>
+      </template>
+
+      <section v-if="enableSecond && enableThird && working.segments[2]" class="author-stack-sm">
+        <AuthorSectionHeader title="Video 3" />
         <p class="author-muted">
-          After results, shown only when the learner did not answer every question above
-          correctly. The coaching video plays first, then the severity and theory questions
-          below.
+          Always shown after video 1 (and after video 2 when it plays). Video 3 has
+          no questions — comprehension ends when it finishes.
         </p>
         <MediaUploadField
-          :id="`${activityId}-remedial-video`"
+          :id="`${activityId}-video-3`"
           :activity-id="activityId"
-          label="Remedial video"
-          :model-value="anticipate.remedialMedia"
-          @update:model-value="setRemedialMedia"
-        />
-        <ProcessQuestionsForm
-          ref="remedialQuestionsForm"
-          segment-id="anticipate-remedial"
-          title="Remedial questions"
-          description="Add a severity and theory question asked after the remedial video on the incorrect path."
-          :model-value="anticipate.remedialQuestions"
-          @update:model-value="setRemedialQuestions"
+          label="Video 3"
+          :model-value="working.segments[2].media"
+          @update:model-value="setMedia(2, $event)"
+          @duration="setDuration(2, $event)"
         />
       </section>
 
       <div class="author-actions">
         <AuthorPillButton variant="primary" :disabled="saving || deleting" @click="save">
           <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
-            <path
-              d="M3.5 2.5h7.2L12.5 4.3V13.5H3.5V2.5Z"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M5.5 2.5v3.5h5V2.5M5.5 13.5v-4h5v4"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linejoin="round"
-            />
+            <path d="M3.5 2.5h7.2L12.5 4.3V13.5H3.5V2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+            <path d="M5.5 2.5v3.5h5V2.5M5.5 13.5v-4h5v4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
           </svg>
           {{ saving ? 'Saving…' : 'Save' }}
         </AuthorPillButton>

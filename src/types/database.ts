@@ -20,6 +20,7 @@ export interface ActivityRow {
   tags: string[]
   created_by: string
   published_version_id: string | null
+  removed_at: string | null
   created_at: string
   updated_at: string
 }

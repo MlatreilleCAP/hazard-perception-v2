@@ -3,21 +3,17 @@ import { createId, nowIso } from '@/app/id'
 import {
   ANTICIPATE_NODE_TYPE,
   ANTICIPATE_TAG,
-  FREEZE_FRAME_BRANCH_TEMPLATE_ID,
-  anticipateMaxScore,
   createDefaultAnticipateDefinition,
-  type AnticipateLiveTemplateId,
 } from '@/types/anticipate'
 
 export function createAnticipateActivity(
   title = 'Untitled anticipate',
-  templateId: AnticipateLiveTemplateId = FREEZE_FRAME_BRANCH_TEMPLATE_ID,
 ): ActivityDefinition {
   const startId = createId()
   const anticipateId = createId()
   const endId = createId()
   const timestamp = nowIso()
-  const anticipate = createDefaultAnticipateDefinition(templateId)
+  const anticipate = createDefaultAnticipateDefinition()
 
   return {
     id: createId(),
@@ -90,7 +86,7 @@ export function createAnticipateActivity(
     events: [],
     decisions: [],
     scoring: {
-      maxScore: anticipateMaxScore(anticipate),
+      maxScore: 0,
       passingScore: null,
       aggregation: 'sum',
       rules: [],

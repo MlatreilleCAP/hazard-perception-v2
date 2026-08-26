@@ -10,7 +10,11 @@ import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import SeeTimelineEditor from '@/components/author/SeeTimelineEditor.vue'
 import { useActivityStore } from '@/stores/activityStore'
 import type { MediaRef } from '@/types/media'
-import { isSeeActivity, type SeeDefinition, type SeeHazard } from '@/types/see'
+import {
+  isSeeActivity,
+  type SeeDefinition,
+  type SeeHazard,
+} from '@/types/see'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,6 +36,22 @@ const activityId = computed(() => String(route.params.id ?? ''))
 const isPublished = computed(
   () => activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
 )
+
+const instructionText = computed({
+  get: () => see.value?.instructionText ?? '',
+  set: (value: string) => {
+    if (!see.value) return
+    see.value = { ...see.value, instructionText: value }
+  },
+})
+
+const instructionPill = computed({
+  get: () => see.value?.instructionPill ?? 'Observe',
+  set: (value: string) => {
+    if (!see.value) return
+    see.value = { ...see.value, instructionPill: value }
+  },
+})
 
 onMounted(async () => {
   await load()
@@ -210,6 +230,25 @@ async function remove(): Promise<void> {
         <AuthorField id="see-description" v-model="description" label="Description" placeholder="Description" multiline :rows="1" />
       </section>
 
+      <section class="author-stack-sm">
+        <AuthorSectionHeader title="Instruction" />
+        <p class="author-muted">
+          Shown over the paused first frame of the scenario video until the learner taps Start.
+        </p>
+        <AuthorField
+          id="see-instruction-pill"
+          v-model="instructionPill"
+          label="Pill label"
+        />
+        <AuthorField
+          id="see-instruction"
+          v-model="instructionText"
+          label="Instruction text"
+          multiline
+          :rows="3"
+        />
+      </section>
+
       <section v-if="!see.media" class="author-stack-sm">
         <AuthorSectionHeader title="Add Video" />
         <p class="author-muted">Upload a video or add one from the media library.</p>
@@ -218,6 +257,8 @@ async function remove(): Promise<void> {
           :activity-id="activityId"
           label="Scenario video"
           :model-value="see.media"
+          :instruction-text="instructionText"
+          :instruction-pill="instructionPill"
           @update:model-value="setMedia"
           @duration="setDurationMs"
         />

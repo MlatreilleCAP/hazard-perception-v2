@@ -328,7 +328,6 @@ function onAnticipateFinished(payload?: {
   percent: number
   correctCount: number
   totalCount: number
-  branchCorrect?: boolean
   questionResults?: Array<{ id: string; label: string; correct: boolean }>
 }): void {
   sectionResults.value = {
@@ -338,7 +337,6 @@ function onAnticipateFinished(payload?: {
       percent: payload?.percent ?? 0,
       correctCount: payload?.correctCount ?? 0,
       totalCount: payload?.totalCount ?? 0,
-      branchCorrect: payload?.branchCorrect,
       metrics: (payload?.questionResults ?? []).map((item, index) => ({
         id: item.id,
         label: `Q${index + 1}`,

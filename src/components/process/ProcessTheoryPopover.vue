@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import questionPassIcon from '@/assets/lesson/question-pass.svg'
+import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import {
   configuredAnswerEntries,
   isAnswerCorrect,
-  pointsForAnswer,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 
@@ -33,9 +34,6 @@ const feedback = computed(() => {
   }
   return answeredCorrectly.value ? 'correct' : 'incorrect'
 })
-const points = computed(() =>
-  selectedIndex.value == null ? 0 : pointsForAnswer(props.question, selectedIndex.value),
-)
 /** Explanation + Continue only after an incorrect answer when the toggle is on. */
 const awaitingContinue = computed(
   () => locked.value && showExplanation.value && !answeredCorrectly.value,
@@ -89,14 +87,20 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="process-question-card"
+    class="process-question-card is-theory"
     :class="{ 'is-explained': awaitingContinue }"
     role="dialog"
     aria-label="Theory question"
   >
-    <div v-if="feedback" class="process-points-pill" :class="feedback">
-      {{ points > 0 ? `+ ${points} pts` : '0 pts' }}
-    </div>
+    <img
+      v-if="feedback"
+      class="process-question-result-icon"
+      :class="feedback"
+      :src="feedback === 'correct' ? questionPassIcon : metricFailIcon"
+      :alt="feedback === 'correct' ? 'Correct' : 'Incorrect'"
+      width="31"
+      height="31"
+    />
     <p class="process-question-prompt">{{ question.questionText }}</p>
     <div class="process-theory-answers">
       <button
@@ -112,9 +116,9 @@ onBeforeUnmount(() => {
       </button>
     </div>
     <div
-      v-if="awaitingContinue"
       class="process-question-reveal"
       :class="{ 'is-open': awaitingContinue }"
+      :aria-hidden="!awaitingContinue"
     >
       <div class="process-question-reveal-inner">
         <p v-if="explanationText" class="process-question-feedback">
@@ -122,8 +126,9 @@ onBeforeUnmount(() => {
         </p>
         <button
           type="button"
-          class="process-instruction-begin"
+          class="process-question-continue"
           :tabindex="awaitingContinue ? 0 : -1"
+          :disabled="!awaitingContinue"
           @click="continueToNext"
         >
           Continue

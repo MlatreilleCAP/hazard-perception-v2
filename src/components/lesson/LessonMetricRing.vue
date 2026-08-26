@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = withDefaults(
   defineProps<{
     /** 0–1 progress around the ring. */
     fill?: number
+    animate?: boolean
   }>(),
-  { fill: 0.5 },
+  { fill: 0.5, animate: false },
 )
 
 const SIZE = 27
@@ -17,7 +18,23 @@ const STROKE = 5
 const CIRCUMFERENCE = 2 * Math.PI * R
 
 const progress = computed(() => Math.min(1, Math.max(0, props.fill ?? 0)))
-const dashOffset = computed(() => CIRCUMFERENCE * (1 - progress.value))
+const targetOffset = computed(() => CIRCUMFERENCE * (1 - progress.value))
+const dashOffset = ref(CIRCUMFERENCE)
+
+watch(
+  [() => props.animate, targetOffset],
+  ([animate, offset]) => {
+    if (!animate) {
+      dashOffset.value = offset
+      return
+    }
+    dashOffset.value = CIRCUMFERENCE
+    requestAnimationFrame(() => {
+      dashOffset.value = offset
+    })
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -37,11 +54,12 @@ const dashOffset = computed(() => CIRCUMFERENCE * (1 - progress.value))
       :stroke-width="STROKE"
     />
     <circle
+      class="lesson-results-metric-ring-progress"
       :cx="CX"
       :cy="CY"
       :r="R"
       fill="none"
-      stroke="var(--process-correct, #59c4b6)"
+      stroke="var(--process-correct, #60a1a7)"
       :stroke-width="STROKE"
       :stroke-dasharray="CIRCUMFERENCE"
       :stroke-dashoffset="dashOffset"

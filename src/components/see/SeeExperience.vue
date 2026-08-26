@@ -100,6 +100,8 @@ const overlay = ref<Overlay | null>(null)
 const deferredMissQueue = ref<string[]>([])
 const hitAttempts = ref<Record<string, number>>({})
 const hitAtSeconds = ref<Record<string, number>>({})
+const tapAttemptsByHazard = ref<Record<string, number>>({})
+const missReasons = ref<Record<string, 'attempts' | 'time'>>({})
 const missedVideoUrls = ref<Record<string, string>>({})
 const explanationImageUrls = ref<Record<string, string>>({})
 
@@ -167,6 +169,11 @@ async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
 }
 
 const see = computed(() => readSeeDefinition(props.definition))
+const instructionText = computed(() => see.value.instructionText ?? '')
+const instructionPill = computed(
+  () => see.value.instructionPill?.trim() || DEFAULT_SEE_INSTRUCTION_PILL,
+)
+const showScenarioInstruction = computed(() => Boolean(instructionText.value.trim()))
 const sortedHazards = computed(() =>
   [...see.value.hazards].sort((a, b) => a.startTime - b.startTime),
 )
@@ -280,6 +287,13 @@ const foundInAttempts = computed(() => {
 const hazardMissed = computed(
   () => totalHazards.value > 0 && spotted.value === 0,
 )
+const missReason = computed((): 'attempts' | 'time' => {
+  const missedId = sortedHazards.value.find(
+    (hazard) => hitAttempts.value[hazard.id] == null,
+  )?.id
+  if (missedId && missReasons.value[missedId] === 'attempts') return 'attempts'
+  return 'time'
+})
 const missExplanations = computed(() =>
   sortedHazards.value
     .filter((hazard) => hitAttempts.value[hazard.id] == null)
@@ -312,6 +326,8 @@ function resetSession(): void {
   deferredMissQueue.value = []
   hitAttempts.value = {}
   hitAtSeconds.value = {}
+  tapAttemptsByHazard.value = {}
+  missReasons.value = {}
   clickMarkers.value = []
   answers.value = {}
   currentTime.value = 0
@@ -437,12 +453,27 @@ function closedIds(): Set<string> {
   return closedHazardIds(resolvedIds.value, deferredMissIds.value)
 }
 
-function deferMiss(hazardId: string): void {
+function tapsUsedForHazard(hazardId: string): number {
+  const recorded = tapAttemptsByHazard.value[hazardId] ?? 0
+  const active =
+    trackingHazardId.value === hazardId ? attemptCount.value : 0
+  return Math.max(recorded, active)
+}
+
+function resolveMissReason(hazardId: string): 'attempts' | 'time' {
+  return tapsUsedForHazard(hazardId) >= MAX_HAZARD_ATTEMPTS ? 'attempts' : 'time'
+}
+
+function deferMiss(hazardId: string, reason?: 'attempts' | 'time'): void {
   if (resolvedIds.value.has(hazardId) || deferredMissIds.value.has(hazardId)) return
   const next = new Set(deferredMissIds.value)
   next.add(hazardId)
   deferredMissIds.value = next
   deferredMissQueue.value = [...deferredMissQueue.value, hazardId]
+  missReasons.value = {
+    ...missReasons.value,
+    [hazardId]: reason ?? resolveMissReason(hazardId),
+  }
   trackingHazardId.value = null
   attemptCount.value = 0
 }
@@ -596,9 +627,17 @@ function onTap(clientX: number, clientY: number): void {
     }
     nextAttempts += 1
     attemptCount.value = nextAttempts
+    tapAttemptsByHazard.value = {
+      ...tapAttemptsByHazard.value,
+      [target.id]: nextAttempts,
+    }
   } else if (trackingHazardId.value) {
     nextAttempts = attemptCount.value + 1
     attemptCount.value = nextAttempts
+    tapAttemptsByHazard.value = {
+      ...tapAttemptsByHazard.value,
+      [trackingHazardId.value]: nextAttempts,
+    }
   } else {
     nextAttempts = 1
     attemptCount.value = nextAttempts
@@ -673,6 +712,9 @@ function onVideoMetadata(): void {
     await waitForAnimationPaint()
     if (token !== readyToken) return
     emitReadyOnce()
+    if (phase.value === 'ready' && !instructionText.value.trim()) {
+      begin()
+    }
   })()
 }
 
@@ -852,10 +894,10 @@ onBeforeUnmount(() => {
         >
           <p>Out of attempts</p>
         </div>
-        <div v-if="phase === 'ready'" class="process-instruction-overlay">
+        <div v-if="phase === 'ready' && showScenarioInstruction" class="process-instruction-overlay">
           <ProcessInstructionCard
-            text="Watch the following video and tap hazards as they develop."
-            :tag="DEFAULT_SEE_INSTRUCTION_PILL"
+            :text="instructionText"
+            :tag="instructionPill"
             @begin="begin"
           />
         </div>
@@ -912,6 +954,7 @@ onBeforeUnmount(() => {
       <SeeResultsPassCard
         v-else-if="hazardMissed"
         variant="missed"
+        :miss-reason="missReason"
         :image-src="missedExplanationImageUrl"
         :explanations="missExplanations"
         @continue="onResultsContinue"

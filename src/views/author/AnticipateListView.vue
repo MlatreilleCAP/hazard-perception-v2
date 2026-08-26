@@ -40,7 +40,7 @@ async function remove(id: string, title: string): Promise<void> {
       <div class="author-page-header">
         <div>
           <h1>Anticipate</h1>
-          <p>Build anticipate scenarios from templates with branching outcomes</p>
+          <p>Build anticipate scenarios with video, severity, and theory questions</p>
         </div>
         <RouterLink to="/studio/anticipate/new" style="text-decoration: none">
           <AuthorPillButton variant="white">New Anticipate</AuthorPillButton>

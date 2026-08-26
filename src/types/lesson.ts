@@ -284,7 +284,6 @@ export type LessonAnticipateSectionResult = {
   percent: number
   correctCount: number
   totalCount: number
-  branchCorrect?: boolean
   metrics: LessonMetricToken[]
 }
 

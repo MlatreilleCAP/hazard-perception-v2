@@ -3,15 +3,17 @@ import { computed, ref, watch } from 'vue'
 import ProcessResultsLottie from '@/components/process/ProcessResultsLottie.vue'
 import passAnimation from '@/assets/lottie/process-results.json'
 import failAnimation from '@/assets/lottie/process-results-fail.json'
+import { MAX_HAZARD_ATTEMPTS } from '@/lib/hazards/attempts'
 
 const props = withDefaults(
   defineProps<{
     variant?: 'passed' | 'coaching' | 'missed'
     attempts?: number
+    missReason?: 'attempts' | 'time'
     imageSrc?: string | null
     explanations: string[]
   }>(),
-  { variant: 'passed', attempts: 1, imageSrc: null },
+  { variant: 'passed', attempts: 1, missReason: 'time', imageSrc: null },
 )
 
 defineEmits<{
@@ -23,13 +25,15 @@ const heading = computed(() =>
 )
 
 const attemptsLabel = computed(() => {
-  if (props.variant === 'missed') return 'You did not spot the hazard'
+  if (props.variant === 'missed') {
+    if (props.missReason === 'attempts') {
+      return `You used ${MAX_HAZARD_ATTEMPTS} attempts and missed the hazard`
+    }
+    return 'You ran out of time'
+  }
   const count = Math.max(1, props.attempts)
   const word = count === 1 ? 'attempt' : 'attempts'
-  if (props.variant === 'coaching') {
-    return `It took you ${count} ${word} to spot the hazard`
-  }
-  return `You found the hazard in ${count} ${word}`
+  return `You spotted the hazard in ${count} ${word}`
 })
 
 const showMissedImage = computed(

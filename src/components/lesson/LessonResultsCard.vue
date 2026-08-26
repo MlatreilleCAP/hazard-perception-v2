@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import LessonAccuracyIcon from '@/components/lesson/LessonAccuracyIcon.vue'
 import LessonMetricRing from '@/components/lesson/LessonMetricRing.vue'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
@@ -17,6 +18,14 @@ defineEmits<{
   continue: []
 }>()
 
+const visible = ref(false)
+
+onMounted(() => {
+  requestAnimationFrame(() => {
+    visible.value = true
+  })
+})
+
 function metricIcon(status: Exclude<LessonMetricStatus, 'partial'>): string {
   return status === 'pass' ? metricPassIcon : metricFailIcon
 }
@@ -30,11 +39,20 @@ function metricAlt(status: LessonMetricStatus): string {
 function isAccuracyMetric(metric: LessonMetricToken): boolean {
   return metric.id === 'accuracy' && typeof metric.accuracySegments === 'number'
 }
+
+function sectionDelay(index: number): string {
+  return `${180 + index * 120}ms`
+}
+
+function metricDelay(sectionIndex: number, metricIndex: number): string {
+  return `${320 + sectionIndex * 120 + metricIndex * 70}ms`
+}
 </script>
 
 <template>
   <div
     class="process-results-page lesson-results-page"
+    :class="{ 'is-visible': visible }"
     role="main"
     aria-label="Challenge results"
   >
@@ -51,7 +69,12 @@ function isAccuracyMetric(metric: LessonMetricToken): boolean {
       <p class="lesson-results-summary">{{ summary }}</p>
 
       <ul v-if="sections.length > 0" class="lesson-results-sections">
-        <li v-for="section in sections" :key="section.id" class="lesson-results-section">
+        <li
+          v-for="(section, sectionIndex) in sections"
+          :key="section.id"
+          class="lesson-results-section"
+          :style="{ animationDelay: sectionDelay(sectionIndex) }"
+        >
           <div class="lesson-results-section-head">
             <p class="lesson-results-section-title">{{ section.title }}</p>
             <p class="lesson-results-section-pts">{{ section.points }} pts</p>
@@ -60,14 +83,18 @@ function isAccuracyMetric(metric: LessonMetricToken): boolean {
             <span
               class="lesson-results-bar-fill"
               :class="`is-${section.tone}`"
-              :style="{ width: `${Math.round(section.fill * 100)}%` }"
+              :style="{
+                width: visible ? `${Math.round(section.fill * 100)}%` : '0%',
+                transitionDelay: sectionDelay(sectionIndex),
+              }"
             />
           </div>
           <ul v-if="section.metrics.length > 0" class="lesson-results-metrics">
             <li
-              v-for="metric in section.metrics"
+              v-for="(metric, metricIndex) in section.metrics"
               :key="metric.id"
               class="lesson-results-metric"
+              :style="{ animationDelay: metricDelay(sectionIndex, metricIndex) }"
             >
               <template v-if="isAccuracyMetric(metric)">
                 <img
@@ -81,12 +108,14 @@ function isAccuracyMetric(metric: LessonMetricToken): boolean {
                 <LessonAccuracyIcon
                   v-else
                   :filled="metric.accuracySegments ?? 0"
+                  :animate="visible"
                   :aria-label="metricAlt(metric.status)"
                 />
               </template>
               <LessonMetricRing
                 v-else-if="metric.status === 'partial'"
                 :fill="metric.fill ?? 0.5"
+                :animate="visible"
                 :aria-label="metricAlt(metric.status)"
               />
               <img
