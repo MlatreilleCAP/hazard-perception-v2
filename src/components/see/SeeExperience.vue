@@ -655,8 +655,9 @@ function onTap(clientX: number, clientY: number): void {
 
 function onVideoMetadata(): void {
   const el = video.value
-  const width = el?.videoWidth ?? 0
-  const height = el?.videoHeight ?? 0
+  if (!el) return
+  const width = el.videoWidth
+  const height = el.videoHeight
   if (!width || !height) return
   videoAspect.value = width / height
   didCenterPan = false
