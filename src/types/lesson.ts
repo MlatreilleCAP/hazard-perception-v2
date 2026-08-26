@@ -203,6 +203,10 @@ export function validateLessonCompositionForPublish(
   return issues
 }
 
+export function lessonMaxScore(_definition: LessonDefinition): number {
+  return 0
+}
+
 export function lessonIntroSeenStorageKey(lessonId: string): string {
   return `hp.lesson.introSeen.${lessonId}`
 }
