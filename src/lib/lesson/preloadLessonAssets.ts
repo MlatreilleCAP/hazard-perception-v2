@@ -89,10 +89,15 @@ async function preloadMediaUrl(
 export async function preloadLessonAssets(options: {
   introMediaId: string | null
   items: LessonCompositionItem[]
+  /** Load published snapshots for learners; drafts for studio preview. */
+  published?: boolean
   label?: string
   onProgress?: (progress: LessonPreloadProgress) => void
 }): Promise<LessonPreloadResult> {
-  const { introMediaId, items, onProgress } = options
+  const { introMediaId, items, onProgress, published = true } = options
+  const loadSection = published
+    ? services.persistence.getPublished.bind(services.persistence)
+    : services.persistence.getById.bind(services.persistence)
   const progressLabel = options.label?.trim() || 'Loading…'
   const sections = new Map<string, ActivityDefinition>()
   const retain: Array<HTMLVideoElement | HTMLImageElement> = []
@@ -105,7 +110,7 @@ export async function preloadLessonAssets(options: {
 
   await Promise.all(
     items.map(async (item) => {
-      const loaded = await services.persistence.getById(item.refId)
+      const loaded = await loadSection(item.refId)
       if (!loaded) {
         throw new Error(`${item.title} could not be loaded.`)
       }

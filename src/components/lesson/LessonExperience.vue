@@ -26,9 +26,14 @@ import {
   type LessonSectionResult,
 } from '@/types/lesson'
 
-const props = defineProps<{
-  definition: ActivityDefinition
-}>()
+const props = withDefaults(
+  defineProps<{
+    definition: ActivityDefinition
+    /** Studio preview loads draft section snapshots; learners use published. */
+    preview?: boolean
+  }>(),
+  { preview: false },
+)
 
 const emit = defineEmits<{
   finished: []
@@ -203,6 +208,7 @@ async function preloadAndEnter(index: number): Promise<void> {
           ? (lesson.value.introMedia?.media_asset_id ?? null)
           : null,
         items: [item],
+        published: !props.preview,
         label,
         onProgress: (progress) => {
           if (generation !== preloadGeneration) return

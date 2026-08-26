@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { catalogCoverAt } from '@/app/catalogCovers'
 import { useActivityStore } from '@/stores/activityStore'
@@ -12,10 +12,22 @@ const published = computed(() =>
   activities.summaries.filter((summary) => summary.published),
 )
 
-onMounted(async () => {
+async function refreshCatalog(): Promise<void> {
   if (!auth.isSignedIn) return
   await activities.refreshList()
+}
+
+onMounted(async () => {
+  await auth.initialize()
+  await refreshCatalog()
 })
+
+watch(
+  () => auth.isSignedIn,
+  (signedIn) => {
+    if (signedIn) void refreshCatalog()
+  },
+)
 
 function coverFor(index: number): string {
   return catalogCoverAt(index)
@@ -38,12 +50,25 @@ function startTo(id: string) {
       </div>
 
       <div
-        v-if="published.length === 0"
+        v-if="!auth.isSignedIn"
+        class="catalog-empty"
+        role="status"
+      >
+        <p class="catalog-empty-title">Sign in to browse demos</p>
+        <p class="catalog-empty-body">
+          <RouterLink to="/login?next=/#demos">Sign in</RouterLink>
+          to explore published activities.
+        </p>
+      </div>
+
+      <div
+        v-else-if="published.length === 0"
         class="catalog-empty"
         role="status"
       >
         <p class="catalog-empty-title">No demos are currently available.</p>
         <p class="catalog-empty-body">Check back soon for new demo experiences.</p>
+        <p v-if="activities.error" class="catalog-empty-body">{{ activities.error }}</p>
       </div>
 
       <ul v-else class="catalog-grid">

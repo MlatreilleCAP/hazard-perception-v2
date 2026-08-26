@@ -127,6 +127,7 @@ function onPreviewFinished(): void {
           v-if="isLesson"
           :key="definition.id"
           :definition="definition"
+          :preview="isPreview"
           @finished="onPreviewFinished"
         />
         <SeeExperience
