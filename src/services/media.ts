@@ -24,6 +24,8 @@ function mapAsset(row: MediaAssetRow): MediaAsset {
 }
 
 export class MediaService {
+  private signedUrlCache = new Map<string, { url: string; expiresAtMs: number }>()
+
   async getAsset(mediaAssetId: string): Promise<MediaAsset> {
     const client = requireClient()
     const { data, error } = await client
@@ -43,6 +45,12 @@ export class MediaService {
     mediaAssetId: string,
     expiresInSeconds = 3600,
   ): Promise<string> {
+    const cached = this.signedUrlCache.get(mediaAssetId)
+    // Reuse while at least 2 minutes of validity remain so preload URLs match playback.
+    if (cached && cached.expiresAtMs - Date.now() > 120_000) {
+      return cached.url
+    }
+
     const client = requireClient()
     const asset = await this.getAsset(mediaAssetId)
 
@@ -60,6 +68,10 @@ export class MediaService {
       )
     }
 
+    this.signedUrlCache.set(mediaAssetId, {
+      url: data.signedUrl,
+      expiresAtMs: Date.now() + expiresInSeconds * 1000,
+    })
     return data.signedUrl
   }
 

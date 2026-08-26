@@ -33,8 +33,10 @@ export type LessonComposition = {
 
 export type LessonDefinition = {
   version: 1
-  /** Optional intro clip played once on the learner’s first visit. */
+  /** Optional intro clip before Observe / Process / Anticipate. */
   introMedia: MediaRef | null
+  /** When true, intro plays only on the learner’s first visit. */
+  introShowOnFirstVisitOnly: boolean
   composition: LessonComposition
 }
 
@@ -51,6 +53,7 @@ export function createDefaultLessonDefinition(): LessonDefinition {
   return {
     version: 1,
     introMedia: null,
+    introShowOnFirstVisitOnly: true,
     composition: { schemaVersion: 1, items: [] },
   }
 }
@@ -61,6 +64,7 @@ export function cloneLessonDefinition(definition: LessonDefinition): LessonDefin
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
+    introShowOnFirstVisitOnly: definition.introShowOnFirstVisitOnly !== false,
     composition: {
       schemaVersion: 1,
       items: definition.composition.items.map((item) => ({ ...item })),
@@ -149,6 +153,7 @@ export function normalizeLessonDefinition(
   return {
     version: 1,
     introMedia,
+    introShowOnFirstVisitOnly: definition?.introShowOnFirstVisitOnly !== false,
     composition: parseLessonComposition(definition?.composition),
   }
 }
@@ -230,11 +235,35 @@ export function markLessonIntroSeen(lessonId: string): void {
 }
 
 export const LESSON_SECTION_MAX_PTS = 40
+export const LESSON_PASS_PERCENT = 70
+
+export type LessonMetricStatus = 'pass' | 'fail' | 'partial'
+
+export type LessonMetricToken = {
+  id: string
+  label: string
+  status: LessonMetricStatus
+  /** 0–1 fill for partial ring metrics. */
+  fill?: number
+}
+
+export type LessonSeeHazardResult = {
+  id: string
+  correct: boolean
+  attempts: number
+  /**
+   * Share of the hazard’s visible window used before the tap (0 = immediate,
+   * 1 = at the end of the window). Null when the hazard was missed.
+   */
+  identifyRatio: number | null
+}
 
 export type LessonSeeSectionResult = {
   kind: 'see'
   spotted: number
   total: number
+  hazards: LessonSeeHazardResult[]
+  metrics: LessonMetricToken[]
 }
 
 export type LessonProcessSectionResult = {
@@ -242,6 +271,7 @@ export type LessonProcessSectionResult = {
   percent: number
   correctCount: number
   totalCount: number
+  metrics: LessonMetricToken[]
 }
 
 export type LessonAnticipateSectionResult = {
@@ -250,6 +280,7 @@ export type LessonAnticipateSectionResult = {
   correctCount: number
   totalCount: number
   branchCorrect?: boolean
+  metrics: LessonMetricToken[]
 }
 
 export type LessonSectionResult =
@@ -262,13 +293,15 @@ export type LessonResultsSection = {
   title: string
   points: number
   fill: number
-  summary: string
   tone: 'pass' | 'fail' | 'partial' | 'neutral'
+  metrics: LessonMetricToken[]
 }
 
 export type LessonResultsModel = {
   title: string
   percent: number
+  passed: boolean
+  summary: string
   sections: LessonResultsSection[]
 }
 
@@ -283,6 +316,55 @@ function toneFromScore(score: number): LessonResultsSection['tone'] {
   return 'neutral'
 }
 
+function metricStatusFromRatio(fill: number): LessonMetricStatus {
+  if (fill >= 0.999) return 'pass'
+  if (fill <= 0.001) return 'fail'
+  return 'partial'
+}
+
+/** Build Detection / Time / Accuracy tokens from Observe hazard outcomes. */
+export function buildObserveMetrics(
+  hazards: LessonSeeHazardResult[],
+  spotted: number,
+  total: number,
+): LessonMetricToken[] {
+  const detectionFill = total > 0 ? spotted / total : 0
+
+  const timeFill =
+    hazards.length === 0
+      ? 0
+      : hazards.reduce((sum, hazard) => {
+          if (!hazard.correct || hazard.identifyRatio == null) return sum
+          return sum + Math.max(0, Math.min(1, 1 - hazard.identifyRatio))
+        }, 0) / hazards.length
+
+  const firstTryHits = hazards.filter(
+    (hazard) => hazard.correct && hazard.attempts <= 1,
+  ).length
+  const accuracyFill = total > 0 ? firstTryHits / total : 0
+
+  return [
+    {
+      id: 'detection',
+      label: 'Detection',
+      status: metricStatusFromRatio(detectionFill),
+      fill: detectionFill,
+    },
+    {
+      id: 'time',
+      label: 'Time',
+      status: metricStatusFromRatio(timeFill),
+      fill: timeFill,
+    },
+    {
+      id: 'accuracy',
+      label: 'Accuracy',
+      status: metricStatusFromRatio(accuracyFill),
+      fill: accuracyFill,
+    },
+  ]
+}
+
 export function buildLessonResultsModel(
   title: string,
   sectionResults: Partial<Record<'see' | 'process' | 'anticipate', LessonSectionResult>>,
@@ -293,16 +375,17 @@ export function buildLessonResultsModel(
   if (see?.kind === 'see') {
     const fill = see.total > 0 ? see.spotted / see.total : 0
     const percent = Math.round(fill * 100)
+    const metrics =
+      see.metrics.length > 0
+        ? see.metrics
+        : buildObserveMetrics(see.hazards, see.spotted, see.total)
     sections.push({
       id: 'see',
-      title: 'What You Observe',
+      title: 'Observation',
       points: ptsFromPercent(percent),
       fill,
-      summary:
-        see.total === 0
-          ? 'No hazards configured'
-          : `${see.spotted} of ${see.total} hazard${see.total === 1 ? '' : 's'} spotted`,
       tone: toneFromScore(percent),
+      metrics,
     })
   }
 
@@ -310,43 +393,38 @@ export function buildLessonResultsModel(
   if (process?.kind === 'process') {
     sections.push({
       id: 'know',
-      title: 'What You Know',
+      title: 'Process',
       points: ptsFromPercent(process.percent),
       fill: process.percent / 100,
-      summary:
-        process.totalCount === 0
-          ? 'No questions answered'
-          : `${process.correctCount} of ${process.totalCount} correct`,
       tone: toneFromScore(process.percent),
+      metrics: process.metrics,
     })
   }
 
   const anticipate = sectionResults.anticipate
   if (anticipate?.kind === 'anticipate') {
-    const branchNote =
-      anticipate.branchCorrect == null
-        ? ''
-        : anticipate.branchCorrect
-          ? ' · Branch correct'
-          : ' · Branch incorrect'
     sections.push({
       id: 'do',
-      title: 'What You Do',
+      title: 'Anticipation',
       points: ptsFromPercent(anticipate.percent),
       fill: anticipate.percent / 100,
-      summary:
-        anticipate.totalCount === 0
-          ? `No questions answered${branchNote}`
-          : `${anticipate.correctCount} of ${anticipate.totalCount} correct${branchNote}`,
       tone: toneFromScore(anticipate.percent),
+      metrics: anticipate.metrics,
     })
   }
 
   const earned = sections.reduce((sum, section) => sum + section.points, 0)
   const max = Math.max(1, sections.length * LESSON_SECTION_MAX_PTS)
+  const percent = Math.round((earned / max) * 100)
+  const passed = percent >= LESSON_PASS_PERCENT
+  const challengeName = title.trim() || 'this'
   return {
     title,
-    percent: Math.round((earned / max) * 100),
+    percent,
+    passed,
+    summary: passed
+      ? `You passed the ${challengeName} inroads challenge.\nHere are your detailed scores.`
+      : `You did not pass the ${challengeName} inroads challenge.\nHere are your detailed scores.`,
     sections,
   }
 }

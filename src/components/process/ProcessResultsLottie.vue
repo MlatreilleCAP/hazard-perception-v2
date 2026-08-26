@@ -2,9 +2,18 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import lottie, { type AnimationItem } from 'lottie-web'
 
-const props = defineProps<{
-  animationData: object
-}>()
+const props = withDefaults(
+  defineProps<{
+    animationData: object
+    loop?: boolean
+    /** SVG preserveAspectRatio; use meet to span width without cropping. */
+    preserveAspectRatio?: string
+  }>(),
+  {
+    loop: false,
+    preserveAspectRatio: 'xMidYMid meet',
+  },
+)
 
 const root = ref<HTMLDivElement | null>(null)
 let animation: AnimationItem | null = null
@@ -15,11 +24,11 @@ onMounted(() => {
   animation = lottie.loadAnimation({
     container: root.value,
     renderer: 'svg',
-    loop: false,
+    loop: props.loop,
     autoplay: true,
     animationData: props.animationData,
     rendererSettings: {
-      preserveAspectRatio: 'xMidYMid meet',
+      preserveAspectRatio: props.preserveAspectRatio,
     },
   })
   observer = new ResizeObserver(() => {

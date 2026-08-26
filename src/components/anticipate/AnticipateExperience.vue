@@ -28,6 +28,7 @@ const emit = defineEmits<{
       correctCount: number
       totalCount: number
       branchCorrect?: boolean
+      questionResults?: Array<{ id: string; label: string; correct: boolean }>
     },
   ]
 }>()
@@ -68,16 +69,7 @@ const currentQuestion = computed(() => {
   return postQuestions.value[questionIndex.value] ?? null
 })
 
-const scoredBank = computed((): ProcessQuestionBank => {
-  if (!remedialPlayed.value) return anticipate.value.questions
-  return {
-    version: 2,
-    questions: [
-      ...anticipate.value.questions.questions,
-      ...anticipate.value.remedialQuestions.questions,
-    ],
-  }
-})
+const scoredBank = computed((): ProcessQuestionBank => anticipate.value.questions)
 
 const score = computed(() => scoreProcessQuestions(scoredBank.value, answers.value))
 const results = computed(() => processQuestionResults(scoredBank.value, answers.value))
@@ -256,7 +248,7 @@ function onQuestionComplete(): void {
   if (phase.value === 'remedial_questions') {
     const next = remedialQuestionIndex.value + 1
     if (next >= remedialQuestions.value.length) {
-      phase.value = 'results'
+      emitFinished()
       return
     }
     remedialQuestionIndex.value = next
@@ -277,6 +269,11 @@ function emitFinished(): void {
     correctCount: results.value.filter((item) => item.correct).length,
     totalCount: results.value.length,
     branchCorrect: branchCorrect.value,
+    questionResults: results.value.map((item) => ({
+      id: item.id,
+      label: item.label,
+      correct: item.correct,
+    })),
   })
 }
 </script>

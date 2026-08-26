@@ -17,7 +17,6 @@ import {
   landscapeVideoDisplaySize,
   SEE_INITIAL_PAN_OFFSET_X,
   VIDEO_PAN_SLOP_PX,
-  videoAspectRatio,
 } from '@/lib/hazards/coordinates'
 import {
   ENGAGEMENT_DELAY_MS,
@@ -46,7 +45,18 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  finished: [payload?: { spotted: number; total: number }]
+  finished: [
+    payload?: {
+      spotted: number
+      total: number
+      hazardResults?: Array<{
+        id: string
+        correct: boolean
+        attempts: number
+        identifyRatio: number | null
+      }>
+    },
+  ]
 }>()
 
 type Phase = 'ready' | 'playing' | 'results' | 'coaching'
@@ -71,7 +81,8 @@ const video = ref<HTMLVideoElement | null>(null)
 const stage = ref<HTMLElement | null>(null)
 const phase = ref<Phase>('ready')
 const currentTime = ref(0)
-const videoAspect = ref(16 / 9)
+/** Null until metadata so we never paint a wrong landscape width. */
+const videoAspect = ref<number | null>(null)
 const panX = ref(0)
 const viewportSize = ref({ width: 0, height: 0 })
 const answers = ref<Record<string, number>>({})
@@ -87,6 +98,7 @@ const outOfAttemptsCaption = ref(false)
 const overlay = ref<Overlay | null>(null)
 const deferredMissQueue = ref<string[]>([])
 const hitAttempts = ref<Record<string, number>>({})
+const hitAtSeconds = ref<Record<string, number>>({})
 const missedVideoUrls = ref<Record<string, string>>({})
 const explanationImageUrls = ref<Record<string, string>>({})
 
@@ -139,12 +151,25 @@ const clicksEnabled = computed(
   () => phase.value === 'playing' && !celebrating.value && overlay.value == null,
 )
 
-const planeSize = computed(() =>
-  landscapeVideoDisplaySize(
+const planeSize = computed(() => {
+  const aspect = videoAspect.value
+  if (aspect == null) {
+    return {
+      width: Math.max(0, viewportSize.value.width),
+      height: Math.max(0, viewportSize.value.height),
+    }
+  }
+  return landscapeVideoDisplaySize(
     viewportSize.value.width,
     viewportSize.value.height,
-    videoAspect.value,
-  ),
+    aspect,
+  )
+})
+const planeReady = computed(
+  () =>
+    videoAspect.value != null &&
+    viewportSize.value.width > 0 &&
+    viewportSize.value.height > 0,
 )
 const maxPan = computed(() => Math.max(0, planeSize.value.width - viewportSize.value.width))
 const planeStyle = computed(() => ({
@@ -231,6 +256,7 @@ function resetSession(): void {
   overlay.value = null
   deferredMissQueue.value = []
   hitAttempts.value = {}
+  hitAtSeconds.value = {}
   clickMarkers.value = []
   answers.value = {}
   currentTime.value = 0
@@ -243,7 +269,7 @@ watch(
     error.value = null
     phase.value = 'ready'
     resetSession()
-    videoAspect.value = 16 / 9
+    videoAspect.value = null
     didCenterPan = false
     panX.value = 0
     if (!mediaId) {
@@ -407,6 +433,23 @@ function emitFinished(): void {
   emit('finished', {
     spotted: spotted.value,
     total: totalHazards.value,
+    hazardResults: sortedHazards.value.map((hazard) => {
+      const correct = resolvedIds.value.has(hazard.id)
+      const attempts = hitAttempts.value[hazard.id] ?? 0
+      const hitAt = hitAtSeconds.value[hazard.id]
+      const visibleDuration = Math.max(0.001, hazard.endTime - hazard.startTime)
+      let identifyRatio: number | null = null
+      if (correct && typeof hitAt === 'number') {
+        const delay = Math.max(0, hitAt - hazard.startTime)
+        identifyRatio = Math.min(1, delay / visibleDuration)
+      }
+      return {
+        id: hazard.id,
+        correct,
+        attempts,
+        identifyRatio,
+      }
+    }),
   })
 }
 
@@ -527,6 +570,7 @@ function onTap(clientX: number, clientY: number): void {
     nextResolved.add(target.id)
     resolvedIds.value = nextResolved
     hitAttempts.value = { ...hitAttempts.value, [target.id]: nextAttempts }
+    hitAtSeconds.value = { ...hitAtSeconds.value, [target.id]: time }
     trackingHazardId.value = null
     attemptCount.value = 0
     window.clearTimeout(hitTimer)
@@ -549,9 +593,15 @@ function onTap(clientX: number, clientY: number): void {
 
 function onVideoMetadata(): void {
   const el = video.value
-  videoAspect.value = videoAspectRatio(el?.videoWidth ?? 0, el?.videoHeight ?? 0)
+  const width = el?.videoWidth ?? 0
+  const height = el?.videoHeight ?? 0
+  if (!width || !height) return
+  videoAspect.value = width / height
   didCenterPan = false
   measureStage()
+  requestAnimationFrame(() => {
+    measureStage()
+  })
 }
 
 function onPointerDown(event: PointerEvent): void {
@@ -693,7 +743,7 @@ onBeforeUnmount(() => {
       >
         <div
           class="see-video-plane"
-          :class="{ 'is-interactive': clicksEnabled }"
+          :class="{ 'is-interactive': clicksEnabled, 'is-layout-ready': planeReady }"
           :style="planeStyle"
           role="application"
           aria-label="Tap hazards as they develop"

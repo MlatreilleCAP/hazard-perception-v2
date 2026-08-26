@@ -21,7 +21,14 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  finished: [payload?: { percent: number; correctCount: number; totalCount: number }]
+  finished: [
+    payload?: {
+      percent: number
+      correctCount: number
+      totalCount: number
+      questionResults?: Array<{ id: string; label: string; correct: boolean }>
+    },
+  ]
 }>()
 
 type Phase = 'playing' | 'questions' | 'results'
@@ -152,6 +159,11 @@ function emitFinished(): void {
     percent: score.value.percent,
     correctCount: results.value.filter((item) => item.correct).length,
     totalCount: results.value.length,
+    questionResults: results.value.map((item) => ({
+      id: item.id,
+      label: item.label,
+      correct: item.correct,
+    })),
   })
 }
 

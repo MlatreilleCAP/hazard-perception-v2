@@ -9,6 +9,7 @@ import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
+import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import { useActivityStore } from '@/stores/activityStore'
 import type { ActivitySummary } from '@/types/activity'
@@ -127,6 +128,7 @@ function rebuildComposition(): void {
   lesson.value = {
     version: 1,
     introMedia: lesson.value.introMedia,
+    introShowOnFirstVisitOnly: lesson.value.introShowOnFirstVisitOnly,
     composition: sanitizeLessonCompositionForSave({
       schemaVersion: 1,
       items,
@@ -137,6 +139,12 @@ function rebuildComposition(): void {
 function setIntroMedia(media: MediaRef | null): void {
   if (!lesson.value) return
   lesson.value = { ...lesson.value, introMedia: media }
+  saveMessage.value = null
+}
+
+function setIntroShowOnFirstVisitOnly(value: boolean): void {
+  if (!lesson.value) return
+  lesson.value = { ...lesson.value, introShowOnFirstVisitOnly: value }
   saveMessage.value = null
 }
 
@@ -223,6 +231,7 @@ async function persist(): Promise<boolean> {
     const next = writeLessonDefinition(activities.current, {
       version: 1,
       introMedia: lesson.value.introMedia,
+      introShowOnFirstVisitOnly: lesson.value.introShowOnFirstVisitOnly,
       composition: sanitizeLessonCompositionForSave(lesson.value.composition),
     })
     next.metadata = {
@@ -359,8 +368,7 @@ async function remove(): Promise<void> {
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Intro video" />
           <p class="author-muted">
-            Optional. Plays once on the learner’s first visit, before Observe / Process /
-            Anticipate.
+            Optional. Plays before Observe / Process / Anticipate when configured.
           </p>
           <MediaUploadField
             :id="`${activityId}-intro-video`"
@@ -368,6 +376,13 @@ async function remove(): Promise<void> {
             label="Intro video"
             :model-value="lesson.introMedia"
             @update:model-value="setIntroMedia"
+          />
+          <AuthorToggle
+            :id="`${activityId}-intro-first-visit`"
+            :model-value="lesson.introShowOnFirstVisitOnly !== false"
+            label="Show on first visit only"
+            description="When on, the intro plays once per learner. When off, it plays every time the lesson starts."
+            @update:model-value="setIntroShowOnFirstVisitOnly"
           />
         </section>
 
