@@ -29,7 +29,10 @@ const explanationText = computed(() => props.question.explanation.trim())
 const points = computed(() =>
   submitted.value ? pointsForAnswer(props.question, draftIndex.value) : 0,
 )
-const awaitingContinue = computed(() => submitted.value && showExplanation.value)
+/** Explanation + Continue only after an incorrect answer when the toggle is on. */
+const awaitingContinue = computed(
+  () => submitted.value && showExplanation.value && !isCorrect.value,
+)
 
 watch(
   () => props.question.id,
@@ -44,7 +47,7 @@ function answerState(index: number): 'default' | 'correct' | 'incorrect' | 'sele
   if (!submitted.value) {
     return draftIndex.value === index ? 'selected' : 'default'
   }
-  if (showExplanation.value) {
+  if (awaitingContinue.value) {
     if (index === props.question.correctIndex) return 'correct'
     if (draftIndex.value === index && index !== props.question.correctIndex) return 'incorrect'
     return 'default'
@@ -56,9 +59,8 @@ function submit(): void {
   if (submitted.value) return
   submitted.value = true
   emit('answer', draftIndex.value)
-  if (!showExplanation.value) {
-    advanceTimer = window.setTimeout(() => emit('complete'), 1600)
-  }
+  if (showExplanation.value && !isAnswerCorrect(props.question, draftIndex.value)) return
+  advanceTimer = window.setTimeout(() => emit('complete'), 1600)
 }
 
 function continueToNext(): void {
@@ -111,7 +113,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <div
-      v-if="showExplanation"
+      v-if="awaitingContinue"
       class="process-question-reveal"
       :class="{ 'is-open': awaitingContinue }"
     >

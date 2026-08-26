@@ -5,7 +5,7 @@ export const seeHazardPlugin: NodePlugin<{
   see: ReturnType<typeof createDefaultSeeDefinition>
 }> = {
   type: SEE_NODE_TYPE,
-  label: 'See',
+  label: 'Observe',
   category: 'content',
   createDefaultConfig: () => ({ see: createDefaultSeeDefinition() }),
 }

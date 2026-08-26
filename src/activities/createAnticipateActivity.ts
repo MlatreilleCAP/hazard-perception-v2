@@ -1,13 +1,23 @@
 import type { ActivityDefinition } from '@/types/activity'
 import { createId, nowIso } from '@/app/id'
-import { SEE_NODE_TYPE, SEE_TAG, createDefaultSeeDefinition } from '@/types/see'
+import {
+  ANTICIPATE_NODE_TYPE,
+  ANTICIPATE_TAG,
+  FREEZE_FRAME_BRANCH_TEMPLATE_ID,
+  anticipateMaxScore,
+  createDefaultAnticipateDefinition,
+  type AnticipateLiveTemplateId,
+} from '@/types/anticipate'
 
-export function createSeeActivity(title = 'Untitled scenario'): ActivityDefinition {
+export function createAnticipateActivity(
+  title = 'Untitled anticipate',
+  templateId: AnticipateLiveTemplateId = FREEZE_FRAME_BRANCH_TEMPLATE_ID,
+): ActivityDefinition {
   const startId = createId()
-  const seeId = createId()
+  const anticipateId = createId()
   const endId = createId()
   const timestamp = nowIso()
-  const see = createDefaultSeeDefinition()
+  const anticipate = createDefaultAnticipateDefinition(templateId)
 
   return {
     id: createId(),
@@ -17,7 +27,7 @@ export function createSeeActivity(title = 'Untitled scenario'): ActivityDefiniti
       title,
       description: '',
       locale: 'en',
-      tags: [SEE_TAG],
+      tags: [ANTICIPATE_TAG],
       authorId: null,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -35,13 +45,13 @@ export function createSeeActivity(title = 'Untitled scenario'): ActivityDefiniti
         config: {},
       },
       {
-        id: seeId,
-        type: SEE_NODE_TYPE,
-        name: 'Observe',
+        id: anticipateId,
+        type: ANTICIPATE_NODE_TYPE,
+        name: 'Anticipate',
         category: 'content',
         flow: { x: 280, y: 160 },
         timeline: null,
-        config: { see },
+        config: { anticipate },
       },
       {
         id: endId,
@@ -57,14 +67,14 @@ export function createSeeActivity(title = 'Untitled scenario'): ActivityDefiniti
       {
         id: createId(),
         fromNodeId: startId,
-        toNodeId: seeId,
+        toNodeId: anticipateId,
         label: 'Begin',
         triggerEventType: null,
         decisionId: null,
       },
       {
         id: createId(),
-        fromNodeId: seeId,
+        fromNodeId: anticipateId,
         toNodeId: endId,
         label: 'Complete',
         triggerEventType: 'node.completed',
@@ -80,7 +90,7 @@ export function createSeeActivity(title = 'Untitled scenario'): ActivityDefiniti
     events: [],
     decisions: [],
     scoring: {
-      maxScore: 0,
+      maxScore: anticipateMaxScore(anticipate),
       passingScore: null,
       aggregation: 'sum',
       rules: [],

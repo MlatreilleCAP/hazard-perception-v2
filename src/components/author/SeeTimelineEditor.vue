@@ -17,6 +17,7 @@ import type { ProcessQuestionBank } from '@/types/questions'
 import {
   adjustTrajectoryTimes,
   createEmptySeeHazard,
+  DEFAULT_SEE_INSTRUCTION_PILL,
   type SeeHazard,
 } from '@/types/see'
 
@@ -366,7 +367,7 @@ watch(previewUrl, () => {
       </p>
       <AuthorField
         :id="`${selectedHazard.id}-instruction-pill`"
-        :model-value="selectedHazard.instructionPill ?? 'See'"
+        :model-value="selectedHazard.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
         label="Pill label"
         @update:model-value="onInstructionPillChange"
       />

@@ -9,6 +9,7 @@ import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
+import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import { useActivityStore } from '@/stores/activityStore'
 import type { ActivitySummary } from '@/types/activity'
 import {
@@ -22,6 +23,8 @@ import {
   type LessonCompositionItemKind,
   type LessonDefinition,
 } from '@/types/lesson'
+import { isAnticipateActivity } from '@/types/anticipate'
+import type { MediaRef } from '@/types/media'
 import { isProcessActivity } from '@/types/process'
 import { isSeeActivity } from '@/types/see'
 
@@ -65,10 +68,14 @@ const seeCatalog = computed(() =>
 const processCatalog = computed(() =>
   activities.summaries.filter((item) => isProcessActivity(item.tags)),
 )
+const anticipateCatalog = computed(() =>
+  activities.summaries.filter((item) => isAnticipateActivity(item.tags)),
+)
 
 function catalogForKind(kind: LessonCompositionItemKind): ActivitySummary[] {
   if (kind === 'see') return seeCatalog.value
   if (kind === 'process') return processCatalog.value
+  if (kind === 'anticipate') return anticipateCatalog.value
   return []
 }
 
@@ -119,11 +126,18 @@ function rebuildComposition(): void {
   })
   lesson.value = {
     version: 1,
+    introMedia: lesson.value.introMedia,
     composition: sanitizeLessonCompositionForSave({
       schemaVersion: 1,
       items,
     }),
   }
+}
+
+function setIntroMedia(media: MediaRef | null): void {
+  if (!lesson.value) return
+  lesson.value = { ...lesson.value, introMedia: media }
+  saveMessage.value = null
 }
 
 function selectSectionItem(kind: LessonCompositionItemKind, refId: string): void {
@@ -139,6 +153,7 @@ function editHrefForKind(kind: LessonCompositionItemKind, refId: string): string
   if (!refId) return null
   if (kind === 'see') return `/studio/see/${refId}`
   if (kind === 'process') return `/studio/process/${refId}`
+  if (kind === 'anticipate') return `/studio/anticipate/${refId}`
   return null
 }
 
@@ -207,6 +222,7 @@ async function persist(): Promise<boolean> {
     rebuildComposition()
     const next = writeLessonDefinition(activities.current, {
       version: 1,
+      introMedia: lesson.value.introMedia,
       composition: sanitizeLessonCompositionForSave(lesson.value.composition),
     })
     next.metadata = {
@@ -318,7 +334,7 @@ async function remove(): Promise<void> {
 
       <template v-else>
         <p class="author-muted">
-          Choose See, Process, and Anticipate content for this lesson.
+          Choose Observe, Process, and Anticipate content for this lesson.
         </p>
 
         <section class="author-stack-sm">
@@ -337,6 +353,21 @@ async function remove(): Promise<void> {
             multiline
             :rows="3"
             placeholder="What learners will cover"
+          />
+        </section>
+
+        <section class="author-stack-sm">
+          <AuthorSectionHeader title="Intro video" />
+          <p class="author-muted">
+            Optional. Plays once on the learner’s first visit, before Observe / Process /
+            Anticipate.
+          </p>
+          <MediaUploadField
+            :id="`${activityId}-intro-video`"
+            :activity-id="activityId"
+            label="Intro video"
+            :model-value="lesson.introMedia"
+            @update:model-value="setIntroMedia"
           />
         </section>
 

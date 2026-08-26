@@ -22,15 +22,24 @@ let advanceTimer = 0
 
 const answers = computed(() => configuredAnswerEntries(props.question))
 const showExplanation = computed(() => props.question.showExplanation !== false)
+const showCorrectIncorrect = computed(() => props.question.showCorrectIncorrect !== false)
 const explanationText = computed(() => props.question.explanation.trim())
+const answeredCorrectly = computed(
+  () => selectedIndex.value != null && isAnswerCorrect(props.question, selectedIndex.value),
+)
 const feedback = computed(() => {
-  if (!locked.value || selectedIndex.value == null) return null
-  return isAnswerCorrect(props.question, selectedIndex.value) ? 'correct' : 'incorrect'
+  if (!showCorrectIncorrect.value || !locked.value || selectedIndex.value == null) {
+    return null
+  }
+  return answeredCorrectly.value ? 'correct' : 'incorrect'
 })
 const points = computed(() =>
   selectedIndex.value == null ? 0 : pointsForAnswer(props.question, selectedIndex.value),
 )
-const awaitingContinue = computed(() => locked.value && showExplanation.value)
+/** Explanation + Continue only after an incorrect answer when the toggle is on. */
+const awaitingContinue = computed(
+  () => locked.value && showExplanation.value && !answeredCorrectly.value,
+)
 
 watch(
   () => props.question.id,
@@ -42,10 +51,12 @@ watch(
 )
 
 function answerState(index: number): 'default' | 'correct' | 'incorrect' {
-  if (!locked.value) return 'default'
-  if (showExplanation.value) {
+  if (!locked.value || !showCorrectIncorrect.value) return 'default'
+  if (awaitingContinue.value) {
     if (index === props.question.correctIndex) return 'correct'
-    if (selectedIndex.value === index && index !== props.question.correctIndex) return 'incorrect'
+    if (selectedIndex.value === index && index !== props.question.correctIndex) {
+      return 'incorrect'
+    }
     return 'default'
   }
   if (selectedIndex.value === index) {
@@ -59,9 +70,12 @@ function select(index: number): void {
   selectedIndex.value = index
   locked.value = true
   emit('answer', index)
-  if (!showExplanation.value) {
-    advanceTimer = window.setTimeout(() => emit('complete'), 1600)
+  if (showExplanation.value && !isAnswerCorrect(props.question, index)) return
+  if (!showCorrectIncorrect.value) {
+    emit('complete')
+    return
   }
+  advanceTimer = window.setTimeout(() => emit('complete'), 1600)
 }
 
 function continueToNext(): void {
@@ -98,7 +112,7 @@ onBeforeUnmount(() => {
       </button>
     </div>
     <div
-      v-if="showExplanation"
+      v-if="awaitingContinue"
       class="process-question-reveal"
       :class="{ 'is-open': awaitingContinue }"
     >

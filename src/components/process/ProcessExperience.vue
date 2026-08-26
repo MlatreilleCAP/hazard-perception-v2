@@ -92,34 +92,50 @@ watch(
   },
 )
 
+async function loadSrcForMediaId(mediaId: string | null, segment: ProcessSegmentIndex): Promise<string | null> {
+  error.value = null
+  if (!mediaId) {
+    src.value = null
+    if (segment === 0) {
+      error.value = 'This process has no Video 1 yet.'
+    } else if (segment === 1) {
+      error.value = 'Video 2 is not configured for this process.'
+    } else {
+      error.value = 'Video 3 is not configured for this process.'
+    }
+    return null
+  }
+  try {
+    return await services.media.getSignedUrl(mediaId)
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Failed to load video'
+    return null
+  }
+}
+
 watch(
   activeMediaId,
-  async (mediaId) => {
-    src.value = null
-    error.value = null
-    if (!mediaId) {
-      if (segmentIndex.value === 0) {
-        error.value = 'This process has no Video 1 yet.'
-      } else if (segmentIndex.value === 1) {
-        error.value = 'Video 2 is not configured for this process.'
-      } else {
-        error.value = 'Video 3 is not configured for this process.'
+  (mediaId) => {
+    void (async () => {
+      const nextSrc = await loadSrcForMediaId(mediaId, segmentIndex.value)
+      if (nextSrc == null) return
+      // Keep the previous frame painted until the next URL is assigned.
+      if (activeMediaId.value === mediaId) {
+        src.value = nextSrc
       }
-      return
-    }
-    try {
-      src.value = await services.media.getSignedUrl(mediaId)
-    } catch (cause) {
-      error.value = cause instanceof Error ? cause.message : 'Failed to load video'
-    }
+    })()
   },
   { immediate: true },
 )
 
-function startSegment(index: ProcessSegmentIndex): void {
+async function startSegment(index: ProcessSegmentIndex): Promise<void> {
+  const mediaId = process.value.segments[index]?.media?.media_asset_id ?? null
+  const nextSrc = await loadSrcForMediaId(mediaId, index)
+  if (nextSrc == null) return
   segmentIndex.value = index
-  phase.value = 'playing'
   questionIndex.value = 0
+  phase.value = 'playing'
+  src.value = nextSrc
 }
 
 function storeAnswer(questionId: string, answerIndex: number): void {
@@ -146,7 +162,7 @@ function completeActiveSegment(): void {
   }
   if (segmentIndex.value === 1) {
     if (hasVideo3.value) {
-      startSegment(2)
+      void startSegment(2)
       return
     }
     emitFinished()
@@ -179,17 +195,17 @@ function onQuestionComplete(): void {
   questionIndex.value = next
 }
 
-function onResultsContinue(): void {
+async function onResultsContinue(): Promise<void> {
   if (passed.value) {
     if (hasVideo3.value) {
-      startSegment(2)
+      await startSegment(2)
       return
     }
     emitFinished()
     return
   }
   if (hasVideo2.value) {
-    startSegment(1)
+    await startSegment(1)
     return
   }
   emitFinished()
@@ -202,7 +218,6 @@ function onResultsContinue(): void {
     <template v-else-if="src">
       <ProcessVideoStage
         v-if="phase !== 'results'"
-        :key="segmentIndex"
         ref="stage"
         :src="src"
         :instruction-text="instructionText"

@@ -48,6 +48,18 @@ export type {
 export type { MediaAsset, MediaRef } from './media'
 export { ACTIVITY_MEDIA_BUCKET, collectMediaAssetIds } from './media'
 export type {
+  AnticipateDefinition,
+  AnticipateLiveTemplateId,
+  AnticipateTemplateId,
+} from './anticipate'
+export {
+  ANTICIPATE_NODE_TYPE,
+  ANTICIPATE_TAG,
+  ANTICIPATE_TEMPLATES,
+  FREEZE_FRAME_BRANCH_TEMPLATE_ID,
+  isAnticipateActivity,
+} from './anticipate'
+export type {
   ProcessDefinition,
   ProcessSegment,
   ProcessSegmentIndex,

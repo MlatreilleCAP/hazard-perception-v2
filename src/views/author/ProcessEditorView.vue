@@ -350,7 +350,7 @@ async function remove(): Promise<void> {
       </section>
 
       <section class="author-stack-sm">
-        <AuthorSectionHeader title="Video 1" />
+        <AuthorSectionHeader title="Process Video Clip" />
         <p class="author-muted">Upload a video or add one from the media library.</p>
         <MediaUploadField
           :id="`${activityId}-video-1`"

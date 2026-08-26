@@ -40,7 +40,7 @@ async function remove(id: string, title: string): Promise<void> {
       <div class="author-page-header">
         <div>
           <h1>Full Lessons</h1>
-          <p>Compose lessons from See, Process, and Anticipate scenarios</p>
+          <p>Compose lessons from Observe, Process, and Anticipate scenarios</p>
         </div>
         <RouterLink to="/studio/lesson/new" style="text-decoration: none">
           <AuthorPillButton variant="white">New Lesson</AuthorPillButton>

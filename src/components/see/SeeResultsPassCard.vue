@@ -81,10 +81,10 @@ watch(
     role="main"
     :aria-label="
       variant === 'passed'
-        ? 'See results — section passed'
+        ? 'Observe results — section passed'
         : variant === 'missed'
-          ? 'See results — hazard missed'
-          : 'See results — coaching required'
+          ? 'Observe results — hazard missed'
+          : 'Observe results — coaching required'
     "
   >
     <div class="see-results-heading">

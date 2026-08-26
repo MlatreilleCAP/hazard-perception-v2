@@ -1,4 +1,5 @@
 import { createId } from '@/app/id'
+import type { MediaRef } from '@/types/media'
 
 export const LESSON_TAG = 'lesson'
 export const LESSON_NODE_TYPE = 'lesson.composition'
@@ -7,9 +8,9 @@ export const LESSON_COMPOSITION_KINDS = ['see', 'process', 'anticipate'] as cons
 export type LessonCompositionItemKind = (typeof LESSON_COMPOSITION_KINDS)[number]
 
 export const LESSON_COMPOSER_SECTIONS = [
-  { kind: 'see', label: 'See' },
+  { kind: 'see', label: 'Observe' },
   { kind: 'process', label: 'Process' },
-  { kind: 'anticipate', label: 'Anticipate', comingSoon: true },
+  { kind: 'anticipate', label: 'Anticipate' },
 ] as const satisfies ReadonlyArray<{
   kind: LessonCompositionItemKind
   label: string
@@ -32,6 +33,8 @@ export type LessonComposition = {
 
 export type LessonDefinition = {
   version: 1
+  /** Optional intro clip played once on the learner’s first visit. */
+  introMedia: MediaRef | null
   composition: LessonComposition
 }
 
@@ -47,6 +50,7 @@ export function isLessonActivity(tags: string[] | null | undefined): boolean {
 export function createDefaultLessonDefinition(): LessonDefinition {
   return {
     version: 1,
+    introMedia: null,
     composition: { schemaVersion: 1, items: [] },
   }
 }
@@ -54,6 +58,9 @@ export function createDefaultLessonDefinition(): LessonDefinition {
 export function cloneLessonDefinition(definition: LessonDefinition): LessonDefinition {
   return {
     version: 1,
+    introMedia: definition.introMedia
+      ? { media_asset_id: definition.introMedia.media_asset_id }
+      : null,
     composition: {
       schemaVersion: 1,
       items: definition.composition.items.map((item) => ({ ...item })),
@@ -130,8 +137,18 @@ export function parseLessonComposition(value: unknown): LessonComposition {
 export function normalizeLessonDefinition(
   definition: Partial<LessonDefinition> | undefined,
 ): LessonDefinition {
+  const introRaw = definition?.introMedia
+  let introMedia: MediaRef | null = null
+  if (introRaw && typeof introRaw === 'object') {
+    const id = (introRaw as { media_asset_id?: unknown }).media_asset_id
+    if (typeof id === 'string' && id.trim()) {
+      introMedia = { media_asset_id: id.trim() }
+    }
+  }
+
   return {
     version: 1,
+    introMedia,
     composition: parseLessonComposition(definition?.composition),
   }
 }
@@ -139,7 +156,7 @@ export function normalizeLessonDefinition(
 export function lessonCompositionItemKindLabel(kind: LessonCompositionItemKind): string {
   switch (kind) {
     case 'see':
-      return 'See'
+      return 'Observe'
     case 'process':
       return 'Process'
     case 'anticipate':
@@ -176,7 +193,7 @@ export function validateLessonCompositionForPublish(
   const ordered = orderedInroadsCompositionItems(composition)
   const issues: string[] = []
   if (ordered.length === 0) {
-    issues.push('Add at least one See or Process section before publishing.')
+    issues.push('Add at least one Observe, Process, or Anticipate section before publishing.')
   }
   for (const item of ordered) {
     if (!item.refId.trim()) {
@@ -186,8 +203,26 @@ export function validateLessonCompositionForPublish(
   return issues
 }
 
-export function lessonMaxScore(_definition: LessonDefinition): number {
-  return 0
+export function lessonIntroSeenStorageKey(lessonId: string): string {
+  return `hp.lesson.introSeen.${lessonId}`
+}
+
+export function hasSeenLessonIntro(lessonId: string): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(lessonIntroSeenStorageKey(lessonId)) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function markLessonIntroSeen(lessonId: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(lessonIntroSeenStorageKey(lessonId), '1')
+  } catch {
+    // Ignore quota / private-mode failures; intro may replay.
+  }
 }
 
 export const LESSON_SECTION_MAX_PTS = 40
@@ -205,7 +240,18 @@ export type LessonProcessSectionResult = {
   totalCount: number
 }
 
-export type LessonSectionResult = LessonSeeSectionResult | LessonProcessSectionResult
+export type LessonAnticipateSectionResult = {
+  kind: 'anticipate'
+  percent: number
+  correctCount: number
+  totalCount: number
+  branchCorrect?: boolean
+}
+
+export type LessonSectionResult =
+  | LessonSeeSectionResult
+  | LessonProcessSectionResult
+  | LessonAnticipateSectionResult
 
 export type LessonResultsSection = {
   id: 'see' | 'know' | 'do'
@@ -245,7 +291,7 @@ export function buildLessonResultsModel(
     const percent = Math.round(fill * 100)
     sections.push({
       id: 'see',
-      title: 'What You See',
+      title: 'What You Observe',
       points: ptsFromPercent(percent),
       fill,
       summary:
@@ -268,6 +314,27 @@ export function buildLessonResultsModel(
           ? 'No questions answered'
           : `${process.correctCount} of ${process.totalCount} correct`,
       tone: toneFromScore(process.percent),
+    })
+  }
+
+  const anticipate = sectionResults.anticipate
+  if (anticipate?.kind === 'anticipate') {
+    const branchNote =
+      anticipate.branchCorrect == null
+        ? ''
+        : anticipate.branchCorrect
+          ? ' · Branch correct'
+          : ' · Branch incorrect'
+    sections.push({
+      id: 'do',
+      title: 'What You Do',
+      points: ptsFromPercent(anticipate.percent),
+      fill: anticipate.percent / 100,
+      summary:
+        anticipate.totalCount === 0
+          ? `No questions answered${branchNote}`
+          : `${anticipate.correctCount} of ${anticipate.totalCount} correct${branchNote}`,
+      tone: toneFromScore(anticipate.percent),
     })
   }
 

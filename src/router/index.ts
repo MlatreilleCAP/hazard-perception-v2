@@ -6,6 +6,9 @@ import AuthCallbackView from '@/views/AuthCallbackView.vue'
 import HomeView from '@/views/HomeView.vue'
 import LoginView from '@/views/LoginView.vue'
 import PlayerView from '@/views/PlayerView.vue'
+import AnticipateEditorView from '@/views/author/AnticipateEditorView.vue'
+import AnticipateListView from '@/views/author/AnticipateListView.vue'
+import AnticipateNewView from '@/views/author/AnticipateNewView.vue'
 import ProcessEditorView from '@/views/author/ProcessEditorView.vue'
 import ProcessListView from '@/views/author/ProcessListView.vue'
 import ProcessNewView from '@/views/author/ProcessNewView.vue'
@@ -54,7 +57,7 @@ export const router = createRouter({
           path: 'see',
           name: 'see-list',
           component: SeeListView,
-          meta: { layout: 'author', title: 'See', requiresAuth: true },
+          meta: { layout: 'author', title: 'Observe', requiresAuth: true },
         },
         {
           path: 'see/new',
@@ -66,7 +69,7 @@ export const router = createRouter({
           path: 'see/:id',
           name: 'see-edit',
           component: SeeEditorView,
-          meta: { layout: 'author', title: 'Edit See', requiresAuth: true },
+          meta: { layout: 'author', title: 'Edit Observe', requiresAuth: true },
         },
         {
           path: 'process',
@@ -85,6 +88,24 @@ export const router = createRouter({
           name: 'process-edit',
           component: ProcessEditorView,
           meta: { layout: 'author', title: 'Edit Process', requiresAuth: true },
+        },
+        {
+          path: 'anticipate',
+          name: 'anticipate-list',
+          component: AnticipateListView,
+          meta: { layout: 'author', title: 'Anticipate', requiresAuth: true },
+        },
+        {
+          path: 'anticipate/new',
+          name: 'anticipate-new',
+          component: AnticipateNewView,
+          meta: { layout: 'author', title: 'New Anticipate', requiresAuth: true },
+        },
+        {
+          path: 'anticipate/:id',
+          name: 'anticipate-edit',
+          component: AnticipateEditorView,
+          meta: { layout: 'author', title: 'Edit Anticipate', requiresAuth: true },
         },
         {
           path: 'lesson',

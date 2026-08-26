@@ -17,10 +17,19 @@ import {
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 
-const props = defineProps<{
-  segmentId: string
-  modelValue: ProcessQuestionBank
-}>()
+const props = withDefaults(
+  defineProps<{
+    segmentId: string
+    modelValue: ProcessQuestionBank
+    title?: string
+    description?: string
+  }>(),
+  {
+    title: 'Theory',
+    description:
+      'Add severity and theory questions from the dropdown. Theory questions are optional — if one is configured it is asked; otherwise it is skipped. Customize the text, answers, correct answer, and points for each answer. Use Up/Down to set the learner order.',
+  },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: ProcessQuestionBank]
@@ -115,7 +124,7 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
 
 <template>
   <section class="author-stack-sm">
-    <AuthorSectionHeader title="Severity & Theory">
+    <AuthorSectionHeader :title="title">
       <template #action>
         <label :for="`${segmentId}-add-question`" class="sr-only">Add question</label>
         <select
@@ -132,10 +141,7 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
     </AuthorSectionHeader>
 
     <p class="author-muted">
-      Add severity and theory questions from the dropdown. Theory questions are
-      optional — if one is configured it is asked; otherwise it is skipped.
-      Customize the text, answers, correct answer, and points for each answer.
-      Use Up/Down to set the learner order.
+      {{ description }}
     </p>
 
     <p v-if="questions.length === 0" class="author-list-empty author-muted" style="border: 1px dashed var(--editor-border); border-radius: 6px">
@@ -194,12 +200,32 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
               :key="`${question.id}-answer-${answerIndex}`"
               class="answer-row"
             >
-              <button type="button" class="answer-select" @click="setCorrect(question, answerIndex)">
-                <span class="answer-dot" :class="{ selected: question.correctIndex === answerIndex }">
-                  <svg v-if="question.correctIndex === answerIndex" viewBox="0 0 10 8" width="10" height="8" fill="none">
-                    <path d="M1 4.2 3.6 6.8 9 1.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              <div class="answer-select">
+                <button
+                  type="button"
+                  class="answer-dot"
+                  :class="{ selected: question.correctIndex === answerIndex }"
+                  :aria-label="`Mark answer ${ANSWER_LABELS[answerIndex] ?? answerIndex + 1} as correct`"
+                  :aria-pressed="question.correctIndex === answerIndex"
+                  @click="setCorrect(question, answerIndex)"
+                >
+                  <svg
+                    v-if="question.correctIndex === answerIndex"
+                    viewBox="0 0 10 8"
+                    width="10"
+                    height="8"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M1 4.2 3.6 6.8 9 1.2"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
                   </svg>
-                </span>
+                </button>
                 <span style="min-width: 0; flex: 1">
                   <span class="author-field-label">
                     Answer {{ ANSWER_LABELS[answerIndex] ?? answerIndex + 1 }}
@@ -210,11 +236,10 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
                     :value="answer.text"
                     :placeholder="`Answer ${ANSWER_LABELS[answerIndex] ?? answerIndex + 1} goes here`"
                     class="author-field-control"
-                    @click.stop
                     @input="updateAnswer(question, answerIndex, { text: ($event.target as HTMLInputElement).value })"
                   />
                 </span>
-              </button>
+              </div>
               <div class="answer-points">
                 <span class="author-field-label">Points</span>
                 <input
@@ -239,10 +264,17 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
         </div>
 
         <AuthorToggle
+          :id="`${question.id}-show-correct`"
+          :model-value="question.showCorrectIncorrect !== false"
+          label="Show correct / incorrect"
+          description="When off, learners do not see correct or incorrect feedback or the score pill. If explanation is also off, the question advances immediately."
+          @update:model-value="updateQuestion(question.id, { ...question, showCorrectIncorrect: $event })"
+        />
+        <AuthorToggle
           :id="`${question.id}-show-explanation`"
           :model-value="question.showExplanation !== false"
           label="Show explanation"
-          description="When off, learners won’t see this after answering. It still appears on the results screen for incorrect answers."
+          description="When on, learners see the explanation and Continue only after an incorrect answer. Correct answers skip the explanation. It still appears on the results screen for incorrect answers."
           @update:model-value="updateQuestion(question.id, { ...question, showExplanation: $event })"
         />
         <AuthorField

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import ProcessInstructionCard from '@/components/process/ProcessInstructionCard.vue'
+import { DEFAULT_SEE_INSTRUCTION_PILL } from '@/types/see'
 
 const props = withDefaults(
   defineProps<{
@@ -12,7 +13,7 @@ const props = withDefaults(
   }>(),
   {
     instructionText: '',
-    instructionPill: 'See',
+    instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
     holdEnd: false,
   },
 )
@@ -110,7 +111,7 @@ onBeforeUnmount(() => {
     <div v-if="showInstruction" class="process-instruction-overlay">
       <ProcessInstructionCard
         :text="trimmedInstruction"
-        :tag="instructionPill.trim() || 'See'"
+        :tag="instructionPill.trim() || DEFAULT_SEE_INSTRUCTION_PILL"
         @begin="begin"
       />
     </div>

@@ -39,6 +39,7 @@ import {
   type ProcessQuestionResult,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
+import { DEFAULT_SEE_INSTRUCTION_PILL } from '@/types/see'
 
 const props = defineProps<{
   definition: ActivityDefinition
@@ -666,7 +667,7 @@ onBeforeUnmount(() => {
           :key="overlay?.hazardId"
           :src="missedVideoSrc"
           :instruction-text="overlayHazard?.instructionText ?? ''"
-          :instruction-pill="overlayHazard?.instructionPill ?? 'See'"
+          :instruction-pill="overlayHazard?.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
           :hold-end="overlay?.step === 'question'"
           @continue="startQuestionFlow"
         />
@@ -731,7 +732,7 @@ onBeforeUnmount(() => {
         <div v-if="phase === 'ready'" class="process-instruction-overlay">
           <ProcessInstructionCard
             text="Watch the following video and tap hazards as they develop."
-            tag="See"
+            :tag="DEFAULT_SEE_INSTRUCTION_PILL"
             @begin="begin"
           />
         </div>
@@ -751,7 +752,7 @@ onBeforeUnmount(() => {
           :key="overlay?.hazardId"
           :src="missedVideoSrc"
           :instruction-text="overlayHazard?.instructionText ?? ''"
-          :instruction-pill="overlayHazard?.instructionPill ?? 'See'"
+          :instruction-pill="overlayHazard?.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
           :hold-end="overlay?.step === 'question'"
           @continue="startQuestionFlow"
         />
@@ -792,7 +793,7 @@ onBeforeUnmount(() => {
         :explanations="missExplanations"
         @continue="onResultsContinue"
       />
-      <div v-else class="process-results-page" role="main" aria-label="See results">
+      <div v-else class="process-results-page" role="main" aria-label="Observe results">
         <p class="process-results-announcement" :class="{ 'is-emphasis': !allSpotted }">
           {{
             totalHazards === 0

@@ -20,7 +20,7 @@ import {
 
 export const SEE_TAG = 'see'
 export const SEE_NODE_TYPE = 'see.hazard'
-export const DEFAULT_SEE_INSTRUCTION_PILL = 'See'
+export const DEFAULT_SEE_INSTRUCTION_PILL = 'Observe'
 
 export interface SeeHazard extends HazardDetails {
   id: string

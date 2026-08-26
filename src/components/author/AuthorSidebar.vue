@@ -9,6 +9,10 @@ const processOpen = computed(
 const seeOpen = computed(
   () => route.path === '/studio/see' || route.path.startsWith('/studio/see/'),
 )
+const anticipateOpen = computed(
+  () =>
+    route.path === '/studio/anticipate' || route.path.startsWith('/studio/anticipate/'),
+)
 const lessonOpen = computed(
   () => route.path === '/studio/lesson' || route.path.startsWith('/studio/lesson/'),
 )
@@ -47,7 +51,7 @@ const lessonOpen = computed(
         </span>
         <div class="author-nav-children">
           <RouterLink to="/studio/see" class="author-nav-link" :class="{ active: seeOpen }">
-            See
+            Observe
           </RouterLink>
           <RouterLink
             to="/studio/process"
@@ -56,7 +60,13 @@ const lessonOpen = computed(
           >
             Process
           </RouterLink>
-          <span class="author-nav-disabled">Anticipate</span>
+          <RouterLink
+            to="/studio/anticipate"
+            class="author-nav-link"
+            :class="{ active: anticipateOpen }"
+          >
+            Anticipate
+          </RouterLink>
           <RouterLink
             to="/studio/lesson"
             class="author-nav-link"
@@ -66,8 +76,6 @@ const lessonOpen = computed(
           </RouterLink>
         </div>
       </div>
-      <span class="author-nav-disabled">Interactive activities</span>
-      <span class="author-nav-disabled">Nodes</span>
       <span class="author-nav-disabled">Media</span>
       <span class="author-nav-disabled">Publishing</span>
     </nav>

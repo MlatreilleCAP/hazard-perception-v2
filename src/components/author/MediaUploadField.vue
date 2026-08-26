@@ -59,6 +59,24 @@ watch(
   { immediate: true },
 )
 
+function fitAuthorVideo(event: Event): void {
+  const el = event.target as HTMLVideoElement
+  const w = el.videoWidth
+  const h = el.videoHeight
+  if (!w || !h) return
+  el.style.setProperty('--author-video-aspect', `${w} / ${h}`)
+  const parentWidth = el.parentElement?.clientWidth || w
+  const maxHeightPx = Number.parseFloat(getComputedStyle(el).maxHeight) || 384
+  let height = Math.min(maxHeightPx, h)
+  let width = (w / h) * height
+  if (width > parentWidth) {
+    width = parentWidth
+    height = width / (w / h)
+  }
+  el.style.width = `${Math.round(width)}px`
+  el.style.height = `${Math.round(height)}px`
+}
+
 const isAudio = computed(() => props.kind === 'audio')
 const isImage = computed(() => props.kind === 'image')
 const kindLabel = computed(() =>
@@ -207,6 +225,13 @@ function clear(): void {
       :instruction-pill="instructionPill"
       compact
     />
-    <video v-else-if="previewUrl" class="author-video" :src="previewUrl" controls playsinline />
+    <video
+      v-else-if="previewUrl"
+      class="author-video"
+      :src="previewUrl"
+      controls
+      playsinline
+      @loadedmetadata="fitAuthorVideo"
+    />
   </div>
 </template>

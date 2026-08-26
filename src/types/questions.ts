@@ -15,7 +15,16 @@ export interface ProcessSurveyQuestion {
   answers: ProcessAnswerOption[]
   correctIndex: number
   explanation: string
+  /**
+   * When true, show explanation text and Continue after an incorrect answer.
+   * Correct answers skip the explanation and advance without that step.
+   */
   showExplanation?: boolean
+  /**
+   * When false, hide correct/incorrect answer styling and the score pill.
+   * If explanation is also off (or the answer was correct), complete after the answer.
+   */
+  showCorrectIncorrect?: boolean
 }
 
 export interface ProcessQuestionBank {
@@ -55,6 +64,7 @@ export function createSeveritySurveyQuestion(
     correctIndex,
     explanation: '',
     showExplanation: false,
+    showCorrectIncorrect: true,
   }
 }
 
@@ -72,6 +82,7 @@ export function createTheorySurveyQuestion(): ProcessSurveyQuestion {
     correctIndex: 0,
     explanation: '',
     showExplanation: true,
+    showCorrectIncorrect: true,
   }
 }
 
@@ -134,6 +145,8 @@ function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
     explanation: typeof raw.explanation === 'string' ? raw.explanation : '',
     showExplanation:
       typeof raw.showExplanation === 'boolean' ? raw.showExplanation : kind !== 'severity',
+    showCorrectIncorrect:
+      typeof raw.showCorrectIncorrect === 'boolean' ? raw.showCorrectIncorrect : true,
   }
 }
 

@@ -3,12 +3,14 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { cloneJson } from '@/app/clone'
 import { services } from '@/app/container'
+import AnticipateExperience from '@/components/anticipate/AnticipateExperience.vue'
 import LessonExperience from '@/components/lesson/LessonExperience.vue'
 import ProcessExperience from '@/components/process/ProcessExperience.vue'
 import SeeExperience from '@/components/see/SeeExperience.vue'
 import { useActivityStore } from '@/stores/activityStore'
 import { useRuntimeStore } from '@/stores/runtimeStore'
 import type { ActivityDefinition } from '@/types/activity'
+import { isAnticipateActivity } from '@/types/anticipate'
 import { isLessonActivity } from '@/types/lesson'
 import { isProcessActivity } from '@/types/process'
 import { isSeeActivity } from '@/types/see'
@@ -32,7 +34,13 @@ const isSee = computed(
 const isLesson = computed(
   () => Boolean(definition.value && isLessonActivity(definition.value.metadata.tags)),
 )
-const hasExperience = computed(() => isProcess.value || isSee.value || isLesson.value)
+const isAnticipate = computed(
+  () =>
+    Boolean(definition.value && isAnticipateActivity(definition.value.metadata.tags)),
+)
+const hasExperience = computed(
+  () => isProcess.value || isSee.value || isLesson.value || isAnticipate.value,
+)
 
 const activityId = computed(() =>
   typeof route.query.activity === 'string' ? route.query.activity : null,
@@ -103,6 +111,10 @@ function onPreviewFinished(): void {
     void router.push(`/studio/see/${activityId.value}`)
     return
   }
+  if (isAnticipate.value) {
+    void router.push(`/studio/anticipate/${activityId.value}`)
+    return
+  }
   void router.push(`/studio/process/${activityId.value}`)
 }
 </script>
@@ -119,6 +131,12 @@ function onPreviewFinished(): void {
         />
         <SeeExperience
           v-else-if="isSee"
+          :key="definition.id"
+          :definition="definition"
+          @finished="onPreviewFinished"
+        />
+        <AnticipateExperience
+          v-else-if="isAnticipate"
           :key="definition.id"
           :definition="definition"
           @finished="onPreviewFinished"

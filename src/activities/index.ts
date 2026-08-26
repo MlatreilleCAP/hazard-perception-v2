@@ -1,7 +1,13 @@
+export { createAnticipateActivity } from '@/activities/createAnticipateActivity'
 export { createEmptyActivity } from '@/activities/createEmptyActivity'
 export { createLessonActivity } from '@/activities/createLessonActivity'
 export { createProcessActivity } from '@/activities/createProcessActivity'
 export { createSeeActivity } from '@/activities/createSeeActivity'
+export {
+  findAnticipateNode,
+  readAnticipateDefinition,
+  writeAnticipateDefinition,
+} from '@/activities/anticipateDefinition'
 export {
   findLessonNode,
   readLessonDefinition,
