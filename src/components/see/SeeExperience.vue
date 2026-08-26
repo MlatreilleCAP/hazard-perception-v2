@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { readSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
 import ProcessInstructionCard from '@/components/process/ProcessInstructionCard.vue'
+import ProcessResultsCard from '@/components/process/ProcessResultsCard.vue'
+import ProcessResultsFailCard from '@/components/process/ProcessResultsFailCard.vue'
 import ProcessResultsQuestionList from '@/components/process/ProcessResultsQuestionList.vue'
 import ProcessSeverityPopover from '@/components/process/ProcessSeverityPopover.vue'
 import ProcessTheoryPopover from '@/components/process/ProcessTheoryPopover.vue'
@@ -36,9 +38,12 @@ import type { ActivityDefinition } from '@/types/activity'
 import {
   configuredSurveyQuestions,
   processQuestionResults,
+  scoreProcessQuestions,
   type ProcessQuestionResult,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
+
+const QUESTION_PASS_THRESHOLD = 70
 
 const props = defineProps<{
   definition: ActivityDefinition
@@ -48,7 +53,7 @@ const emit = defineEmits<{
   finished: []
 }>()
 
-type Phase = 'ready' | 'playing' | 'results' | 'coaching'
+type Phase = 'ready' | 'playing' | 'results' | 'coaching' | 'question-results'
 
 type Overlay =
   | { step: 'success'; hazardId: string; attempts: number }
@@ -88,6 +93,7 @@ const deferredMissQueue = ref<string[]>([])
 const hitAttempts = ref<Record<string, number>>({})
 const missedVideoUrls = ref<Record<string, string>>({})
 const explanationImageUrls = ref<Record<string, string>>({})
+const coachingResultsHazardId = ref<string | null>(null)
 
 let playFrame = 0
 let outOfAttemptsTimer = 0
@@ -133,6 +139,22 @@ const questionResults = computed((): ProcessQuestionResult[] => {
     questions: questions.value.map((item) => item.question),
   }
   return processQuestionResults(bank, answers.value)
+})
+const coachingQuestionBank = computed(() => {
+  const hazard = sortedHazards.value.find(
+    (item) => item.id === coachingResultsHazardId.value,
+  )
+  return {
+    version: 2 as const,
+    questions: hazard ? configuredSurveyQuestions(hazard.questions) : [],
+  }
+})
+const coachingQuestionResults = computed(() =>
+  processQuestionResults(coachingQuestionBank.value, answers.value),
+)
+const coachingQuestionsPassed = computed(() => {
+  const score = scoreProcessQuestions(coachingQuestionBank.value, answers.value)
+  return score.max <= 0 || score.percent >= QUESTION_PASS_THRESHOLD
 })
 const clicksEnabled = computed(
   () => phase.value === 'playing' && !celebrating.value && overlay.value == null,
@@ -232,6 +254,7 @@ function resetSession(): void {
   hitAttempts.value = {}
   clickMarkers.value = []
   answers.value = {}
+  coachingResultsHazardId.value = null
   currentTime.value = 0
 }
 
@@ -400,6 +423,24 @@ function finishHazard(): void {
   }
 
   void video.value?.play().catch(() => undefined)
+}
+
+function showQuestionResults(): void {
+  const hazardId = overlay.value?.hazardId ?? null
+  coachingResultsHazardId.value = hazardId
+  overlay.value = null
+  celebrating.value = false
+  if (hazardId) {
+    const nextDeferred = new Set(deferredMissIds.value)
+    nextDeferred.delete(hazardId)
+    deferredMissIds.value = nextDeferred
+    deferredMissQueue.value = deferredMissQueue.value.filter((id) => id !== hazardId)
+  }
+  phase.value = 'question-results'
+}
+
+function onQuestionResultsContinue(): void {
+  emit('finished')
 }
 
 function onResultsContinue(): void {
@@ -632,6 +673,10 @@ function onQuestionComplete(): void {
   if (overlay.value?.step !== 'question') return
   const next = overlay.value.questionIndex + 1
   if (next >= overlayQuestions.value.length) {
+    if (phase.value === 'coaching') {
+      showQuestionResults()
+      return
+    }
     finishHazard()
     return
   }
@@ -650,7 +695,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="see-experience" :class="{ 'is-results': phase === 'results' }">
+  <div
+    class="see-experience"
+    :class="{ 'is-results': phase === 'results' || phase === 'question-results' }"
+  >
     <p v-if="error" class="process-player-message">{{ error }}</p>
     <template v-else-if="src">
       <div v-if="phase === 'coaching'" class="see-stage">
@@ -678,7 +726,11 @@ onBeforeUnmount(() => {
           />
         </div>
       </div>
-      <div v-else-if="phase !== 'results'" ref="stage" class="see-stage">
+      <div
+        v-else-if="phase === 'ready' || phase === 'playing'"
+        ref="stage"
+        class="see-stage"
+      >
         <div
           class="see-video-plane"
           :class="{ 'is-interactive': clicksEnabled }"
@@ -760,6 +812,16 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <ProcessResultsCard
+        v-else-if="phase === 'question-results' && coachingQuestionsPassed"
+        :results="coachingQuestionResults"
+        @continue="onQuestionResultsContinue"
+      />
+      <ProcessResultsFailCard
+        v-else-if="phase === 'question-results'"
+        :results="coachingQuestionResults"
+        @continue="onQuestionResultsContinue"
+      />
       <SeeResultsPassCard
         v-else-if="passedOnFirstAttempt"
         variant="passed"
