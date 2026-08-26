@@ -74,6 +74,15 @@ function holdLastFrame(): void {
 }
 
 function waitForEvent(el: HTMLVideoElement, event: string, timeoutMs: number): Promise<void> {
+  if (event === 'loadeddata' && el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+    return Promise.resolve()
+  }
+  if (event === 'seeked' && !el.seeking) {
+    return Promise.resolve()
+  }
+  if (event === 'playing' && !el.paused) {
+    return Promise.resolve()
+  }
   return new Promise((resolve) => {
     let settled = false
     const done = () => {
@@ -96,9 +105,19 @@ function waitForAnimationPaint(): Promise<void> {
   })
 }
 
-async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
+async function waitForFirstFrame(
+  el: HTMLVideoElement,
+  options?: { autoplay?: boolean },
+): Promise<void> {
   if (el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
     await waitForEvent(el, 'loadeddata', 5000)
+  }
+
+  // Autoplay clips (e.g. lesson intro) should start as soon as data is ready.
+  // Waiting on requestVideoFrameCallback while paused can stall for the full timeout.
+  if (options?.autoplay) {
+    await waitForAnimationPaint()
+    return
   }
 
   try {
@@ -107,14 +126,29 @@ async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
     // Seek can fail before metadata is ready.
   }
 
+  if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+    await waitForAnimationPaint()
+    return
+  }
+
   const requestFrame = el.requestVideoFrameCallback?.bind(el)
   if (requestFrame) {
     await new Promise<void>((resolve) => {
-      const timer = window.setTimeout(() => resolve(), 5000)
-      requestFrame(() => {
+      let settled = false
+      const done = () => {
+        if (settled) return
+        settled = true
         window.clearTimeout(timer)
+        el.removeEventListener('seeked', done)
         resolve()
-      })
+      }
+      const timer = window.setTimeout(done, 500)
+      el.addEventListener('seeked', done)
+      try {
+        requestFrame(() => done())
+      } catch {
+        done()
+      }
     })
     await waitForAnimationPaint()
     return
@@ -138,7 +172,8 @@ async function activateSlot(slot: number): Promise<void> {
   if (!el) return
   fitCompact(el)
   el.pause()
-  await waitForFirstFrame(el)
+  const shouldPlay = !props.instructionText.trim() && !props.holdEnd
+  await waitForFirstFrame(el, { autoplay: shouldPlay })
   if (token !== activateToken) return
 
   const previous = active.value
@@ -151,7 +186,6 @@ async function activateSlot(slot: number): Promise<void> {
     videoAt(previous)?.pause()
   }
 
-  const shouldPlay = !props.instructionText.trim() && !props.holdEnd
   if (shouldPlay) {
     started.value = true
     void el.play().catch(() => undefined)

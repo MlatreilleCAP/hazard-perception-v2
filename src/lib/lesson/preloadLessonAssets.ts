@@ -142,10 +142,9 @@ async function preloadMediaIds(
 /** Warm the lesson intro clip only. */
 export async function preloadIntroMedia(options: {
   mediaId: string
-  label?: string
   onProgress?: (progress: LessonPreloadProgress) => void
 }): Promise<LessonIntroPreloadResult> {
-  const progressLabel = options.label?.trim() || 'Loading intro…'
+  const progressLabel = 'Loading…'
   options.onProgress?.({ loaded: 0, total: 1, label: progressLabel })
 
   const asset = await services.media.getAsset(options.mediaId)
@@ -161,14 +160,13 @@ export async function preloadLessonSection(options: {
   item: LessonCompositionItem
   /** Load published snapshots for learners; drafts for studio preview. */
   published?: boolean
-  label?: string
   onProgress?: (progress: LessonPreloadProgress) => void
 }): Promise<LessonPreloadResult> {
   const { item, onProgress, published = true } = options
   const loadSection = published
     ? services.persistence.getPublished.bind(services.persistence)
     : services.persistence.getById.bind(services.persistence)
-  const progressLabel = options.label?.trim() || `Loading ${item.title}…`
+  const progressLabel = 'Loading…'
   const sections = new Map<string, ActivityDefinition>()
 
   onProgress?.({ loaded: 0, total: 1, label: progressLabel })
@@ -197,11 +195,4 @@ export function releaseLessonPreloadRetain(
     }
   }
   retain.length = 0
-}
-
-export function sectionPreloadLabel(kind: LessonCompositionItem['kind']): string {
-  if (kind === 'see') return 'Loading Observe…'
-  if (kind === 'process') return 'Loading Process…'
-  if (kind === 'anticipate') return 'Loading Anticipate…'
-  return 'Loading…'
 }

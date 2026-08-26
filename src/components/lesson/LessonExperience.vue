@@ -13,7 +13,6 @@ import {
   preloadIntroMedia,
   preloadLessonSection,
   releaseLessonPreloadRetain,
-  sectionPreloadLabel,
   type LessonPreloadProgress,
   type LessonPreloadResult,
 } from '@/lib/lesson/preloadLessonAssets'
@@ -182,24 +181,17 @@ async function runIntroPreload(): Promise<boolean> {
   introSrc.value = null
   error.value = null
   resetPreloadLottieGate()
-  preloadProgress.value = { loaded: 0, total: 1, label: 'Loading intro…' }
+  preloadProgress.value = { loaded: 0, total: 1, label: 'Loading…' }
 
   try {
     const intro = await preloadIntroMedia({
       mediaId,
-      label: 'Loading intro…',
       onProgress: (progress) => {
         if (generation !== preloadGeneration) return
         preloadProgress.value = progress
       },
     })
 
-    if (generation !== preloadGeneration) {
-      releaseLessonPreloadRetain(intro.retain)
-      return false
-    }
-
-    await waitForPreloadLottieCycle()
     if (generation !== preloadGeneration) {
       releaseLessonPreloadRetain(intro.retain)
       return false
@@ -233,19 +225,17 @@ async function enterSection(index: number): Promise<void> {
   }
 
   const generation = preloadGeneration
-  const label = sectionPreloadLabel(item.kind)
   phase.value = 'preloading'
   sectionDefinition.value = null
   introSrc.value = null
   error.value = null
   resetPreloadLottieGate()
-  preloadProgress.value = { loaded: 0, total: 1, label }
+  preloadProgress.value = { loaded: 0, total: 1, label: 'Loading…' }
 
   try {
     const result = await preloadLessonSection({
       item,
       published: !props.preview,
-      label,
       onProgress: (progress) => {
         if (generation !== preloadGeneration) return
         preloadProgress.value = progress
@@ -413,9 +403,8 @@ onBeforeUnmount(() => {
       role="status"
       aria-live="polite"
       aria-busy="true"
-      :aria-label="preloadProgress.label"
+      aria-label="Loading"
     >
-      <p class="lesson-preloader-label">{{ preloadProgress.label }}</p>
       <div class="lesson-preloader-lottie" aria-hidden="true">
         <ProcessResultsLottie
           :animation-data="preloadAnimation"
@@ -439,9 +428,8 @@ onBeforeUnmount(() => {
         role="status"
         aria-live="polite"
         aria-busy="true"
-        :aria-label="sectionPreloadLabel(currentItem.kind)"
+        aria-label="Loading"
       >
-        <p class="lesson-preloader-label">{{ sectionPreloadLabel(currentItem.kind) }}</p>
         <div class="lesson-preloader-lottie" aria-hidden="true">
           <ProcessResultsLottie :animation-data="preloadAnimation" loop />
         </div>
