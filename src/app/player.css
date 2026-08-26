@@ -300,6 +300,11 @@ body:has(.player-page) {
   color: #403b3b;
   transform-origin: center center;
   animation: process-pop-in 0.5s cubic-bezier(0.22, 1.35, 0.36, 1) both;
+  transition: padding-bottom 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.process-question-card.is-explained {
+  padding-bottom: 20px;
 }
 
 .process-question-prompt {
@@ -389,6 +394,44 @@ body:has(.player-page) {
   margin-top: 4px;
 }
 
+.process-question-submit-slot,
+.process-question-reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.process-question-submit-slot.is-hidden,
+.process-question-reveal:not(.is-open) {
+  grid-template-rows: 0fr;
+}
+
+.process-question-submit-inner,
+.process-question-reveal-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.process-question-submit-slot.is-hidden .process-question-submit-inner {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.process-question-reveal-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.process-question-reveal.is-open .process-question-feedback,
+.process-question-reveal.is-open .process-instruction-begin {
+  animation: process-explanation-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.process-question-reveal.is-open .process-instruction-begin {
+  animation-delay: 0.1s;
+}
+
 .process-question-feedback + .process-instruction-begin {
   margin-top: 20px;
 }
@@ -399,6 +442,18 @@ body:has(.player-page) {
   line-height: 18px;
   text-align: center;
   color: #111;
+}
+
+@keyframes process-explanation-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .process-points-pill {
@@ -635,8 +690,16 @@ body:has(.player-page) {
   .process-question-card,
   .process-points-pill,
   .process-results-question,
-  .see-results-hazard-token {
+  .see-results-hazard-token,
+  .process-question-reveal.is-open .process-question-feedback,
+  .process-question-reveal.is-open .process-instruction-begin {
     animation: none;
+  }
+
+  .process-question-submit-slot,
+  .process-question-reveal,
+  .process-question-submit-slot.is-hidden .process-question-submit-inner {
+    transition: none;
   }
 
   .see-results-hazard-token.is-in {

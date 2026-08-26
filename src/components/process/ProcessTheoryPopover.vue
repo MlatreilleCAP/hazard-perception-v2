@@ -74,7 +74,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="process-question-card" role="dialog" aria-label="Theory question">
+  <div
+    class="process-question-card"
+    :class="{ 'is-explained': awaitingContinue }"
+    role="dialog"
+    aria-label="Theory question"
+  >
     <div v-if="feedback" class="process-points-pill" :class="feedback">
       {{ points > 0 ? `+ ${points} pts` : '0 pts' }}
     </div>
@@ -92,16 +97,24 @@ onBeforeUnmount(() => {
         {{ answer.text }}
       </button>
     </div>
-    <p v-if="awaitingContinue && explanationText" class="process-question-feedback">
-      {{ explanationText }}
-    </p>
-    <button
-      v-if="awaitingContinue"
-      type="button"
-      class="process-instruction-begin"
-      @click="continueToNext"
+    <div
+      v-if="showExplanation"
+      class="process-question-reveal"
+      :class="{ 'is-open': awaitingContinue }"
     >
-      Continue
-    </button>
+      <div class="process-question-reveal-inner">
+        <p v-if="explanationText" class="process-question-feedback">
+          {{ explanationText }}
+        </p>
+        <button
+          type="button"
+          class="process-instruction-begin"
+          :tabindex="awaitingContinue ? 0 : -1"
+          @click="continueToNext"
+        >
+          Continue
+        </button>
+      </div>
+    </div>
   </div>
 </template>

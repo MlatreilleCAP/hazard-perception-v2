@@ -71,7 +71,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="process-question-card" role="dialog" aria-label="Severity question">
+  <div
+    class="process-question-card"
+    :class="{ 'is-explained': awaitingContinue }"
+    role="dialog"
+    aria-label="Severity question"
+  >
     <div v-if="submitted" class="process-points-pill" :class="isCorrect ? 'correct' : 'incorrect'">
       {{ points > 0 ? `+ ${points} pts` : '0 pts' }}
     </div>
@@ -89,25 +94,40 @@ onBeforeUnmount(() => {
         {{ answer.text }}
       </button>
     </div>
-    <button
-      v-if="!awaitingContinue"
-      type="button"
-      class="process-instruction-begin"
-      :disabled="submitted"
-      @click="submit"
+    <div
+      class="process-question-submit-slot"
+      :class="{ 'is-hidden': awaitingContinue }"
     >
-      Submit
-    </button>
-    <p v-if="awaitingContinue && explanationText" class="process-question-feedback">
-      {{ explanationText }}
-    </p>
-    <button
-      v-if="awaitingContinue"
-      type="button"
-      class="process-instruction-begin"
-      @click="continueToNext"
+      <div class="process-question-submit-inner">
+        <button
+          type="button"
+          class="process-instruction-begin"
+          :disabled="submitted"
+          :tabindex="awaitingContinue ? -1 : 0"
+          @click="submit"
+        >
+          Submit
+        </button>
+      </div>
+    </div>
+    <div
+      v-if="showExplanation"
+      class="process-question-reveal"
+      :class="{ 'is-open': awaitingContinue }"
     >
-      Continue
-    </button>
+      <div class="process-question-reveal-inner">
+        <p v-if="explanationText" class="process-question-feedback">
+          {{ explanationText }}
+        </p>
+        <button
+          type="button"
+          class="process-instruction-begin"
+          :tabindex="awaitingContinue ? 0 : -1"
+          @click="continueToNext"
+        >
+          Continue
+        </button>
+      </div>
+    </div>
   </div>
 </template>
