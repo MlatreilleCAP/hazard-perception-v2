@@ -243,8 +243,13 @@ export type LessonMetricToken = {
   id: string
   label: string
   status: LessonMetricStatus
-  /** 0–1 fill for partial ring metrics. */
+  /** 0–1 fill for partial ring metrics (e.g. Time). */
   fill?: number
+  /**
+   * Observe Accuracy: how many of the three attempt arcs are green.
+   * 3 = first-try, 2 = second-try, 1 = third-try, 0 = missed (use fail icon).
+   */
+  accuracySegments?: number
 }
 
 export type LessonSeeHazardResult = {
@@ -322,6 +327,12 @@ function metricStatusFromRatio(fill: number): LessonMetricStatus {
   return 'partial'
 }
 
+/** Map attempt count to filled Accuracy arcs: 1→3, 2→2, 3→1. */
+export function accuracySegmentsFromAttempts(attempts: number): number {
+  const band = Math.min(3, Math.max(1, Math.round(attempts)))
+  return 4 - band
+}
+
 /** Build Detection / Time / Accuracy tokens from Observe hazard outcomes. */
 export function buildObserveMetrics(
   hazards: LessonSeeHazardResult[],
@@ -338,10 +349,19 @@ export function buildObserveMetrics(
           return sum + Math.max(0, Math.min(1, 1 - hazard.identifyRatio))
         }, 0) / hazards.length
 
-  const firstTryHits = hazards.filter(
-    (hazard) => hazard.correct && hazard.attempts <= 1,
-  ).length
-  const accuracyFill = total > 0 ? firstTryHits / total : 0
+  const hits = hazards.filter((hazard) => hazard.correct && hazard.attempts > 0)
+  let accuracySegments = 0
+  let accuracyStatus: LessonMetricStatus = 'fail'
+  if (hits.length === 0) {
+    accuracySegments = 0
+    accuracyStatus = 'fail'
+  } else {
+    const avgAttempts =
+      hits.reduce((sum, hazard) => sum + Math.max(1, hazard.attempts), 0) / hits.length
+    accuracySegments = accuracySegmentsFromAttempts(avgAttempts)
+    accuracyStatus =
+      accuracySegments >= 3 ? 'pass' : accuracySegments >= 1 ? 'partial' : 'fail'
+  }
 
   return [
     {
@@ -359,8 +379,9 @@ export function buildObserveMetrics(
     {
       id: 'accuracy',
       label: 'Accuracy',
-      status: metricStatusFromRatio(accuracyFill),
-      fill: accuracyFill,
+      status: accuracyStatus,
+      fill: accuracySegments / 3,
+      accuracySegments,
     },
   ]
 }

@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import LessonAccuracyIcon from '@/components/lesson/LessonAccuracyIcon.vue'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import metricPassIcon from '@/assets/lesson/metric-pass.svg'
-import type { LessonMetricStatus, LessonResultsSection } from '@/types/lesson'
+import type { LessonMetricStatus, LessonMetricToken, LessonResultsSection } from '@/types/lesson'
 
 defineProps<{
   title: string
@@ -23,6 +24,10 @@ function metricAlt(status: LessonMetricStatus): string {
   if (status === 'pass') return 'Correct'
   if (status === 'fail') return 'Incorrect'
   return 'Partial'
+}
+
+function isAccuracyMetric(metric: LessonMetricToken): boolean {
+  return metric.id === 'accuracy' && typeof metric.accuracySegments === 'number'
 }
 </script>
 
@@ -63,8 +68,23 @@ function metricAlt(status: LessonMetricStatus): string {
               :key="metric.id"
               class="lesson-results-metric"
             >
+              <template v-if="isAccuracyMetric(metric)">
+                <img
+                  v-if="(metric.accuracySegments ?? 0) <= 0"
+                  class="lesson-results-metric-icon"
+                  :src="metricFailIcon"
+                  alt="Incorrect"
+                  width="27"
+                  height="27"
+                />
+                <LessonAccuracyIcon
+                  v-else
+                  :filled="metric.accuracySegments ?? 0"
+                  :aria-label="metricAlt(metric.status)"
+                />
+              </template>
               <span
-                v-if="metric.status === 'partial'"
+                v-else-if="metric.status === 'partial'"
                 class="lesson-results-metric-ring"
                 :style="{
                   background: `conic-gradient(var(--process-correct, #59c4b6) ${Math.round((metric.fill ?? 0.5) * 100)}%, #e3e5ef 0)`,

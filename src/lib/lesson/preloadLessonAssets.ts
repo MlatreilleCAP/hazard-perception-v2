@@ -84,14 +84,16 @@ async function preloadMediaUrl(
 }
 
 /**
- * Load every section definition and warm signed media for a Full Lesson.
+ * Load section definition(s) and warm their signed media (plus optional intro).
  */
 export async function preloadLessonAssets(options: {
   introMediaId: string | null
   items: LessonCompositionItem[]
+  label?: string
   onProgress?: (progress: LessonPreloadProgress) => void
 }): Promise<LessonPreloadResult> {
   const { introMediaId, items, onProgress } = options
+  const progressLabel = options.label?.trim() || 'Loading…'
   const sections = new Map<string, ActivityDefinition>()
   const retain: Array<HTMLVideoElement | HTMLImageElement> = []
 
@@ -99,7 +101,7 @@ export async function preloadLessonAssets(options: {
     onProgress?.({ loaded, total, label })
   }
 
-  report(0, Math.max(1, items.length), 'Loading lesson content…')
+  report(0, Math.max(1, items.length), progressLabel)
 
   await Promise.all(
     items.map(async (item) => {
@@ -122,7 +124,7 @@ export async function preloadLessonAssets(options: {
   const ids = [...mediaIds]
   const total = Math.max(1, items.length + ids.length)
   let loadedCount = items.length
-  report(loadedCount, total, ids.length ? 'Loading media…' : 'Ready')
+  report(loadedCount, total, progressLabel)
 
   const concurrency = 3
   let cursor = 0
@@ -142,7 +144,7 @@ export async function preloadLessonAssets(options: {
         // Skip missing/failed assets; section runtime still surfaces errors.
       } finally {
         loadedCount += 1
-        report(loadedCount, total, 'Loading media…')
+        report(loadedCount, total, progressLabel)
       }
     }
   }
@@ -153,7 +155,7 @@ export async function preloadLessonAssets(options: {
     ),
   )
 
-  report(total, total, 'Ready')
+  report(total, total, progressLabel)
   return { sections, retain }
 }
 

@@ -983,6 +983,13 @@ body:has(.player-page) {
   flex-shrink: 0;
 }
 
+.lesson-accuracy-icon {
+  display: block;
+  width: 27px;
+  height: 27px;
+  flex-shrink: 0;
+}
+
 .lesson-results-metric-ring {
   box-sizing: border-box;
   width: 27px;

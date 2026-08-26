@@ -45,7 +45,7 @@ const sectionCache = ref<Map<string, ActivityDefinition>>(new Map())
 const preloadProgress = ref<LessonPreloadProgress>({
   loaded: 0,
   total: 1,
-  label: 'Loading lesson…',
+  label: 'Loading…',
 })
 let preloadRetain: Array<HTMLVideoElement | HTMLImageElement> = []
 let preloadGeneration = 0
@@ -73,52 +73,34 @@ function clearPreloadRetain(): void {
   preloadRetain = []
 }
 
-async function loadSection(index: number): Promise<void> {
+function shouldPlayIntro(): boolean {
+  if (!lesson.value.introMedia?.media_asset_id) return false
+  if (lesson.value.introShowOnFirstVisitOnly === false) return true
+  return !hasSeenLessonIntro(props.definition.id)
+}
+
+function showPlaying(index: number): void {
   const item = orderedItems.value[index]
   if (!item) {
     phase.value = 'results'
     sectionDefinition.value = null
     return
   }
-  error.value = null
   const cached = sectionCache.value.get(item.refId)
-  if (cached) {
-    sectionDefinition.value = cloneJson(cached)
-    sectionIndex.value = index
-    phase.value = 'playing'
+  if (!cached) {
+    error.value = `${item.title} could not be loaded.`
+    phase.value = 'error'
     return
   }
-  phase.value = 'preloading'
-  preloadProgress.value = {
-    loaded: 0,
-    total: 1,
-    label: `Loading ${item.title}…`,
-  }
-  try {
-    const loaded = await services.persistence.getById(item.refId)
-    if (!loaded) {
-      throw new Error(`${item.title} could not be loaded.`)
-    }
-    const next = cloneJson(loaded)
-    sectionCache.value.set(item.refId, next)
-    sectionDefinition.value = cloneJson(next)
-    sectionIndex.value = index
-    phase.value = 'playing'
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to load lesson section'
-    phase.value = 'error'
-  }
+  sectionDefinition.value = cloneJson(cached)
+  sectionIndex.value = index
+  phase.value = 'playing'
 }
 
 async function playIntroIfNeeded(): Promise<boolean> {
+  if (!shouldPlayIntro()) return false
   const mediaId = lesson.value.introMedia?.media_asset_id
   if (!mediaId) return false
-  if (
-    lesson.value.introShowOnFirstVisitOnly !== false &&
-    hasSeenLessonIntro(props.definition.id)
-  ) {
-    return false
-  }
   try {
     introSrc.value = await services.media.getSignedUrl(mediaId)
     phase.value = 'intro'
@@ -130,41 +112,45 @@ async function playIntroIfNeeded(): Promise<boolean> {
   }
 }
 
-function onIntroEnded(): void {
-  if (lesson.value.introShowOnFirstVisitOnly !== false) {
-    markLessonIntroSeen(props.definition.id)
-  }
-  introSrc.value = null
-  void loadSection(0)
-}
-
-async function startLesson(): Promise<void> {
-  const generation = ++preloadGeneration
-  clearPreloadRetain()
-  sectionResults.value = {}
-  sectionIndex.value = 0
-  introSrc.value = null
-  sectionDefinition.value = null
-  sectionCache.value = new Map()
-  phase.value = 'preloading'
-  error.value = null
-  preloadProgress.value = { loaded: 0, total: 1, label: 'Loading lesson…' }
-
-  if (orderedItems.value.length === 0) {
-    error.value = 'This lesson has no Observe, Process, or Anticipate sections yet.'
-    phase.value = 'error'
+/**
+ * Warm media for one content step, then enter it.
+ * Index 0 also warms the intro (when shown) together with Observe.
+ */
+async function preloadAndEnter(index: number): Promise<void> {
+  const item = orderedItems.value[index]
+  if (!item) {
+    phase.value = 'results'
+    sectionDefinition.value = null
     return
   }
 
+  const generation = preloadGeneration
+  phase.value = 'preloading'
+  error.value = null
+  sectionDefinition.value = null
+  introSrc.value = null
+  clearPreloadRetain()
+  preloadProgress.value = { loaded: 0, total: 1, label: 'Loading…' }
+
+  const includeIntro = index === 0 && shouldPlayIntro()
+  const label =
+    index === 0
+      ? includeIntro
+        ? 'Loading intro & Observe…'
+        : 'Loading Observe…'
+      : item.kind === 'process'
+        ? 'Loading Process…'
+        : item.kind === 'anticipate'
+          ? 'Loading Anticipate…'
+          : `Loading ${item.title}…`
+
   try {
-    const skipIntroWarm =
-      lesson.value.introShowOnFirstVisitOnly !== false &&
-      hasSeenLessonIntro(props.definition.id)
     const result = await preloadLessonAssets({
-      introMediaId: skipIntroWarm
-        ? null
-        : (lesson.value.introMedia?.media_asset_id ?? null),
-      items: orderedItems.value,
+      introMediaId: includeIntro
+        ? (lesson.value.introMedia?.media_asset_id ?? null)
+        : null,
+      items: [item],
+      label,
       onProgress: (progress) => {
         if (generation !== preloadGeneration) return
         preloadProgress.value = progress
@@ -175,16 +161,52 @@ async function startLesson(): Promise<void> {
       return
     }
     preloadRetain = result.retain
-    sectionCache.value = result.sections
-    const showingIntro = await playIntroIfNeeded()
-    if (generation !== preloadGeneration) return
-    if (showingIntro) return
-    await loadSection(0)
+    for (const [id, definition] of result.sections) {
+      sectionCache.value.set(id, definition)
+    }
+
+    if (index === 0) {
+      const showingIntro = await playIntroIfNeeded()
+      if (generation !== preloadGeneration) return
+      if (showingIntro) return
+    }
+    showPlaying(index)
   } catch (cause) {
     if (generation !== preloadGeneration) return
-    error.value = cause instanceof Error ? cause.message : 'Failed to load lesson'
+    error.value = cause instanceof Error ? cause.message : 'Failed to load lesson section'
     phase.value = 'error'
   }
+}
+
+function onIntroEnded(): void {
+  if (lesson.value.introShowOnFirstVisitOnly !== false) {
+    markLessonIntroSeen(props.definition.id)
+  }
+  introSrc.value = null
+  showPlaying(0)
+}
+
+async function startLesson(): Promise<void> {
+  preloadGeneration += 1
+  clearPreloadRetain()
+  sectionResults.value = {}
+  sectionIndex.value = 0
+  introSrc.value = null
+  sectionDefinition.value = null
+  sectionCache.value = new Map()
+  error.value = null
+
+  if (orderedItems.value.length === 0) {
+    error.value = 'This lesson has no Observe, Process, or Anticipate sections yet.'
+    phase.value = 'error'
+    return
+  }
+
+  await preloadAndEnter(0)
+}
+
+function advanceToNextSection(): void {
+  void preloadAndEnter(sectionIndex.value + 1)
 }
 
 function onSeeFinished(payload?: {
@@ -210,7 +232,7 @@ function onSeeFinished(payload?: {
       metrics: buildObserveMetrics(hazards, spotted, total),
     },
   }
-  void loadSection(sectionIndex.value + 1)
+  advanceToNextSection()
 }
 
 function onProcessFinished(payload?: {
@@ -233,7 +255,7 @@ function onProcessFinished(payload?: {
       })),
     },
   }
-  void loadSection(sectionIndex.value + 1)
+  advanceToNextSection()
 }
 
 function onAnticipateFinished(payload?: {
@@ -258,7 +280,7 @@ function onAnticipateFinished(payload?: {
       })),
     },
   }
-  void loadSection(sectionIndex.value + 1)
+  advanceToNextSection()
 }
 
 onMounted(() => {
