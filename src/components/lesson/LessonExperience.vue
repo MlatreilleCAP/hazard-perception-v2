@@ -166,6 +166,8 @@ function showPlaying(index: number): void {
 
   awaitingSectionReady.value = true
   armSectionCoverFallback()
+  // Drop hidden preload decoders before the section player mounts (mobile Safari).
+  clearPreloadRetain()
   sectionDefinition.value = cloneJson(cached)
   sectionIndex.value = index
   phase.value = 'playing'
@@ -272,7 +274,6 @@ function onIntroEnded(): void {
 
 function onSectionReady(): void {
   dismissSectionCover()
-  clearPreloadRetain()
 }
 
 async function startLesson(): Promise<void> {

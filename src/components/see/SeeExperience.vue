@@ -135,20 +135,57 @@ function waitForAnimationPaint(): Promise<void> {
   })
 }
 
+function waitForEvent(el: HTMLVideoElement, event: string, timeoutMs: number): Promise<void> {
+  if (event === 'loadeddata' && el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+    return Promise.resolve()
+  }
+  if (event === 'seeked' && !el.seeking) {
+    return Promise.resolve()
+  }
+  if (event === 'playing' && !el.paused) {
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => {
+    let settled = false
+    const done = () => {
+      if (settled) return
+      settled = true
+      el.removeEventListener(event, done)
+      window.clearTimeout(timer)
+      resolve()
+    }
+    const timer = window.setTimeout(done, timeoutMs)
+    el.addEventListener(event, done)
+  })
+}
+
+function configureInlinePlayback(el: HTMLVideoElement): void {
+  el.playsInline = true
+  el.setAttribute('playsinline', '')
+  el.setAttribute('webkit-playsinline', '')
+}
+
+async function startPlayback(el: HTMLVideoElement): Promise<boolean> {
+  configureInlinePlayback(el)
+  try {
+    await el.play()
+    return true
+  } catch {
+    // Mobile browsers block unmuted autoplay without a fresh gesture.
+  }
+  try {
+    el.muted = true
+    await el.play()
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
+  configureInlinePlayback(el)
   if (el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-    await new Promise<void>((resolve) => {
-      let settled = false
-      const done = () => {
-        if (settled) return
-        settled = true
-        el.removeEventListener('loadeddata', done)
-        window.clearTimeout(timer)
-        resolve()
-      }
-      const timer = window.setTimeout(done, 5000)
-      el.addEventListener('loadeddata', done)
-    })
+    await waitForEvent(el, 'loadeddata', 5000)
   }
 
   try {
@@ -157,17 +194,24 @@ async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
     // Seek can fail before metadata is ready.
   }
 
-  const requestFrame = el.requestVideoFrameCallback?.bind(el)
-  if (requestFrame) {
-    await new Promise<void>((resolve) => {
-      const timer = window.setTimeout(() => resolve(), 5000)
-      requestFrame(() => {
-        window.clearTimeout(timer)
-        resolve()
-      })
-    })
+  if (el.seeking) {
+    await waitForEvent(el, 'seeked', 1000)
+  }
+
+  if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
     await waitForAnimationPaint()
     return
+  }
+
+  try {
+    await el.play()
+    el.pause()
+    if (el.currentTime > 0.05) {
+      el.currentTime = 0.001
+      if (el.seeking) await waitForEvent(el, 'seeked', 1000)
+    }
+  } catch {
+    // Autoplay blocked — frame should appear once the learner taps Start.
   }
 
   await waitForAnimationPaint()
@@ -450,7 +494,8 @@ function begin(): void {
   unlockTapAudio()
   phase.value = 'playing'
   clipEnded.value = false
-  void video.value?.play().catch(() => undefined)
+  const el = video.value
+  if (el) void startPlayback(el)
   startPlayhead()
 }
 
@@ -524,7 +569,8 @@ function finishHazard(): void {
     return
   }
 
-  void video.value?.play().catch(() => undefined)
+  const el = video.value
+  if (el) void startPlayback(el)
 }
 
 function emitFinished(): void {
@@ -596,6 +642,7 @@ function onTap(clientX: number, clientY: number): void {
   if (!clicksEnabled.value || !video.value) return
 
   const time = video.value.currentTime
+  syncTime()
   const { x, y } = clientToPercent(clientX, clientY, video.value)
   const closed = closedIds()
   const target = targetHazardForClick(sortedHazards.value, closed, time)
@@ -889,6 +936,7 @@ onBeforeUnmount(() => {
             playsinline
             preload="auto"
             @loadedmetadata="onVideoMetadata"
+            @timeupdate="syncTime"
             @ended="finishPlayback"
           />
           <div
