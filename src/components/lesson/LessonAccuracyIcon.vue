@@ -10,8 +10,9 @@ withDefaults(
 const SIZE = 27
 const CX = 13.5
 const CY = 13.5
-const R = 9.25
-const STROKE = 4.5
+/** Centerline radius so outer edge matches the 27px Time ring. */
+const R = 11
+const STROKE = 5
 /** Gap between segments, in degrees. */
 const GAP = 14
 const SEGMENT = (360 - GAP * 3) / 3

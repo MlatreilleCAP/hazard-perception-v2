@@ -997,13 +997,11 @@ body:has(.player-page) {
 }
 
 .lesson-results-metric-ring {
-  box-sizing: border-box;
+  display: block;
   width: 27px;
   height: 27px;
   flex-shrink: 0;
-  border-radius: 50%;
-  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  overflow: visible;
 }
 
 .lesson-results-metric-label {

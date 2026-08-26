@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import LessonAccuracyIcon from '@/components/lesson/LessonAccuracyIcon.vue'
+import LessonMetricRing from '@/components/lesson/LessonMetricRing.vue'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import metricPassIcon from '@/assets/lesson/metric-pass.svg'
 import type { LessonMetricStatus, LessonMetricToken, LessonResultsSection } from '@/types/lesson'
@@ -83,12 +84,9 @@ function isAccuracyMetric(metric: LessonMetricToken): boolean {
                   :aria-label="metricAlt(metric.status)"
                 />
               </template>
-              <span
+              <LessonMetricRing
                 v-else-if="metric.status === 'partial'"
-                class="lesson-results-metric-ring"
-                :style="{
-                  background: `conic-gradient(var(--process-correct, #59c4b6) ${Math.round((metric.fill ?? 0.5) * 100)}%, #e3e5ef 0)`,
-                }"
+                :fill="metric.fill ?? 0.5"
                 :aria-label="metricAlt(metric.status)"
               />
               <img
