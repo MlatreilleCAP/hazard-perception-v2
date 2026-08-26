@@ -122,9 +122,10 @@ const overlayQuestion = computed(() =>
     : null,
 )
 const missedVideoSrc = computed(() => {
-  const step = overlay.value?.step
-  if (step !== 'missed-video' && step !== 'question') return null
-  return missedVideoUrls.value[overlay.value.hazardId] ?? null
+  const current = overlay.value
+  if (!current) return null
+  if (current.step !== 'missed-video' && current.step !== 'question') return null
+  return missedVideoUrls.value[current.hazardId] ?? null
 })
 const questionResults = computed((): ProcessQuestionResult[] => {
   const bank = {
