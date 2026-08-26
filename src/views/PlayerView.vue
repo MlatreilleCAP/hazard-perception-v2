@@ -82,7 +82,7 @@ async function loadActivity(id: string): Promise<void> {
 }
 
 onMounted(async () => {
-  await activities.refreshList()
+  await activities.refreshList('catalog')
   if (activityId.value) {
     await loadActivity(activityId.value)
   }

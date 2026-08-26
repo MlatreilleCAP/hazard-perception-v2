@@ -14,7 +14,7 @@ export interface MediaAsset {
   mimeType: string
   sizeBytes: number | null
   durationMs: number | null
-  createdBy: string
+  createdBy: string | null
   createdAt: string
 }
 

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ActivityDefinition, ActivityId, ActivitySummary } from '@/types/activity'
 import type { ActivityRow, ActivityVersionRow } from '@/types/database'
-import type { ActivityRepository, PersistenceDriver } from '@/types/repository'
+import type { ActivityRepository, ActivityListScope, PersistenceDriver } from '@/types/repository'
 import { validateActivityDefinition } from '@/engine/validateActivity'
 import {
   fromVersionRows,
@@ -19,7 +19,7 @@ export class InMemoryActivityRepository implements ActivityRepository {
     }
   }
 
-  async list(): Promise<ActivitySummary[]> {
+  async list(_scope: ActivityListScope = 'authoring'): Promise<ActivitySummary[]> {
     return [...this.activities.values()].map((activity) => ({
       id: activity.id,
       title: activity.metadata.title,
@@ -75,13 +75,20 @@ export class SupabaseActivityRepository implements ActivityRepository {
     this.client = client
   }
 
-  async list(): Promise<ActivitySummary[]> {
-    await this.requireUserId()
-    const { data, error } = await this.client
+  async list(scope: ActivityListScope = 'authoring'): Promise<ActivitySummary[]> {
+    const userId = await this.requireUserId()
+    let query = this.client
       .from('activities')
       .select('id, title, updated_at, published_version_id, tags')
       .is('removed_at', null)
-      .order('updated_at', { ascending: false })
+
+    if (scope === 'authoring') {
+      query = query.eq('created_by', userId)
+    } else {
+      query = query.not('published_version_id', 'is', null)
+    }
+
+    const { data, error } = await query.order('updated_at', { ascending: false })
 
     throwIfError(error, 'Failed to list activities')
 
@@ -127,7 +134,17 @@ export class SupabaseActivityRepository implements ActivityRepository {
   }
 
   async getPublished(id: ActivityId): Promise<ActivityDefinition | null> {
-    return this.getVersion(id, 'published')
+    await this.requireUserId()
+    const { data, error } = await this.client.rpc('get_published_activity', {
+      p_activity_id: id,
+    })
+    throwIfError(error, 'Failed to load published activity')
+    if (!data || typeof data !== 'object') return null
+
+    const payload = data as { activity?: ActivityRow; version?: ActivityVersionRow }
+    if (!payload.activity || !payload.version) return null
+
+    return fromVersionRows(payload.activity, payload.version)
   }
 
   async save(definition: ActivityDefinition): Promise<ActivityDefinition> {

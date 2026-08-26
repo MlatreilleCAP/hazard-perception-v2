@@ -18,7 +18,7 @@ export interface ActivityRow {
   description: string
   locale: string
   tags: string[]
-  created_by: string
+  created_by: string | null
   published_version_id: string | null
   removed_at: string | null
   created_at: string
@@ -32,7 +32,7 @@ export interface ActivityVersionRow {
   schema_version: number
   status: ActivityVersionStatus
   definition: Record<string, unknown>
-  created_by: string
+  created_by: string | null
   created_at: string
   updated_at: string
   published_at: string | null
@@ -46,7 +46,7 @@ export interface MediaAssetRow {
   mime_type: string
   size_bytes: number | null
   duration_ms: number | null
-  created_by: string
+  created_by: string | null
   created_at: string
 }
 

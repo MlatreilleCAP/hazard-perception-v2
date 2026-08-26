@@ -19,6 +19,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  ready: []
   finished: [
     payload?: {
       percent: number
@@ -226,6 +227,7 @@ async function afterVideo1Questions(): Promise<void> {
         :instruction-text="instructionText"
         :instruction-pill="instructionPill"
         :hold-end="phase !== 'playing'"
+        @ready="$emit('ready')"
         @ended="onVideoEnded"
       />
       <div v-if="phase === 'questions' && currentQuestion" class="process-dim-overlay">

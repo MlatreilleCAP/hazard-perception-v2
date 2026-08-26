@@ -1060,6 +1060,12 @@ body:has(.player-page) {
   background: #fff;
 }
 
+.lesson-preloader.is-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+}
+
 .lesson-preloader-lottie {
   width: 100%;
   max-width: 100%;

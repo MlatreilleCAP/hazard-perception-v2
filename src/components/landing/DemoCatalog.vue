@@ -14,7 +14,7 @@ const published = computed(() =>
 
 async function refreshCatalog(): Promise<void> {
   if (!auth.isSignedIn) return
-  await activities.refreshList()
+  await activities.refreshList('catalog')
 }
 
 onMounted(async () => {

@@ -86,7 +86,7 @@ export type {
   ProcessQuestionKind,
   ProcessSurveyQuestion,
 } from './questions'
-export type { ActivityRepository, PersistenceDriver } from './repository'
+export type { ActivityRepository, ActivityListScope, PersistenceDriver } from './repository'
 export type {
   RuntimeAdapter,
   RuntimeAdapterKind,

@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   ended: []
   begin: []
+  ready: []
 }>()
 
 const active = ref(0)
@@ -155,6 +156,8 @@ async function activateSlot(slot: number): Promise<void> {
     started.value = true
     void el.play().catch(() => undefined)
   }
+
+  emit('ready')
 }
 
 function onLoadedMetadata(slot: number): void {

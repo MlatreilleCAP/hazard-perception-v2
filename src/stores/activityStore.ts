@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { services } from '@/app/container'
 import { cloneJson } from '@/app/clone'
 import type { ActivityDefinition, ActivitySummary } from '@/types'
+import type { ActivityListScope } from '@/types/repository'
 
 export const useActivityStore = defineStore('activity', () => {
   const summaries = ref<ActivitySummary[]>([])
@@ -14,10 +15,10 @@ export const useActivityStore = defineStore('activity', () => {
     preview.value = cloneJson(definition)
   }
 
-  async function refreshList(): Promise<void> {
+  async function refreshList(scope: ActivityListScope = 'authoring'): Promise<void> {
     error.value = null
     try {
-      summaries.value = await services.persistence.list()
+      summaries.value = await services.persistence.list(scope)
     } catch (cause) {
       summaries.value = []
       error.value = cause instanceof Error ? cause.message : 'Failed to list activities'

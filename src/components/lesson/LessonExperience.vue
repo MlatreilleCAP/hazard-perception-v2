@@ -45,6 +45,7 @@ const phase = ref<Phase>('preloading')
 const error = ref<string | null>(null)
 const introSrc = ref<string | null>(null)
 const holdIntro = ref(false)
+const preloaderOverlay = ref(false)
 const sectionIndex = ref(0)
 const sectionDefinition = ref<ActivityDefinition | null>(null)
 const sectionCache = ref<Map<string, ActivityDefinition>>(new Map())
@@ -55,6 +56,8 @@ const preloadProgress = ref<LessonPreloadProgress>({
 })
 let preloadRetain: Array<HTMLVideoElement | HTMLImageElement> = []
 let preloadGeneration = 0
+let prefetchToken = 0
+let preloaderDismissTimer = 0
 let introHoldTimer = 0
 let preloadLottieCycleDone = false
 let preloadLottieWaiters: Array<() => void> = []
@@ -122,6 +125,23 @@ const resultsModel = computed(() =>
   buildLessonResultsModel(props.definition.metadata.title, sectionResults.value),
 )
 
+function clearPreloaderDismissTimer(): void {
+  window.clearTimeout(preloaderDismissTimer)
+  preloaderDismissTimer = 0
+}
+
+function dismissPreloader(): void {
+  clearPreloaderDismissTimer()
+  preloaderOverlay.value = false
+}
+
+function armPreloaderDismissFallback(): void {
+  clearPreloaderDismissTimer()
+  preloaderDismissTimer = window.setTimeout(() => {
+    dismissPreloader()
+  }, 12000)
+}
+
 function clearPreloadRetain(): void {
   releaseLessonPreloadRetain(preloadRetain)
   preloadRetain = []
@@ -133,9 +153,10 @@ function shouldPlayIntro(): boolean {
   return !hasSeenLessonIntro(props.definition.id)
 }
 
-function showPlaying(index: number): void {
+function showPlaying(index: number, options?: { coverUntilReady?: boolean }): void {
   const item = orderedItems.value[index]
   if (!item) {
+    dismissPreloader()
     phase.value = 'results'
     sectionDefinition.value = null
     return
@@ -144,11 +165,49 @@ function showPlaying(index: number): void {
   if (!cached) {
     error.value = `${item.title} could not be loaded.`
     phase.value = 'error'
+    dismissPreloader()
     return
   }
+
+  const coverUntilReady =
+    options?.coverUntilReady ?? (index > 0 || phase.value === 'preloading')
+  if (coverUntilReady) {
+    preloaderOverlay.value = true
+    armPreloaderDismissFallback()
+  }
+
   sectionDefinition.value = cloneJson(cached)
   sectionIndex.value = index
   phase.value = 'playing'
+
+  const nextIndex = index + 1
+  if (nextIndex < orderedItems.value.length) {
+    void prefetchSection(nextIndex)
+  }
+}
+
+async function prefetchSection(index: number): Promise<void> {
+  const item = orderedItems.value[index]
+  if (!item || sectionCache.value.has(item.refId)) return
+
+  const token = ++prefetchToken
+  try {
+    const result = await preloadLessonAssets({
+      introMediaId: null,
+      items: [item],
+      published: !props.preview,
+    })
+    if (token !== prefetchToken) {
+      releaseLessonPreloadRetain(result.retain)
+      return
+    }
+    for (const [id, definition] of result.sections) {
+      sectionCache.value.set(id, definition)
+    }
+    preloadRetain.push(...result.retain)
+  } catch {
+    // Prefetch is best-effort.
+  }
 }
 
 async function playIntroIfNeeded(): Promise<boolean> {
@@ -173,21 +232,35 @@ async function playIntroIfNeeded(): Promise<boolean> {
 async function preloadAndEnter(index: number): Promise<void> {
   const item = orderedItems.value[index]
   if (!item) {
+    dismissPreloader()
     phase.value = 'results'
     sectionDefinition.value = null
     return
   }
 
   const generation = preloadGeneration
-  phase.value = 'preloading'
+  const isTransition = index > 0 && sectionDefinition.value !== null
+
+  if (isTransition) {
+    preloaderOverlay.value = true
+    armPreloaderDismissFallback()
+  } else {
+    phase.value = 'preloading'
+    sectionDefinition.value = null
+    introSrc.value = null
+    holdIntro.value = false
+    clearIntroHoldTimer()
+    clearPreloadRetain()
+    resetPreloadLottieGate()
+    preloadProgress.value = { loaded: 0, total: 1, label: 'Loading…' }
+  }
+
   error.value = null
-  sectionDefinition.value = null
-  introSrc.value = null
-  holdIntro.value = false
-  clearIntroHoldTimer()
-  clearPreloadRetain()
-  resetPreloadLottieGate()
-  preloadProgress.value = { loaded: 0, total: 1, label: 'Loading…' }
+
+  if (isTransition && sectionCache.value.has(item.refId)) {
+    showPlaying(index)
+    return
+  }
 
   const includeIntro = index === 0 && shouldPlayIntro()
   const label =
@@ -202,26 +275,34 @@ async function preloadAndEnter(index: number): Promise<void> {
           : `Loading ${item.title}…`
 
   try {
-    const [result] = await Promise.all([
-      preloadLessonAssets({
-        introMediaId: includeIntro
-          ? (lesson.value.introMedia?.media_asset_id ?? null)
-          : null,
-        items: [item],
-        published: !props.preview,
-        label,
-        onProgress: (progress) => {
-          if (generation !== preloadGeneration) return
-          preloadProgress.value = progress
-        },
-      }),
-      waitForPreloadLottieCycle(),
-    ])
+    const result = await preloadLessonAssets({
+      introMediaId: includeIntro
+        ? (lesson.value.introMedia?.media_asset_id ?? null)
+        : null,
+      items: [item],
+      published: !props.preview,
+      label,
+      onProgress: (progress) => {
+        if (generation !== preloadGeneration) return
+        preloadProgress.value = progress
+      },
+    })
+
+    if (!isTransition) {
+      await waitForPreloadLottieCycle()
+    }
+
     if (generation !== preloadGeneration) {
       releaseLessonPreloadRetain(result.retain)
       return
     }
+
+    const previousRetain = preloadRetain
     preloadRetain = result.retain
+    if (isTransition && previousRetain.length > 0) {
+      releaseLessonPreloadRetain(previousRetain)
+    }
+
     for (const [id, definition] of result.sections) {
       sectionCache.value.set(id, definition)
     }
@@ -229,13 +310,18 @@ async function preloadAndEnter(index: number): Promise<void> {
     if (index === 0) {
       const showingIntro = await playIntroIfNeeded()
       if (generation !== preloadGeneration) return
-      if (showingIntro) return
+      if (showingIntro) {
+        dismissPreloader()
+        return
+      }
     }
+
     showPlaying(index)
   } catch (cause) {
     if (generation !== preloadGeneration) return
     error.value = cause instanceof Error ? cause.message : 'Failed to load lesson section'
     phase.value = 'error'
+    dismissPreloader()
   }
 }
 
@@ -249,17 +335,24 @@ function onIntroEnded(): void {
   introHoldTimer = window.setTimeout(() => {
     releaseIntroHold()
   }, 8000)
-  showPlaying(0)
+  showPlaying(0, { coverUntilReady: false })
+}
+
+function onSectionReady(): void {
+  dismissPreloader()
 }
 
 function onObserveReady(): void {
   releaseIntroHold()
+  onSectionReady()
 }
 
 async function startLesson(): Promise<void> {
   preloadGeneration += 1
+  prefetchToken += 1
   clearPreloadRetain()
   clearIntroHoldTimer()
+  dismissPreloader()
   sectionResults.value = {}
   sectionIndex.value = 0
   introSrc.value = null
@@ -366,7 +459,10 @@ watch(
 
 onBeforeUnmount(() => {
   preloadGeneration += 1
+  prefetchToken += 1
   clearIntroHoldTimer()
+  clearPreloaderDismissTimer()
+  dismissPreloader()
   clearPreloadRetain()
 })
 </script>
@@ -380,8 +476,9 @@ onBeforeUnmount(() => {
     }"
   >
     <div
-      v-if="phase === 'preloading'"
+      v-if="phase === 'preloading' || preloaderOverlay"
       class="lesson-preloader"
+      :class="{ 'is-overlay': preloaderOverlay && phase === 'playing' }"
       role="status"
       aria-live="polite"
       aria-busy="true"
@@ -395,7 +492,7 @@ onBeforeUnmount(() => {
         />
       </div>
     </div>
-    <p v-else-if="phase === 'error'" class="process-player-message">{{ error }}</p>
+    <p v-if="phase === 'error'" class="process-player-message">{{ error }}</p>
     <template v-else-if="phase === 'playing' && sectionDefinition && currentItem">
       <SeeExperience
         v-if="currentItem.kind === 'see'"
@@ -408,12 +505,14 @@ onBeforeUnmount(() => {
         v-else-if="currentItem.kind === 'process'"
         :key="sectionDefinition.id"
         :definition="sectionDefinition"
+        @ready="onSectionReady"
         @finished="onProcessFinished"
       />
       <AnticipateExperience
         v-else-if="currentItem.kind === 'anticipate'"
         :key="sectionDefinition.id"
         :definition="sectionDefinition"
+        @ready="onSectionReady"
         @finished="onAnticipateFinished"
       />
     </template>
