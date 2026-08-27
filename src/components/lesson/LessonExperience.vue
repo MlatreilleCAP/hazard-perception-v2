@@ -6,8 +6,10 @@ import { cloneJson } from '@/app/clone'
 import AnticipateExperience from '@/components/anticipate/AnticipateExperience.vue'
 import LessonResultsCard from '@/components/lesson/LessonResultsCard.vue'
 import ProcessExperience from '@/components/process/ProcessExperience.vue'
+import ProcessResultsLottie from '@/components/process/ProcessResultsLottie.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
 import SeeExperience from '@/components/see/SeeExperience.vue'
+import segmentLoadAnimation from '@/assets/lottie/lesson-segment-load.json'
 import type { ActivityDefinition } from '@/types/activity'
 import {
   buildLessonResultsModel,
@@ -40,12 +42,14 @@ const introSrc = ref<string | null>(null)
 const sectionIndex = ref(0)
 const sectionDefinition = ref<ActivityDefinition | null>(null)
 const sectionCache = ref<Map<string, ActivityDefinition>>(new Map())
+const awaitingReady = ref(false)
 
 const sectionResults = ref<
   Partial<Record<'see' | 'process' | 'anticipate', LessonSectionResult>>
 >({})
 
 let loadGeneration = 0
+let readyDismissTimer = 0
 
 const lesson = computed(() => readLessonDefinition(props.definition))
 const orderedItems = computed(() =>
@@ -60,6 +64,24 @@ const currentItem = computed(
 const resultsModel = computed(() =>
   buildLessonResultsModel(props.definition.metadata.title, sectionResults.value),
 )
+
+function clearReadyDismissTimer(): void {
+  window.clearTimeout(readyDismissTimer)
+  readyDismissTimer = 0
+}
+
+function showSegmentLoader(): void {
+  clearReadyDismissTimer()
+  awaitingReady.value = true
+  readyDismissTimer = window.setTimeout(() => {
+    awaitingReady.value = false
+  }, 15000)
+}
+
+function onSegmentReady(): void {
+  clearReadyDismissTimer()
+  awaitingReady.value = false
+}
 
 function shouldPlayIntro(): boolean {
   if (!lesson.value.introMedia?.media_asset_id) return false
@@ -88,6 +110,11 @@ async function startIntro(): Promise<boolean> {
   const mediaId = lesson.value.introMedia?.media_asset_id
   if (!mediaId) return false
 
+  showSegmentLoader()
+  sectionDefinition.value = null
+  introSrc.value = null
+  error.value = null
+
   try {
     introSrc.value = await services.media.getSignedUrl(mediaId)
     phase.value = 'intro'
@@ -95,6 +122,7 @@ async function startIntro(): Promise<boolean> {
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Failed to load intro video'
     phase.value = 'error'
+    onSegmentReady()
     return true
   }
 }
@@ -102,12 +130,14 @@ async function startIntro(): Promise<boolean> {
 async function enterSection(index: number): Promise<void> {
   const item = orderedItems.value[index]
   if (!item) {
+    onSegmentReady()
     phase.value = 'results'
     sectionDefinition.value = null
     return
   }
 
   const generation = loadGeneration
+  showSegmentLoader()
   sectionDefinition.value = null
   introSrc.value = null
   error.value = null
@@ -122,6 +152,7 @@ async function enterSection(index: number): Promise<void> {
     if (generation !== loadGeneration) return
     error.value = cause instanceof Error ? cause.message : 'Failed to load lesson section'
     phase.value = 'error'
+    onSegmentReady()
   }
 }
 
@@ -135,16 +166,19 @@ function onIntroEnded(): void {
 
 async function startLesson(): Promise<void> {
   loadGeneration += 1
+  clearReadyDismissTimer()
   sectionResults.value = {}
   sectionIndex.value = 0
   introSrc.value = null
   sectionDefinition.value = null
   sectionCache.value = new Map()
   error.value = null
+  showSegmentLoader()
 
   if (orderedItems.value.length === 0) {
     error.value = 'This lesson has no Observe, Process, or Anticipate sections yet.'
     phase.value = 'error'
+    onSegmentReady()
     return
   }
 
@@ -242,20 +276,37 @@ watch(
 
 onBeforeUnmount(() => {
   loadGeneration += 1
+  clearReadyDismissTimer()
 })
 </script>
 
 <template>
   <div
     class="lesson-experience"
-    :class="{ 'is-results': phase === 'results' }"
+    :class="{
+      'is-results': phase === 'results',
+      'is-loading': awaitingReady,
+    }"
   >
+    <div
+      v-if="awaitingReady"
+      class="lesson-preloader"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Loading"
+    >
+      <div class="lesson-preloader-lottie" aria-hidden="true">
+        <ProcessResultsLottie :animation-data="segmentLoadAnimation" loop />
+      </div>
+    </div>
     <p v-if="phase === 'error'" class="process-player-message">{{ error }}</p>
     <ProcessVideoStage
       v-else-if="phase === 'intro' && introSrc"
       class="lesson-intro-cover"
       :src="introSrc"
       instruction-text=""
+      @ready="onSegmentReady"
       @ended="onIntroEnded"
     />
     <template v-else-if="phase === 'playing' && sectionDefinition && currentItem">
@@ -263,18 +314,21 @@ onBeforeUnmount(() => {
         v-if="currentItem.kind === 'see'"
         :key="sectionDefinition.id"
         :definition="sectionDefinition"
+        @ready="onSegmentReady"
         @finished="onSeeFinished"
       />
       <ProcessExperience
         v-else-if="currentItem.kind === 'process'"
         :key="sectionDefinition.id"
         :definition="sectionDefinition"
+        @ready="onSegmentReady"
         @finished="onProcessFinished"
       />
       <AnticipateExperience
         v-else-if="currentItem.kind === 'anticipate'"
         :key="sectionDefinition.id"
         :definition="sectionDefinition"
+        @ready="onSegmentReady"
         @finished="onAnticipateFinished"
       />
     </template>

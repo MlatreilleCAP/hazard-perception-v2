@@ -1052,10 +1052,42 @@ body:has(.player-page) {
   color: #403b3b;
 }
 
+.lesson-experience.is-loading {
+  background: #fff;
+}
+
 .lesson-intro-cover {
   position: absolute;
   inset: 0;
   z-index: 30;
+}
+
+.lesson-preloader {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+}
+
+.lesson-preloader-lottie {
+  width: 100%;
+  max-width: 100%;
+}
+
+.lesson-preloader-lottie .process-results-lottie {
+  width: 100%;
+  height: auto;
+}
+
+.lesson-preloader-lottie .process-results-lottie svg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .lesson-results-page {
