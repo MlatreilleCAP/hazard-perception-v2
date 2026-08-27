@@ -1313,11 +1313,13 @@ body:has(.player-page) {
   left: 0;
   overflow: hidden;
   opacity: 0;
+  pointer-events: none;
   will-change: transform;
 }
 
 .see-video-plane.is-layout-ready {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .see-video-plane.is-interactive {

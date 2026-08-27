@@ -87,8 +87,9 @@ const video = ref<HTMLVideoElement | null>(null)
 const stage = ref<HTMLElement | null>(null)
 const phase = ref<Phase>('ready')
 const currentTime = ref(0)
-/** Null until metadata so we never paint a wrong landscape width. */
+/** Null until the first frame is ready so layout does not flash the wrong aspect. */
 const videoAspect = ref<number | null>(null)
+const frameReady = ref(false)
 const panX = ref(0)
 const viewportSize = ref({ width: 0, height: 0 })
 const answers = ref<Record<string, number>>({})
@@ -214,6 +215,13 @@ async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
     // Autoplay blocked — frame should appear once the learner taps Start.
   }
 
+  el.pause()
+  try {
+    if (el.currentTime > 0.01) el.currentTime = 0.001
+  } catch {
+    // Keep whatever frame decoded.
+  }
+
   await waitForAnimationPaint()
 }
 
@@ -259,7 +267,11 @@ const questionResults = computed((): ProcessQuestionResult[] => {
   return processQuestionResults(bank, answers.value)
 })
 const clicksEnabled = computed(
-  () => phase.value === 'playing' && !celebrating.value && overlay.value == null,
+  () =>
+    phase.value === 'playing' &&
+    planeReady.value &&
+    !celebrating.value &&
+    overlay.value == null,
 )
 
 const planeSize = computed(() => {
@@ -278,6 +290,7 @@ const planeSize = computed(() => {
 })
 const planeReady = computed(
   () =>
+    frameReady.value &&
     videoAspect.value != null &&
     viewportSize.value.width > 0 &&
     viewportSize.value.height > 0,
@@ -392,6 +405,7 @@ watch(
     phase.value = 'ready'
     resetSession()
     videoAspect.value = null
+    frameReady.value = false
     didCenterPan = false
     panX.value = 0
     if (!mediaId) {
@@ -491,11 +505,18 @@ function startPlayhead(): void {
 }
 
 function begin(): void {
+  if (!frameReady.value) return
   unlockTapAudio()
   phase.value = 'playing'
   clipEnded.value = false
   const el = video.value
-  if (el) void startPlayback(el)
+  if (el) {
+    configureInlinePlayback(el)
+    // User gesture from Start — play synchronously before any await.
+    void el.play().catch(() => {
+      void startPlayback(el)
+    })
+  }
   startPlayhead()
 }
 
@@ -750,23 +771,28 @@ function onVideoMetadata(): void {
   const width = el.videoWidth
   const height = el.videoHeight
   if (!width || !height) return
-  videoAspect.value = width / height
-  didCenterPan = false
-  measureStage()
-  requestAnimationFrame(() => {
-    measureStage()
-  })
+  const aspect = width / height
+
   const token = readyToken
   void (async () => {
     await waitForFirstFrame(el)
     if (token !== readyToken) return
+
+    videoAspect.value = aspect
+    didCenterPan = false
     measureStage()
     await waitForAnimationPaint()
     if (token !== readyToken) return
-    emitReadyOnce()
-    if (phase.value === 'ready' && !instructionText.value.trim() && !props.suppressAutoplay) {
-      begin()
-    }
+
+    requestAnimationFrame(() => {
+      if (token !== readyToken) return
+      measureStage()
+      frameReady.value = true
+      emitReadyOnce()
+      if (phase.value === 'ready' && !instructionText.value.trim() && !props.suppressAutoplay) {
+        begin()
+      }
+    })
   })()
 }
 
@@ -774,7 +800,7 @@ watch(
   () => props.suppressAutoplay,
   (suppressed) => {
     if (suppressed) return
-    if (phase.value === 'ready' && !instructionText.value.trim()) {
+    if (phase.value === 'ready' && frameReady.value && !instructionText.value.trim()) {
       begin()
     }
   },
@@ -957,7 +983,7 @@ onBeforeUnmount(() => {
         >
           <p>Out of attempts</p>
         </div>
-        <div v-if="phase === 'ready' && showScenarioInstruction" class="process-instruction-overlay">
+        <div v-if="phase === 'ready' && frameReady && showScenarioInstruction" class="process-instruction-overlay">
           <ProcessInstructionCard
             :text="instructionText"
             :tag="instructionPill"
