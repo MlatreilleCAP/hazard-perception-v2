@@ -101,21 +101,28 @@ async function playFirstPublished(): Promise<void> {
   await loadActivity(first.id)
 }
 
-function onPreviewFinished(): void {
-  if (!isPreview.value || !activityId.value) return
+function onExperienceFinished(): void {
+  if (isPreview.value && activityId.value) {
+    if (isLesson.value) {
+      void router.push(`/studio/lesson/${activityId.value}`)
+      return
+    }
+    if (isSee.value) {
+      void router.push(`/studio/see/${activityId.value}`)
+      return
+    }
+    if (isAnticipate.value) {
+      void router.push(`/studio/anticipate/${activityId.value}`)
+      return
+    }
+    void router.push(`/studio/process/${activityId.value}`)
+    return
+  }
+
+  // Demo / published playback: return to the homepage after the final results Continue.
   if (isLesson.value) {
-    void router.push(`/studio/lesson/${activityId.value}`)
-    return
+    void router.push('/')
   }
-  if (isSee.value) {
-    void router.push(`/studio/see/${activityId.value}`)
-    return
-  }
-  if (isAnticipate.value) {
-    void router.push(`/studio/anticipate/${activityId.value}`)
-    return
-  }
-  void router.push(`/studio/process/${activityId.value}`)
 }
 </script>
 
@@ -128,25 +135,25 @@ function onPreviewFinished(): void {
           :key="definition.id"
           :definition="definition"
           :preview="isPreview"
-          @finished="onPreviewFinished"
+          @finished="onExperienceFinished"
         />
         <SeeExperience
           v-else-if="isSee"
           :key="definition.id"
           :definition="definition"
-          @finished="onPreviewFinished"
+          @finished="onExperienceFinished"
         />
         <AnticipateExperience
           v-else-if="isAnticipate"
           :key="definition.id"
           :definition="definition"
-          @finished="onPreviewFinished"
+          @finished="onExperienceFinished"
         />
         <ProcessExperience
           v-else
           :key="definition.id"
           :definition="definition"
-          @finished="onPreviewFinished"
+          @finished="onExperienceFinished"
         />
       </div>
     </div>
