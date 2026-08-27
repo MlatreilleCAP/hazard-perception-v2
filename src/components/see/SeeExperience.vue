@@ -13,8 +13,8 @@ import SeeMissedVideoOverlay from '@/components/see/SeeMissedVideoOverlay.vue'
 import SeeResultsPassCard from '@/components/see/SeeResultsPassCard.vue'
 import { playHitTapSound, playMissTapSound, stopHitTapSound, unlockTapAudio } from '@/lib/audio/tapFeedback'
 import {
-  clientToPercent,
   landscapeVideoDisplaySize,
+  mapClientToVideo,
   SEE_INITIAL_PAN_OFFSET_X,
   VIDEO_PAN_SLOP_PX,
 } from '@/lib/hazards/coordinates'
@@ -112,6 +112,8 @@ const missedVideoUrls = ref<Record<string, string>>({})
 const explanationImageUrls = ref<Record<string, string>>({})
 
 let playFrame = 0
+let presentedFrameHandle = 0
+let presentedMediaTime = 0
 let outOfAttemptsTimer = 0
 let missTimer = 0
 let hitTimer = 0
@@ -120,7 +122,8 @@ let didEmitReady = false
 let readyToken = 0
 let firstFrameWarmToken = 0
 let resizeObserver: ResizeObserver | null = null
-let pointerStart: { x: number; y: number; pan: number; pointerId: number } | null = null
+let pointerStart: { x: number; y: number; pan: number; pointerId: number; scaleX: number } | null =
+  null
 let pointerPanned = false
 
 function emitReadyOnce(): void {
@@ -408,6 +411,8 @@ watch(
     resetSession()
     videoAspect.value = null
     frameReady.value = false
+    presentedMediaTime = 0
+    stopPresentedFrameLoop()
     didCenterPan = false
     panX.value = 0
     if (!mediaId) {
@@ -469,11 +474,40 @@ watch(
   { immediate: true },
 )
 
-function syncTime(): void {
-  const time = video.value?.currentTime ?? 0
-  currentTime.value = time
-  if (phase.value !== 'playing' || celebrating.value || overlay.value) return
+function playbackTime(): number {
+  const el = video.value
+  if (!el) return 0
+  if (typeof el.requestVideoFrameCallback === 'function' && presentedFrameHandle) {
+    return presentedMediaTime
+  }
+  return el.currentTime
+}
 
+function stopPresentedFrameLoop(): void {
+  const el = video.value
+  if (el && presentedFrameHandle && typeof el.cancelVideoFrameCallback === 'function') {
+    el.cancelVideoFrameCallback(presentedFrameHandle)
+  }
+  presentedFrameHandle = 0
+}
+
+function startPresentedFrameLoop(): void {
+  stopPresentedFrameLoop()
+  const el = video.value
+  if (!el || typeof el.requestVideoFrameCallback !== 'function') return
+
+  const onFrame = (_now: number, metadata: VideoFrameCallbackMetadata) => {
+    presentedMediaTime = metadata.mediaTime
+    currentTime.value = metadata.mediaTime
+    if (phase.value === 'playing' && !celebrating.value && !overlay.value) {
+      syncHazardTracking(metadata.mediaTime)
+    }
+    presentedFrameHandle = el.requestVideoFrameCallback(onFrame)
+  }
+  presentedFrameHandle = el.requestVideoFrameCallback(onFrame)
+}
+
+function syncHazardTracking(time: number): void {
   const closed = closedHazardIds(resolvedIds.value, deferredMissIds.value)
   const active = activeHazardAtTime(sortedHazards.value, closed, time)
 
@@ -497,8 +531,23 @@ function syncTime(): void {
   }
 }
 
+function syncTime(): void {
+  const el = video.value
+  if (!el) return
+  // Keep currentTime in sync when rvfc is unavailable; rvfc path updates in onFrame.
+  if (typeof el.requestVideoFrameCallback !== 'function') {
+    const time = el.currentTime
+    presentedMediaTime = time
+    currentTime.value = time
+    if (phase.value === 'playing' && !celebrating.value && !overlay.value) {
+      syncHazardTracking(time)
+    }
+  }
+}
+
 function startPlayhead(): void {
   cancelAnimationFrame(playFrame)
+  startPresentedFrameLoop()
   const tick = () => {
     syncTime()
     playFrame = requestAnimationFrame(tick)
@@ -517,6 +566,13 @@ function begin(): void {
     // Prefer unmuted playback from the Start tap; fall back to muted if blocked.
     el.muted = false
     el.removeAttribute('muted')
+    try {
+      if (el.currentTime > 0.05) el.currentTime = 0
+    } catch {
+      // Ignore seek errors; playback still starts from the warm-up frame.
+    }
+    presentedMediaTime = el.currentTime
+    currentTime.value = el.currentTime
     void el.play().catch(() => {
       void startPlayback(el)
     })
@@ -555,6 +611,7 @@ function deferMiss(hazardId: string, reason?: 'attempts' | 'time'): void {
 
 function goToResults(): void {
   cancelAnimationFrame(playFrame)
+  stopPresentedFrameLoop()
   video.value?.pause()
   overlay.value = null
   celebrating.value = false
@@ -666,9 +723,8 @@ function showOutOfAttemptsCaption(): void {
 function onTap(clientX: number, clientY: number): void {
   if (!clicksEnabled.value || !video.value) return
 
-  const time = video.value.currentTime
-  syncTime()
-  const { x, y } = clientToPercent(clientX, clientY, video.value)
+  const time = playbackTime()
+  const { x, y, frame } = mapClientToVideo(clientX, clientY, video.value)
   const closed = closedIds()
   const target = targetHazardForClick(sortedHazards.value, closed, time)
 
@@ -686,10 +742,6 @@ function onTap(clientX: number, clientY: number): void {
     return
   }
 
-  const frame = {
-    width: video.value.clientWidth,
-    height: video.value.clientHeight,
-  }
   const activeAtClick = activeHazardAtTime(sortedHazards.value, closed, time)
   const isHit =
     target != null &&
@@ -817,14 +869,19 @@ watch(
 function onPointerDown(event: PointerEvent): void {
   if (!clicksEnabled.value || event.button !== 0) return
   pointerPanned = false
+  const target = event.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+  const layoutWidth = Math.max(1, target.offsetWidth)
   pointerStart = {
     x: event.clientX,
     y: event.clientY,
     pan: panX.value,
     pointerId: event.pointerId,
+    // Convert screen deltas into plane layout px when the phone is CSS-scaled.
+    scaleX: rect.width / layoutWidth,
   }
   try {
-    ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+    target.setPointerCapture(event.pointerId)
   } catch {
     /* synthetic events in tests have no capture */
   }
@@ -839,7 +896,7 @@ function onPointerMove(event: PointerEvent): void {
     return
   }
   pointerPanned = true
-  panX.value = clampPan(start.pan - dx)
+  panX.value = clampPan(start.pan - dx / start.scaleX)
 }
 
 function onPointerUp(event: PointerEvent): void {
@@ -887,6 +944,7 @@ function finishPlayback(): void {
   clipEnded.value = true
   if (celebrating.value || overlay.value) return
   cancelAnimationFrame(playFrame)
+  stopPresentedFrameLoop()
   video.value?.pause()
   markUnspottedHazardsMissed()
   goToResults()
@@ -909,6 +967,7 @@ function onQuestionComplete(): void {
 onBeforeUnmount(() => {
   readyToken += 1
   cancelAnimationFrame(playFrame)
+  stopPresentedFrameLoop()
   window.clearTimeout(outOfAttemptsTimer)
   window.clearTimeout(missTimer)
   window.clearTimeout(hitTimer)

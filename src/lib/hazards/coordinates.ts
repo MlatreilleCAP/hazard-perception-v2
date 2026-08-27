@@ -74,18 +74,29 @@ export function getVideoContentRect(video: HTMLVideoElement): ContentRect {
   }
 }
 
+/** Map a client point into video percent space using one shared rect for hit testing. */
+export function mapClientToVideo(
+  clientX: number,
+  clientY: number,
+  video: HTMLVideoElement,
+): { x: number; y: number; frame: { width: number; height: number } } {
+  const rect = getVideoContentRect(video)
+  const width = Math.max(1, rect.width)
+  const height = Math.max(1, rect.height)
+  return {
+    x: Math.min(100, Math.max(0, ((clientX - rect.left) / width) * 100)),
+    y: Math.min(100, Math.max(0, ((clientY - rect.top) / height) * 100)),
+    frame: { width, height },
+  }
+}
+
 export function clientToPercent(
   clientX: number,
   clientY: number,
   video: HTMLVideoElement,
 ): { x: number; y: number } {
-  const rect = getVideoContentRect(video)
-  const x = ((clientX - rect.left) / rect.width) * 100
-  const y = ((clientY - rect.top) / rect.height) * 100
-  return {
-    x: Math.min(100, Math.max(0, x)),
-    y: Math.min(100, Math.max(0, y)),
-  }
+  const mapped = mapClientToVideo(clientX, clientY, video)
+  return { x: mapped.x, y: mapped.y }
 }
 
 export function videoContentRectRelative(
