@@ -118,6 +118,7 @@ let hitTimer = 0
 let didCenterPan = false
 let didEmitReady = false
 let readyToken = 0
+let firstFrameWarmToken = 0
 let resizeObserver: ResizeObserver | null = null
 let pointerStart: { x: number; y: number; pan: number; pointerId: number } | null = null
 let pointerPanned = false
@@ -185,8 +186,12 @@ async function startPlayback(el: HTMLVideoElement): Promise<boolean> {
 
 async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
   configureInlinePlayback(el)
+  // iOS will not paint a paused frame without muted playback during load.
+  el.muted = true
+  el.setAttribute('muted', '')
+
   if (el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-    await waitForEvent(el, 'loadeddata', 5000)
+    await waitForEvent(el, 'loadeddata', 8000)
   }
 
   try {
@@ -196,28 +201,24 @@ async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
   }
 
   if (el.seeking) {
-    await waitForEvent(el, 'seeked', 1000)
+    await waitForEvent(el, 'seeked', 1500)
   }
 
-  if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
-    await waitForAnimationPaint()
-    return
-  }
-
+  // Force a decoded frame: muted play is allowed without a user gesture on mobile.
   try {
     await el.play()
-    el.pause()
-    if (el.currentTime > 0.05) {
-      el.currentTime = 0.001
-      if (el.seeking) await waitForEvent(el, 'seeked', 1000)
-    }
+    await waitForEvent(el, 'playing', 2000)
+    await waitForAnimationPaint()
   } catch {
-    // Autoplay blocked — frame should appear once the learner taps Start.
+    // Still try to settle on whatever frame is available.
   }
 
   el.pause()
   try {
-    if (el.currentTime > 0.01) el.currentTime = 0.001
+    if (el.currentTime > 0.01) {
+      el.currentTime = 0.001
+      if (el.seeking) await waitForEvent(el, 'seeked', 1500)
+    }
   } catch {
     // Keep whatever frame decoded.
   }
@@ -399,6 +400,7 @@ watch(
   () => see.value.media?.media_asset_id,
   async (mediaId) => {
     const token = ++readyToken
+    firstFrameWarmToken += 1
     didEmitReady = false
     src.value = null
     error.value = null
@@ -512,7 +514,9 @@ function begin(): void {
   const el = video.value
   if (el) {
     configureInlinePlayback(el)
-    // User gesture from Start — play synchronously before any await.
+    // Prefer unmuted playback from the Start tap; fall back to muted if blocked.
+    el.muted = false
+    el.removeAttribute('muted')
     void el.play().catch(() => {
       void startPlayback(el)
     })
@@ -771,21 +775,25 @@ function onVideoMetadata(): void {
   const width = el.videoWidth
   const height = el.videoHeight
   if (!width || !height) return
+  if (frameReady.value) return
+
   const aspect = width / height
+  videoAspect.value = aspect
+  didCenterPan = false
+  measureStage()
 
   const token = readyToken
+  const warmToken = ++firstFrameWarmToken
   void (async () => {
     await waitForFirstFrame(el)
-    if (token !== readyToken) return
+    if (token !== readyToken || warmToken !== firstFrameWarmToken) return
 
-    videoAspect.value = aspect
-    didCenterPan = false
     measureStage()
     await waitForAnimationPaint()
-    if (token !== readyToken) return
+    if (token !== readyToken || warmToken !== firstFrameWarmToken) return
 
     requestAnimationFrame(() => {
-      if (token !== readyToken) return
+      if (token !== readyToken || warmToken !== firstFrameWarmToken) return
       measureStage()
       frameReady.value = true
       emitReadyOnce()
@@ -960,8 +968,11 @@ onBeforeUnmount(() => {
             class="see-player-video"
             :src="src"
             playsinline
+            muted
             preload="auto"
+            webkit-playsinline
             @loadedmetadata="onVideoMetadata"
+            @loadeddata="onVideoMetadata"
             @timeupdate="syncTime"
             @ended="finishPlayback"
           />
