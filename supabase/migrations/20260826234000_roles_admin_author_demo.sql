@@ -33,7 +33,7 @@ SET role = 'demo'
 WHERE role = 'learner';
 
 ALTER TABLE public.profiles
-  ALTER COLUMN role SET DEFAULT 'demo';
+  ALTER COLUMN role SET DEFAULT 'author';
 
 ALTER TABLE public.profiles
   ADD CONSTRAINT profiles_role_check
@@ -67,7 +67,7 @@ SET search_path = public
 AS $$
 BEGIN
   INSERT INTO public.profiles (id, role)
-  VALUES (NEW.id, 'demo');
+  VALUES (NEW.id, 'author');
   RETURN NEW;
 END;
 $$;
