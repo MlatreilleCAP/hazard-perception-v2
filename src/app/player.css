@@ -568,9 +568,9 @@ body:has(.player-page) {
   background: #f5f5f5;
   padding: 14px 16px;
   font-family: var(--font-poppins, inherit);
-  font-size: 13px;
+  font-size: 13.26px;
   font-weight: 400;
-  line-height: 20px;
+  line-height: 20.4px;
   letter-spacing: -0.5px;
   text-align: left;
   color: #403b3b;
@@ -1567,6 +1567,10 @@ body:has(.player-page) {
   background: #000;
 }
 
+.see-missed-video.is-warming {
+  background: #fff;
+}
+
 .see-stage > .process-dim-overlay {
   z-index: 9;
 }
@@ -1578,6 +1582,11 @@ body:has(.player-page) {
   height: 100%;
   object-fit: cover;
   object-position: center;
+  opacity: 0;
+}
+
+.see-missed-video-player.is-visible {
+  opacity: 1;
 }
 
 .see-results-score {

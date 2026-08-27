@@ -90,6 +90,7 @@ const currentTime = ref(0)
 /** Null until the first frame is ready so layout does not flash the wrong aspect. */
 const videoAspect = ref<number | null>(null)
 const frameReady = ref(false)
+const coachingReady = ref(false)
 const panX = ref(0)
 const viewportSize = ref({ width: 0, height: 0 })
 const answers = ref<Record<string, number>>({})
@@ -397,6 +398,7 @@ function resetSession(): void {
   clickMarkers.value = []
   answers.value = {}
   currentTime.value = 0
+  coachingReady.value = false
 }
 
 watch(
@@ -616,6 +618,7 @@ function goToResults(): void {
   overlay.value = null
   celebrating.value = false
   phase.value = 'results'
+  coachingReady.value = false
 }
 
 function startQuestionFlow(): void {
@@ -689,11 +692,13 @@ function onResultsContinue(): void {
   const hasVideo = Boolean(missedVideoUrls.value[hazardId])
   const hasQuestions = hazard ? configuredSurveyQuestions(hazard.questions).length > 0 : false
   if (hasVideo) {
+    coachingReady.value = false
     overlay.value = { step: 'missed-video', hazardId }
     phase.value = 'coaching'
     return
   }
   if (hasQuestions) {
+    coachingReady.value = true
     overlay.value = { step: 'question', hazardId, questionIndex: 0 }
     phase.value = 'coaching'
     return
@@ -701,10 +706,15 @@ function onResultsContinue(): void {
   emitFinished()
 }
 
+function onCoachingVideoReady(): void {
+  coachingReady.value = true
+}
+
 function onFeedbackContinue(): void {
   if (overlay.value?.step === 'missed') {
     const url = missedVideoUrls.value[overlay.value.hazardId]
     if (url) {
+      coachingReady.value = false
       overlay.value = { step: 'missed-video', hazardId: overlay.value.hazardId }
       return
     }
@@ -978,7 +988,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="see-experience" :class="{ 'is-results': phase === 'results' }">
+  <div
+    class="see-experience"
+    :class="{
+      'is-results': phase === 'results' || (phase === 'coaching' && !coachingReady),
+    }"
+  >
     <p v-if="error" class="process-player-message">{{ error }}</p>
     <template v-else-if="src">
       <div v-if="phase === 'coaching'" class="see-stage">
@@ -989,6 +1004,7 @@ onBeforeUnmount(() => {
           :instruction-text="overlayHazard?.instructionText ?? ''"
           :instruction-pill="overlayHazard?.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
           :hold-end="overlay?.step === 'question'"
+          @ready="onCoachingVideoReady"
           @continue="startQuestionFlow"
         />
         <div v-if="overlay?.step === 'question' && overlayQuestion" class="process-dim-overlay">
@@ -1078,6 +1094,7 @@ onBeforeUnmount(() => {
           :instruction-text="overlayHazard?.instructionText ?? ''"
           :instruction-pill="overlayHazard?.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
           :hold-end="overlay?.step === 'question'"
+          @ready="onCoachingVideoReady"
           @continue="startQuestionFlow"
         />
         <div v-if="overlay?.step === 'question' && overlayQuestion" class="process-dim-overlay">
