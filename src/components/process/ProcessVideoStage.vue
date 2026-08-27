@@ -290,7 +290,12 @@ function finishPlayback(slot: number): void {
   const duration = el?.duration ?? 0
   const currentTime = el?.currentTime ?? 0
   if (!Number.isFinite(duration) || duration <= 0) return
-  if (duration >= 2 && currentTime < Math.min(1, duration * 0.5)) {
+  // Some browsers reset currentTime to 0 on the native `ended` event — treat
+  // el.ended / near-end as a real finish so lesson intro can advance.
+  const nearEnd =
+    el?.ended === true ||
+    (Number.isFinite(currentTime) && currentTime >= Math.max(0, duration - 0.25))
+  if (duration >= 2 && !nearEnd && currentTime < Math.min(1, duration * 0.5)) {
     return
   }
   finished.value = true

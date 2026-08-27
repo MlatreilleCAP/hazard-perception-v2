@@ -160,7 +160,11 @@ function onIntroEnded(): void {
   if (lesson.value.introShowOnFirstVisitOnly !== false) {
     markLessonIntroSeen(props.definition.id)
   }
+  // Leave intro immediately so the last frame cannot stick over the Observe loader.
+  showSegmentLoader()
   introSrc.value = null
+  sectionDefinition.value = null
+  phase.value = 'playing'
   void enterSection(0)
 }
 
