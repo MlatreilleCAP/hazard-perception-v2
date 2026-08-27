@@ -9,17 +9,25 @@
   --iphone-17-pro-width: 402px;
   --iphone-17-pro-height: 874px;
   --iphone-17-pro-radius: 20px;
+  /* Use svh so browser chrome / short desktop windows still fit the phone. */
+  --phone-fit-pad: 32px;
   --phone-fit: min(
     1,
-    (100dvw - 32px) / 402,
-    (100dvh - 32px) / 874
+    (100svw - var(--phone-fit-pad)) / var(--iphone-17-pro-width),
+    (100svh - var(--phone-fit-pad)) / var(--iphone-17-pro-height)
   );
   --font-poppins: 'Poppins', system-ui, sans-serif;
   --font-inter: 'Inter', var(--font-poppins);
   display: flex;
-  min-height: 100svh;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
   align-items: center;
   justify-content: center;
+  padding: calc(var(--phone-fit-pad) / 2);
+  overflow: hidden;
   background: #ececf3;
   color: #fff;
   font-family: var(--font-poppins);
@@ -34,18 +42,26 @@
 #app:has(.player-page) {
   width: 100%;
   max-width: none;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
   border-inline: none;
+  overflow: hidden;
 }
 
 html:has(.player-page),
 body:has(.player-page) {
   margin: 0;
   height: 100%;
+  max-height: 100dvh;
+  overflow: hidden;
 }
 
 .player-phone-slot {
   width: calc(var(--iphone-17-pro-width) * var(--phone-fit));
   height: calc(var(--iphone-17-pro-height) * var(--phone-fit));
+  max-width: 100%;
+  max-height: 100%;
   flex-shrink: 0;
 }
 
@@ -76,6 +92,7 @@ body:has(.player-page) {
     height: 100dvh;
     max-height: 100dvh;
     min-height: 100dvh;
+    padding: 0;
     background: #000;
     align-items: stretch;
     justify-content: stretch;
@@ -87,6 +104,7 @@ body:has(.player-page) {
     width: 100%;
     height: 100%;
     max-width: none;
+    max-height: none;
     border-radius: 0;
     transform: none;
     box-shadow: none;

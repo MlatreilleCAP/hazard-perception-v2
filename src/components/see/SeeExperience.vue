@@ -316,9 +316,11 @@ function centerPan(): void {
 }
 
 function measureStage(): void {
-  const box = stage.value?.getBoundingClientRect()
-  if (!box) return
-  viewportSize.value = { width: box.width, height: box.height }
+  const el = stage.value
+  if (!el) return
+  // Use layout size, not getBoundingClientRect — an ancestor scale (desktop phone
+  // fit) shrinks the visual box and would undersize the video plane (black bar).
+  viewportSize.value = { width: el.clientWidth, height: el.clientHeight }
   if (!didCenterPan && maxPan.value > 0) {
     centerPan()
     didCenterPan = true
