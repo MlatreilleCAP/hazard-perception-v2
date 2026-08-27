@@ -17,12 +17,16 @@ import {
 import type { TrajectoryPoint } from '@/types/hazard'
 import type { SeeHazard } from '@/types/see'
 
-const props = defineProps<{
-  video: HTMLVideoElement | null
-  currentTime: number
-  hazards: SeeHazard[]
-  selectedHazardId: string | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    video: HTMLVideoElement | null
+    currentTime: number
+    hazards: SeeHazard[]
+    selectedHazardId: string | null
+    readonly?: boolean
+  }>(),
+  { readonly: false },
+)
 
 const emit = defineEmits<{
   trajectoryChange: [hazard: SeeHazard, trajectory: TrajectoryPoint[]]
@@ -114,7 +118,7 @@ function onKeyDown(event: KeyboardEvent): void {
 }
 
 function handleCanvasClick(event: MouseEvent): void {
-  if (!selectedHazard.value || !props.video) return
+  if (props.readonly || !selectedHazard.value || !props.video) return
   if ((event.target as HTMLElement).dataset.keyframe) return
 
   const { x, y } = clientToPercent(event.clientX, event.clientY, props.video)
@@ -143,7 +147,7 @@ function handleCanvasClick(event: MouseEvent): void {
 
 function handlePointPointerDown(event: PointerEvent, index: number): void {
   event.stopPropagation()
-  if (!selectedHazard.value) return
+  if (props.readonly || !selectedHazard.value) return
   selectedPointIndex.value = index
   dragIndex.value = index
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)

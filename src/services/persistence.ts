@@ -27,6 +27,7 @@ export class InMemoryActivityRepository implements ActivityRepository {
       updatedAt: activity.metadata.updatedAt,
       published: activity.version >= 1,
       tags: [...activity.metadata.tags],
+      createdBy: activity.metadata.authorId,
     }))
   }
 
@@ -76,15 +77,15 @@ export class SupabaseActivityRepository implements ActivityRepository {
   }
 
   async list(scope: ActivityListScope = 'authoring'): Promise<ActivitySummary[]> {
-    const userId = await this.requireUserId()
+    await this.requireUserId()
     let query = this.client
       .from('activities')
-      .select('id, title, updated_at, published_version_id, tags')
+      .select('id, title, updated_at, published_version_id, tags, created_by')
       .is('removed_at', null)
 
-    if (scope === 'authoring') {
-      query = query.eq('created_by', userId)
-    } else {
+    // Authoring lists all visible non-removed rows (own + others for authors/admins).
+    // Catalog is published-only for demo training surfaces.
+    if (scope === 'catalog') {
       query = query.not('published_version_id', 'is', null)
     }
 
@@ -94,7 +95,7 @@ export class SupabaseActivityRepository implements ActivityRepository {
 
     const rows = (data ?? []) as Pick<
       ActivityRow,
-      'id' | 'title' | 'updated_at' | 'published_version_id' | 'tags'
+      'id' | 'title' | 'updated_at' | 'published_version_id' | 'tags' | 'created_by'
     >[]
     const publishedIds = rows
       .map((row) => row.published_version_id)
@@ -125,6 +126,7 @@ export class SupabaseActivityRepository implements ActivityRepository {
         updatedAt: row.updated_at,
         published: Boolean(row.published_version_id) && version >= 1,
         tags: row.tags ?? [],
+        createdBy: row.created_by,
       }
     })
   }

@@ -22,8 +22,9 @@ const props = withDefaults(
     instructionText?: string
     instructionPill?: string
     kind?: 'video' | 'audio' | 'image'
+    readonly?: boolean
   }>(),
-  { kind: 'video' },
+  { kind: 'video', readonly: false },
 )
 
 const emit = defineEmits<{
@@ -172,7 +173,7 @@ function clear(): void {
 <template>
   <div class="media-upload">
     <p class="author-field-label">{{ label }}</p>
-    <div class="media-upload-row">
+    <div v-if="!readonly" class="media-upload-row">
       <input
         :id="id"
         ref="fileInput"
@@ -191,8 +192,11 @@ function clear(): void {
         Remove
       </AuthorPillButton>
     </div>
-    <p class="author-muted" style="margin-top: 4px; font-size: 12px">
+    <p v-if="!readonly" class="author-muted" style="margin-top: 4px; font-size: 12px">
       {{ formatHint }}
+    </p>
+    <p v-else-if="!modelValue" class="author-muted" style="margin-top: 4px; font-size: 12px">
+      No media attached.
     </p>
     <p v-if="error" class="author-error">{{ error }}</p>
 

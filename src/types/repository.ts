@@ -6,7 +6,7 @@ import type {
 
 export type PersistenceDriver = 'memory' | 'supabase'
 
-/** authoring: current user's activities; catalog: all published activities. */
+/** authoring: all studio-visible activities; catalog: published activities only. */
 export type ActivityListScope = 'authoring' | 'catalog'
 
 export interface ActivityRepository {

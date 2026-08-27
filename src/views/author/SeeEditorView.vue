@@ -8,6 +8,7 @@ import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import SeeTimelineEditor from '@/components/author/SeeTimelineEditor.vue'
+import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
 import type { MediaRef } from '@/types/media'
 import {
@@ -19,6 +20,7 @@ import {
 const route = useRoute()
 const router = useRouter()
 const activities = useActivityStore()
+const { canEdit } = useStudioAccess()
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)
@@ -36,6 +38,7 @@ const activityId = computed(() => String(route.params.id ?? ''))
 const isPublished = computed(
   () => activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
 )
+const editable = computed(() => canEdit(activities.current?.metadata.authorId))
 
 const instructionText = computed({
   get: () => see.value?.instructionText ?? '',
@@ -110,7 +113,7 @@ function setHazards(hazards: SeeHazard[]): void {
 }
 
 async function save(): Promise<boolean> {
-  if (!activities.current || !see.value) return false
+  if (!editable.value || !activities.current || !see.value) return false
   titleError.value = title.value.trim() ? null : 'Title is required'
   if (titleError.value) return false
 
@@ -138,12 +141,16 @@ async function save(): Promise<boolean> {
 }
 
 async function openPreview(): Promise<void> {
-  const saved = await save()
-  if (!saved || !activityId.value) return
+  if (!activityId.value) return
+  if (editable.value) {
+    const saved = await save()
+    if (!saved) return
+  }
   await router.push({ path: '/player', query: { activity: activityId.value, preview: '1' } })
 }
 
 async function publish(): Promise<void> {
+  if (!editable.value) return
   if (!see.value?.media?.media_asset_id) {
     window.alert('Add a video before publishing.')
     return
@@ -165,7 +172,7 @@ async function publish(): Promise<void> {
 }
 
 async function remove(): Promise<void> {
-  if (!activities.current) return
+  if (!editable.value || !activities.current) return
   if (
     !window.confirm(
       'Remove this scenario from authoring and training? The record will be kept in the database.',
@@ -215,6 +222,7 @@ async function remove(): Promise<void> {
             {{ saving ? 'Saving…' : 'Preview' }}
           </AuthorPillButton>
           <AuthorPillButton
+            v-if="editable"
             variant="primary"
             :disabled="saving || publishing || deleting"
             @click="publish"
@@ -224,6 +232,11 @@ async function remove(): Promise<void> {
         </div>
       </div>
 
+      <p v-if="!editable" class="author-readonly-banner">
+        View only — you can open this scenario, but only the owner or an admin can edit it.
+      </p>
+
+      <fieldset class="author-stack" :disabled="!editable">
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Hazard Info" />
         <AuthorField id="see-title" v-model="title" label="Title" placeholder="Hazard Title goes here" :error="titleError ?? undefined" />
@@ -259,6 +272,7 @@ async function remove(): Promise<void> {
           :model-value="see.media"
           :instruction-text="instructionText"
           :instruction-pill="instructionPill"
+          :readonly="!editable"
           @update:model-value="setMedia"
           @duration="setDurationMs"
         />
@@ -270,12 +284,14 @@ async function remove(): Promise<void> {
         :media="see.media"
         :duration="see.duration"
         :hazards="see.hazards"
+        :readonly="!editable"
         @update:media="setMedia"
         @update:duration="setDurationSeconds"
         @update:hazards="setHazards"
       />
+      </fieldset>
 
-      <div class="author-actions">
+      <div v-if="editable" class="author-actions">
         <AuthorPillButton variant="primary" :disabled="saving || deleting" @click="save">
           <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
             <path d="M3.5 2.5h7.2L12.5 4.3V13.5H3.5V2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />

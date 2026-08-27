@@ -11,6 +11,7 @@ import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
+import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
 import type { ActivitySummary } from '@/types/activity'
 import {
@@ -37,6 +38,7 @@ type SectionPick = {
 const route = useRoute()
 const router = useRouter()
 const activities = useActivityStore()
+const { canEdit } = useStudioAccess()
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)
@@ -62,6 +64,7 @@ const isPublished = computed(
     activities.summaries.find((item) => item.id === activityId.value)?.published ??
     false,
 )
+const editable = computed(() => canEdit(activities.current?.metadata.authorId))
 
 const seeCatalog = computed(() =>
   activities.summaries.filter((item) => isSeeActivity(item.tags)),
@@ -181,6 +184,7 @@ function selectedOption(
       published: false,
       tags: [],
       updatedAt: '',
+      createdBy: null,
     } as ActivitySummary)
   )
 }
@@ -221,6 +225,7 @@ async function load(): Promise<void> {
 }
 
 async function persist(): Promise<boolean> {
+  if (!editable.value) return false
   titleError.value = title.value.trim() ? null : 'Title is required'
   if (titleError.value || !lesson.value || !activities.current) return false
 
@@ -252,13 +257,16 @@ async function persist(): Promise<boolean> {
 }
 
 async function preview(): Promise<void> {
-  const saved = await persist()
-  if (!saved) return
+  if (!activityId.value) return
+  if (editable.value) {
+    const saved = await persist()
+    if (!saved) return
+  }
   await router.push(`/player?activity=${activityId.value}&preview=1`)
 }
 
 async function publish(): Promise<void> {
-  if (!lesson.value) return
+  if (!editable.value || !lesson.value) return
   rebuildComposition()
   const issues = validateLessonCompositionForPublish(lesson.value.composition)
   const missing = orderedInroadsCompositionItems(lesson.value.composition).filter(
@@ -287,6 +295,7 @@ async function publish(): Promise<void> {
 }
 
 async function remove(): Promise<void> {
+  if (!editable.value) return
   if (!window.confirm('Remove this lesson from authoring and training?')) return
   deleting.value = true
   try {
@@ -328,6 +337,7 @@ async function remove(): Promise<void> {
             Preview
           </AuthorPillButton>
           <AuthorPillButton
+            v-if="editable"
             variant="primary"
             :disabled="loading || saving || publishing || !lesson"
             @click="publish"
@@ -342,10 +352,14 @@ async function remove(): Promise<void> {
       <p v-else-if="!lesson" class="author-error">Lesson not found.</p>
 
       <template v-else>
+        <p v-if="!editable" class="author-readonly-banner">
+          View only — you can open this lesson, but only the owner or an admin can edit it.
+        </p>
         <p class="author-muted">
           Choose Observe, Process, and Anticipate content for this lesson.
         </p>
 
+        <fieldset class="author-stack" :disabled="!editable">
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Details" />
           <AuthorField
@@ -477,7 +491,9 @@ async function remove(): Promise<void> {
           </div>
         </section>
 
-        <div class="author-actions">
+        </fieldset>
+
+        <div v-if="editable" class="author-actions">
           <AuthorPillButton variant="primary" :disabled="saving" @click="persist">
             {{ saving ? 'Saving…' : 'Save' }}
           </AuthorPillButton>

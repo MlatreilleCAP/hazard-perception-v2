@@ -21,12 +21,16 @@ import {
   type SeeHazard,
 } from '@/types/see'
 
-const props = defineProps<{
-  activityId: string
-  media: MediaRef | null
-  duration: number
-  hazards: SeeHazard[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    activityId: string
+    media: MediaRef | null
+    duration: number
+    hazards: SeeHazard[]
+    readonly?: boolean
+  }>(),
+  { readonly: false },
+)
 
 const emit = defineEmits<{
   'update:media': [value: MediaRef | null]
@@ -171,6 +175,7 @@ watch(isPlaying, (playing) => {
 onBeforeUnmount(() => cancelAnimationFrame(playFrame))
 
 function patchHazards(next: SeeHazard[]): void {
+  if (props.readonly) return
   emit(
     'update:hazards',
     [...next].sort((a, b) => a.startTime - b.startTime),
@@ -178,12 +183,14 @@ function patchHazards(next: SeeHazard[]): void {
 }
 
 function updateHazard(id: string, patch: Partial<SeeHazard>): void {
+  if (props.readonly) return
   patchHazards(
     props.hazards.map((hazard) => (hazard.id === id ? { ...hazard, ...patch } : hazard)),
   )
 }
 
 function addHazard(): void {
+  if (props.readonly) return
   pause()
   const created = createEmptySeeHazard(
     props.hazards.length + 1,
@@ -196,7 +203,7 @@ function addHazard(): void {
 }
 
 function removeHazard(): void {
-  if (!selectedHazard.value) return
+  if (props.readonly || !selectedHazard.value) return
   if (!window.confirm('Remove this hazard?')) return
   patchHazards(props.hazards.filter((hazard) => hazard.id !== selectedHazard.value?.id))
   selectedHazardId.value = null
@@ -240,6 +247,7 @@ function onInstructionPillChange(value: string): void {
 }
 
 async function replaceVideo(file: File): Promise<void> {
+  if (props.readonly) return
   replacing.value = true
   replaceError.value = null
   pause()
@@ -278,7 +286,7 @@ watch(previewUrl, () => {
 <template>
   <section v-if="media" class="author-stack-sm">
     <AuthorSectionHeader title="Add Video">
-      <template #action>
+      <template v-if="!readonly" #action>
         <AuthorPillButton variant="ghost" :disabled="replacing" @click="fileInput?.click()">
           {{ replacing ? 'Uploading…' : 'Replace Video' }}
         </AuthorPillButton>
@@ -286,6 +294,7 @@ watch(previewUrl, () => {
     </AuthorSectionHeader>
 
     <input
+      v-if="!readonly"
       ref="fileInput"
       class="sr-only"
       type="file"
@@ -322,6 +331,7 @@ watch(previewUrl, () => {
         :current-time="currentTime"
         :hazards="hazards"
         :selected-hazard-id="selectedHazardId"
+        :readonly="readonly"
         @trajectory-change="onTrajectoryChange"
       />
     </div>
@@ -333,7 +343,8 @@ watch(previewUrl, () => {
       :current-time="currentTime"
       :hazards="hazards"
       :selected-hazard-id="selectedHazardId"
-      :add-disabled="duration <= 0"
+      :add-disabled="readonly || duration <= 0"
+      :remove-disabled="readonly"
       :is-playing="isPlaying"
       @select-hazard="selectedHazardId = $event"
       @seek="seek"
@@ -353,7 +364,7 @@ watch(previewUrl, () => {
     }}
   </div>
 
-  <template v-else-if="selectedHazard">
+  <div v-else-if="selectedHazard" class="author-stack">
     <SeeHazardDetailsForm
       :hazard-id="selectedHazard.id"
       :activity-id="activityId"
@@ -369,6 +380,7 @@ watch(previewUrl, () => {
         :id="`${selectedHazard.id}-instruction-pill`"
         :model-value="selectedHazard.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
         label="Pill label"
+        :disabled="readonly"
         @update:model-value="onInstructionPillChange"
       />
       <AuthorField
@@ -378,6 +390,7 @@ watch(previewUrl, () => {
         placeholder="Instruction text goes here"
         multiline
         :rows="3"
+        :disabled="readonly"
         @update:model-value="onInstructionTextChange"
       />
     </section>
@@ -394,6 +407,7 @@ watch(previewUrl, () => {
         :model-value="selectedHazard.missedVideo ?? null"
         :instruction-text="selectedHazard.instructionText"
         :instruction-pill="selectedHazard.instructionPill"
+        :readonly="readonly"
         @update:model-value="onMissedVideoChange"
       />
     </section>
@@ -403,5 +417,5 @@ watch(previewUrl, () => {
       :model-value="selectedHazard.questions"
       @update:model-value="onQuestionsChange"
     />
-  </template>
+  </div>
 </template>

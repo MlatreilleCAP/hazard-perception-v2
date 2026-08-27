@@ -50,80 +50,95 @@ export const router = createRouter({
     {
       path: '/studio',
       component: AuthorStudioShell,
-      meta: { layout: 'author', title: 'Authoring Studio', requiresAuth: true },
+      meta: { layout: 'author', title: 'Authoring Studio', requiresAuth: true, requiresStudio: true },
       children: [
         { path: '', redirect: { name: 'see-list' } },
         {
           path: 'see',
           name: 'see-list',
           component: SeeListView,
-          meta: { layout: 'author', title: 'Observe', requiresAuth: true },
+          meta: { layout: 'author', title: 'Observe', requiresAuth: true, requiresStudio: true },
         },
         {
           path: 'see/new',
           name: 'see-new',
           component: SeeNewView,
-          meta: { layout: 'author', title: 'New Hazard', requiresAuth: true },
+          meta: { layout: 'author', title: 'New Hazard', requiresAuth: true, requiresStudio: true },
         },
         {
           path: 'see/:id',
           name: 'see-edit',
           component: SeeEditorView,
-          meta: { layout: 'author', title: 'Edit Observe', requiresAuth: true },
+          meta: { layout: 'author', title: 'Edit Observe', requiresAuth: true, requiresStudio: true },
         },
         {
           path: 'process',
           name: 'process-list',
           component: ProcessListView,
-          meta: { layout: 'author', title: 'Process', requiresAuth: true },
+          meta: { layout: 'author', title: 'Process', requiresAuth: true, requiresStudio: true },
         },
         {
           path: 'process/new',
           name: 'process-new',
           component: ProcessNewView,
-          meta: { layout: 'author', title: 'New Process', requiresAuth: true },
+          meta: { layout: 'author', title: 'New Process', requiresAuth: true, requiresStudio: true },
         },
         {
           path: 'process/:id',
           name: 'process-edit',
           component: ProcessEditorView,
-          meta: { layout: 'author', title: 'Edit Process', requiresAuth: true },
+          meta: { layout: 'author', title: 'Edit Process', requiresAuth: true, requiresStudio: true },
         },
         {
           path: 'anticipate',
           name: 'anticipate-list',
           component: AnticipateListView,
-          meta: { layout: 'author', title: 'Anticipate', requiresAuth: true },
+          meta: { layout: 'author', title: 'Anticipate', requiresAuth: true, requiresStudio: true },
         },
         {
           path: 'anticipate/new',
           name: 'anticipate-new',
           component: AnticipateNewView,
-          meta: { layout: 'author', title: 'New Anticipate', requiresAuth: true },
+          meta: {
+            layout: 'author',
+            title: 'New Anticipate',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
         },
         {
           path: 'anticipate/:id',
           name: 'anticipate-edit',
           component: AnticipateEditorView,
-          meta: { layout: 'author', title: 'Edit Anticipate', requiresAuth: true },
+          meta: {
+            layout: 'author',
+            title: 'Edit Anticipate',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
         },
         {
           path: 'lesson',
           name: 'lesson-list',
           component: LessonListView,
-          meta: { layout: 'author', title: 'Full Lessons', requiresAuth: true },
+          meta: { layout: 'author', title: 'Full Lessons', requiresAuth: true, requiresStudio: true },
         },
         {
           path: 'lesson/new',
           name: 'lesson-new',
           component: LessonNewView,
-          meta: { layout: 'author', title: 'New Lesson', requiresAuth: true },
+          meta: { layout: 'author', title: 'New Lesson', requiresAuth: true, requiresStudio: true },
         },
         {
           path: 'lesson/:id',
           name: 'lesson-edit',
           component: LessonEditorView,
-          meta: { layout: 'author', title: 'Lesson composer', requiresAuth: true },
+          meta: {
+            layout: 'author',
+            title: 'Lesson composer',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
         },
       ],
     },
@@ -147,8 +162,16 @@ router.beforeEach(async (to) => {
     }
   }
 
+  if (to.matched.some((record) => record.meta.requiresStudio) && !auth.canAccessStudio) {
+    return { path: '/' }
+  }
+
   if (to.name === 'login' && auth.isSignedIn) {
-    return safeNextPath(String(to.query.next ?? '')) ?? '/'
+    const next = safeNextPath(String(to.query.next ?? '')) ?? '/'
+    if (next.startsWith('/studio') && !auth.canAccessStudio) {
+      return '/'
+    }
+    return next
   }
 
   return true

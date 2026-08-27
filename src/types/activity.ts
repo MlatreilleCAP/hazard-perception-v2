@@ -53,4 +53,6 @@ export interface ActivitySummary {
   updatedAt: string
   published: boolean
   tags: string[]
+  /** Owner profile id; null for legacy / in-memory seed rows without an author. */
+  createdBy: string | null
 }

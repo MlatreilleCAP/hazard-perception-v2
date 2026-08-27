@@ -181,6 +181,23 @@
   gap: 36px;
 }
 
+fieldset.author-stack {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.author-readonly-banner {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--editor-chip);
+  color: var(--editor-body);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 .author-stack-sm {
   display: flex;
   flex-direction: column;

@@ -3,10 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
+import { useStudioAccess } from '@/composables/useStudioAccess'
 import { isAnticipateActivity } from '@/types/anticipate'
 import { useActivityStore } from '@/stores/activityStore'
 
 const activities = useActivityStore()
+const { canCreate, canEdit } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
 
 const anticipateItems = computed(() =>
@@ -42,7 +44,7 @@ async function remove(id: string, title: string): Promise<void> {
           <h1>Anticipate</h1>
           <p>Build anticipate scenarios with video, severity, and theory questions</p>
         </div>
-        <RouterLink to="/studio/anticipate/new" style="text-decoration: none">
+        <RouterLink v-if="canCreate" to="/studio/anticipate/new" style="text-decoration: none">
           <AuthorPillButton variant="white">New Anticipate</AuthorPillButton>
         </RouterLink>
       </div>
@@ -58,6 +60,7 @@ async function remove(id: string, title: string): Promise<void> {
         <div v-if="anticipateItems.length === 0" class="author-list-empty">
           <p class="author-muted">No Anticipate scenarios yet.</p>
           <RouterLink
+            v-if="canCreate"
             to="/studio/anticipate/new"
             class="author-list-title"
             style="display: inline-block; margin-top: 12px; font-weight: 500"
@@ -81,7 +84,10 @@ async function remove(id: string, title: string): Promise<void> {
               <RouterLink :to="`/studio/anticipate/${item.id}`" class="author-list-title">
                 {{ item.title }}
               </RouterLink>
-              <p class="author-list-sub">{{ item.published ? 'Published' : 'Draft' }}</p>
+              <p class="author-list-sub">
+                {{ item.published ? 'Published' : 'Draft'
+                }}{{ canEdit(item.createdBy) ? '' : ' · View only' }}
+              </p>
             </div>
             <AuthorStatusChip :label="item.published ? 'PUBLISHED' : 'DRAFT'" />
             <div class="author-menu">
@@ -103,9 +109,10 @@ async function remove(id: string, title: string): Promise<void> {
                   class="author-menu-item"
                   role="menuitem"
                 >
-                  Open
+                  {{ canEdit(item.createdBy) ? 'Open' : 'View' }}
                 </RouterLink>
                 <button
+                  v-if="canEdit(item.createdBy)"
                   type="button"
                   class="author-menu-item danger"
                   role="menuitem"

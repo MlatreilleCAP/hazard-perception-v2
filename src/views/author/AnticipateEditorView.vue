@@ -12,6 +12,7 @@ import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import ProcessQuestionsForm from '@/components/author/ProcessQuestionsForm.vue'
+import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
 import type { MediaRef } from '@/types/media'
 import {
@@ -26,6 +27,7 @@ import type { ProcessQuestionBank } from '@/types/questions'
 const route = useRoute()
 const router = useRouter()
 const activities = useActivityStore()
+const { canEdit } = useStudioAccess()
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)
@@ -46,6 +48,7 @@ const activityId = computed(() => String(route.params.id ?? ''))
 const isPublished = computed(
   () => activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
 )
+const editable = computed(() => canEdit(activities.current?.metadata.authorId))
 
 const working = computed(() => {
   if (!anticipate.value) return null
@@ -211,7 +214,7 @@ function flushVideo1Questions(): void {
 }
 
 async function save(): Promise<boolean> {
-  if (!activities.current || !anticipate.value) return false
+  if (!editable.value || !activities.current || !anticipate.value) return false
   titleError.value = title.value.trim() ? null : 'Title is required'
   if (titleError.value) return false
 
@@ -245,13 +248,16 @@ async function save(): Promise<boolean> {
 }
 
 async function openPreview(): Promise<void> {
-  const saved = await save()
-  if (!saved || !activityId.value) return
+  if (!activityId.value) return
+  if (editable.value) {
+    const saved = await save()
+    if (!saved) return
+  }
   await router.push({ path: '/player', query: { activity: activityId.value, preview: '1' } })
 }
 
 async function publish(): Promise<void> {
-  if (!activities.current) return
+  if (!editable.value || !activities.current) return
   const current = working.value
   if (!current?.segments[0]?.media?.media_asset_id) {
     window.alert('Add Video 1 before publishing.')
@@ -270,7 +276,7 @@ async function publish(): Promise<void> {
 }
 
 async function remove(): Promise<void> {
-  if (!activities.current) return
+  if (!editable.value || !activities.current) return
   if (
     !window.confirm(
       'Remove this anticipate scenario from authoring and training? The record will be kept in the database.',
@@ -320,6 +326,7 @@ async function remove(): Promise<void> {
             {{ saving ? 'Saving…' : 'Preview' }}
           </AuthorPillButton>
           <AuthorPillButton
+            v-if="editable"
             variant="primary"
             :disabled="saving || publishing || deleting"
             @click="publish"
@@ -329,6 +336,11 @@ async function remove(): Promise<void> {
         </div>
       </div>
 
+      <p v-if="!editable" class="author-readonly-banner">
+        View only — you can open this scenario, but only the owner or an admin can edit it.
+      </p>
+
+      <fieldset class="author-stack" :disabled="!editable">
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Hazard Info" />
         <AuthorField id="anticipate-title" v-model="title" label="Title" :error="titleError ?? undefined" />
@@ -471,7 +483,9 @@ async function remove(): Promise<void> {
         />
       </section>
 
-      <div class="author-actions">
+      </fieldset>
+
+      <div v-if="editable" class="author-actions">
         <AuthorPillButton variant="primary" :disabled="saving || deleting" @click="save">
           <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
             <path d="M3.5 2.5h7.2L12.5 4.3V13.5H3.5V2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />

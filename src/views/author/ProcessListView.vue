@@ -3,10 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
+import { useStudioAccess } from '@/composables/useStudioAccess'
 import { isProcessActivity } from '@/types/process'
 import { useActivityStore } from '@/stores/activityStore'
 
 const activities = useActivityStore()
+const { canCreate, canEdit } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
 
 const processItems = computed(() =>
@@ -42,7 +44,7 @@ async function remove(id: string, title: string): Promise<void> {
           <h1>Process</h1>
           <p>Build process scenarios with video, severity, and theory questions</p>
         </div>
-        <RouterLink to="/studio/process/new" style="text-decoration: none">
+        <RouterLink v-if="canCreate" to="/studio/process/new" style="text-decoration: none">
           <AuthorPillButton variant="white">New Process</AuthorPillButton>
         </RouterLink>
       </div>
@@ -57,7 +59,12 @@ async function remove(id: string, title: string): Promise<void> {
 
         <div v-if="processItems.length === 0" class="author-list-empty">
           <p class="author-muted">No Process scenarios yet.</p>
-          <RouterLink to="/studio/process/new" class="author-list-title" style="display: inline-block; margin-top: 12px; font-weight: 500">
+          <RouterLink
+            v-if="canCreate"
+            to="/studio/process/new"
+            class="author-list-title"
+            style="display: inline-block; margin-top: 12px; font-weight: 500"
+          >
             Create your first Process scenario
           </RouterLink>
         </div>
@@ -72,7 +79,10 @@ async function remove(id: string, title: string): Promise<void> {
               <RouterLink :to="`/studio/process/${item.id}`" class="author-list-title">
                 {{ item.title }}
               </RouterLink>
-              <p class="author-list-sub">{{ item.published ? 'Published' : 'Draft' }}</p>
+              <p class="author-list-sub">
+                {{ item.published ? 'Published' : 'Draft'
+                }}{{ canEdit(item.createdBy) ? '' : ' · View only' }}
+              </p>
             </div>
             <AuthorStatusChip :label="item.published ? 'PUBLISHED' : 'DRAFT'" />
             <div class="author-menu">
@@ -90,9 +100,15 @@ async function remove(id: string, title: string): Promise<void> {
               </button>
               <div v-if="menuOpenId === item.id" class="author-menu-panel" role="menu">
                 <RouterLink :to="`/studio/process/${item.id}`" class="author-menu-item" role="menuitem">
-                  Open
+                  {{ canEdit(item.createdBy) ? 'Open' : 'View' }}
                 </RouterLink>
-                <button type="button" class="author-menu-item danger" role="menuitem" @click="remove(item.id, item.title)">
+                <button
+                  v-if="canEdit(item.createdBy)"
+                  type="button"
+                  class="author-menu-item danger"
+                  role="menuitem"
+                  @click="remove(item.id, item.title)"
+                >
                   Remove
                 </button>
               </div>

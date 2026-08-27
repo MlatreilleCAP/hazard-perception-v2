@@ -16,7 +16,7 @@ async function signOut(): Promise<void> {
   <nav class="app-nav" aria-label="Primary">
     <RouterLink to="/">Demo</RouterLink>
     <RouterLink to="/architecture">Architecture</RouterLink>
-    <RouterLink to="/studio">Studio</RouterLink>
+    <RouterLink v-if="auth.canAccessStudio" to="/studio">Studio</RouterLink>
     <RouterLink to="/player">Player</RouterLink>
     <RouterLink v-if="!auth.isSignedIn" to="/login">Sign in</RouterLink>
     <button v-else type="button" class="app-nav-button" @click="signOut">
