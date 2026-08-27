@@ -16,6 +16,10 @@ const anticipateOpen = computed(
 const lessonOpen = computed(
   () => route.path === '/studio/lesson' || route.path.startsWith('/studio/lesson/'),
 )
+const mvpOpen = computed(
+  () =>
+    route.path === '/studio/inroads-mvp' || route.path.startsWith('/studio/inroads-mvp/'),
+)
 </script>
 
 <template>
@@ -38,7 +42,7 @@ const lessonOpen = computed(
     <nav class="author-nav" aria-label="Authoring">
       <div class="author-nav-group">
         <span class="author-nav-group-btn" style="cursor: default">
-          Inroads
+          Inroads Separate
           <svg class="author-chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true">
             <path
               d="m1 1.5 5 5 5-5"
@@ -72,10 +76,35 @@ const lessonOpen = computed(
             class="author-nav-link"
             :class="{ active: lessonOpen }"
           >
-            Full Lessons
+            Compiled Lessons
           </RouterLink>
         </div>
       </div>
+
+      <div class="author-nav-group">
+        <span class="author-nav-group-btn" style="cursor: default">
+          Inroads MVP
+          <svg class="author-chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true">
+            <path
+              d="m1 1.5 5 5 5-5"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+            />
+          </svg>
+        </span>
+        <div class="author-nav-children">
+          <RouterLink
+            to="/studio/inroads-mvp"
+            class="author-nav-link"
+            :class="{ active: mvpOpen }"
+          >
+            Lessons
+          </RouterLink>
+        </div>
+      </div>
+
       <span class="author-nav-disabled">Media</span>
       <span class="author-nav-disabled">Publishing</span>
     </nav>

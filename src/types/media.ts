@@ -14,8 +14,18 @@ export interface MediaAsset {
   mimeType: string
   sizeBytes: number | null
   durationMs: number | null
+  /** Original client filename at upload time (for library labels). */
+  originalFilename: string | null
   createdBy: string | null
   createdAt: string
+}
+
+/** Label for media library lists: prefer original filename over storage key. */
+export function mediaAssetDisplayName(asset: MediaAsset): string {
+  const named = asset.originalFilename?.trim()
+  if (named) return named
+  const fromPath = asset.path.split('/').pop()?.trim()
+  return fromPath || asset.id
 }
 
 export const ACTIVITY_MEDIA_BUCKET = 'activity-media' as const

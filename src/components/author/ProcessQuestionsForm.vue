@@ -36,6 +36,7 @@ const emit = defineEmits<{
 }>()
 
 const addKind = ref<ProcessQuestionKind | ''>('')
+const addSelectKey = ref(0)
 const questions = ref<ProcessSurveyQuestion[]>(
   props.modelValue.questions.map((question) => cloneJson(question)),
 )
@@ -47,6 +48,7 @@ watch(
       cloneJson(question),
     )
     addKind.value = ''
+    addSelectKey.value += 1
   },
 )
 
@@ -67,6 +69,8 @@ function addQuestion(kind: ProcessQuestionKind | ''): void {
     kind === 'severity' ? createSeveritySurveyQuestion() : createTheorySurveyQuestion()
   commit([...questions.value, question])
   addKind.value = ''
+  // Remount so the same kind can be chosen again without a second click.
+  addSelectKey.value += 1
 }
 
 function updateQuestion(id: string, next: ProcessSurveyQuestion): void {
@@ -129,6 +133,7 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
         <label :for="`${segmentId}-add-question`" class="sr-only">Add question</label>
         <select
           :id="`${segmentId}-add-question`"
+          :key="addSelectKey"
           class="question-add"
           :value="addKind"
           @change="addQuestion(($event.target as HTMLSelectElement).value as ProcessQuestionKind | '')"

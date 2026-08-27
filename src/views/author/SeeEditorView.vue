@@ -17,6 +17,15 @@ import {
   type SeeHazard,
 } from '@/types/see'
 
+const props = withDefaults(
+  defineProps<{
+    /** When set with embedded, loads this activity instead of the route param. */
+    activityIdProp?: string
+    embedded?: boolean
+  }>(),
+  { activityIdProp: undefined, embedded: false },
+)
+
 const route = useRoute()
 const router = useRouter()
 const activities = useActivityStore()
@@ -34,7 +43,9 @@ const description = ref('')
 const titleError = ref<string | null>(null)
 const see = ref<SeeDefinition | null>(null)
 
-const activityId = computed(() => String(route.params.id ?? ''))
+const activityId = computed(
+  () => props.activityIdProp?.trim() || String(route.params.id ?? ''),
+)
 const isPublished = computed(
   () => activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
 )
@@ -172,7 +183,7 @@ async function publish(): Promise<void> {
 }
 
 async function remove(): Promise<void> {
-  if (!editable.value || !activities.current) return
+  if (props.embedded || !editable.value || !activities.current) return
   if (
     !window.confirm(
       'Remove this scenario from authoring and training? The record will be kept in the database.',
@@ -192,7 +203,7 @@ async function remove(): Promise<void> {
 </script>
 
 <template>
-  <div class="author-page">
+  <div class="author-page" :class="{ 'is-embedded': embedded }">
     <div v-if="loading" class="author-page-inner">
       <p class="author-muted">Loading scenario…</p>
     </div>
@@ -203,7 +214,7 @@ async function remove(): Promise<void> {
     </div>
 
     <div v-else class="author-page-inner author-stack">
-      <div class="author-header-row">
+      <div v-if="!embedded" class="author-header-row">
         <div class="author-header-left">
           <RouterLink to="/studio/see" class="author-back" aria-label="Back">
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
@@ -228,6 +239,21 @@ async function remove(): Promise<void> {
             @click="publish"
           >
             {{ publishing ? 'Publishing…' : 'Publish' }}
+          </AuthorPillButton>
+        </div>
+      </div>
+      <div v-else class="author-header-row">
+        <div class="author-header-left">
+          <h1 class="author-header-title">Observe</h1>
+          <AuthorStatusChip :label="isPublished ? 'PUBLISHED' : 'DRAFT'" />
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 16px">
+          <AuthorPillButton
+            variant="ghost"
+            :disabled="saving || publishing || deleting"
+            @click="openPreview"
+          >
+            {{ saving ? 'Saving…' : 'Preview' }}
           </AuthorPillButton>
         </div>
       </div>
@@ -299,7 +325,12 @@ async function remove(): Promise<void> {
           </svg>
           {{ saving ? 'Saving…' : 'Save' }}
         </AuthorPillButton>
-        <AuthorPillButton variant="ghost" :disabled="saving || deleting" @click="remove">
+        <AuthorPillButton
+          v-if="!embedded"
+          variant="ghost"
+          :disabled="saving || deleting"
+          @click="remove"
+        >
           {{ deleting ? 'Removing…' : 'Remove scenario' }}
         </AuthorPillButton>
         <p v-if="saveMessage" class="author-success">{{ saveMessage }}</p>

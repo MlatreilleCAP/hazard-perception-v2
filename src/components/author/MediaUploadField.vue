@@ -8,6 +8,7 @@ import {
   imageUploadSizeError,
   MAX_IMAGE_UPLOAD_BYTES,
   maxVideoUploadBytes,
+  mediaAssetDisplayName,
   videoUploadSizeError,
   type MediaAsset,
   type MediaRef,
@@ -211,7 +212,7 @@ function clear(): void {
         type="button"
         @click="selectAsset(asset)"
       >
-        {{ asset.path.split('/').pop() }} · {{ asset.mimeType }}
+        {{ mediaAssetDisplayName(asset) }} · {{ asset.mimeType }}
       </button>
     </div>
 

@@ -5,6 +5,7 @@ import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
+import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
 import { isSeeActivity } from '@/types/see'
 
 const activities = useActivityStore()
@@ -12,7 +13,9 @@ const { canCreate, canEdit } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
 
 const seeItems = computed(() =>
-  activities.summaries.filter((item) => isSeeActivity(item.tags)),
+  activities.summaries.filter(
+    (item) => isSeeActivity(item.tags) && !isInroadsMvpChildActivity(item.tags),
+  ),
 )
 
 onMounted(async () => {

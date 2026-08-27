@@ -26,6 +26,7 @@ import {
   type LessonDefinition,
 } from '@/types/lesson'
 import { isAnticipateActivity } from '@/types/anticipate'
+import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
 import type { MediaRef } from '@/types/media'
 import { isProcessActivity } from '@/types/process'
 import { isSeeActivity } from '@/types/see'
@@ -67,13 +68,19 @@ const isPublished = computed(
 const editable = computed(() => canEdit(activities.current?.metadata.authorId))
 
 const seeCatalog = computed(() =>
-  activities.summaries.filter((item) => isSeeActivity(item.tags)),
+  activities.summaries.filter(
+    (item) => isSeeActivity(item.tags) && !isInroadsMvpChildActivity(item.tags),
+  ),
 )
 const processCatalog = computed(() =>
-  activities.summaries.filter((item) => isProcessActivity(item.tags)),
+  activities.summaries.filter(
+    (item) => isProcessActivity(item.tags) && !isInroadsMvpChildActivity(item.tags),
+  ),
 )
 const anticipateCatalog = computed(() =>
-  activities.summaries.filter((item) => isAnticipateActivity(item.tags)),
+  activities.summaries.filter(
+    (item) => isAnticipateActivity(item.tags) && !isInroadsMvpChildActivity(item.tags),
+  ),
 )
 
 function catalogForKind(kind: LessonCompositionItemKind): ActivitySummary[] {

@@ -3,19 +3,17 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
+import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { useStudioAccess } from '@/composables/useStudioAccess'
-import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
-import { isProcessActivity } from '@/types/process'
 import { useActivityStore } from '@/stores/activityStore'
+import { isInroadsMvpActivity } from '@/types/inroadsMvp'
 
 const activities = useActivityStore()
 const { canCreate, canEdit } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
 
-const processItems = computed(() =>
-  activities.summaries.filter(
-    (item) => isProcessActivity(item.tags) && !isInroadsMvpChildActivity(item.tags),
-  ),
+const items = computed(() =>
+  activities.summaries.filter((item) => isInroadsMvpActivity(item.tags)),
 )
 
 onMounted(async () => {
@@ -32,9 +30,21 @@ async function remove(id: string, title: string): Promise<void> {
     return
   }
   try {
+    const loaded = await activities.load(id).then(() => activities.current)
+    const mvp = loaded ? readInroadsMvpDefinition(loaded) : null
+    const childIds = mvp
+      ? [mvp.seeActivityId, mvp.processActivityId, mvp.anticipateActivityId]
+      : []
     await activities.remove(id)
+    for (const childId of childIds) {
+      try {
+        await activities.remove(childId)
+      } catch {
+        // Parent already removed; ignore child cleanup failures.
+      }
+    }
   } catch (cause) {
-    window.alert(cause instanceof Error ? cause.message : 'Failed to remove process')
+    window.alert(cause instanceof Error ? cause.message : 'Failed to remove lesson')
   }
 }
 </script>
@@ -44,11 +54,15 @@ async function remove(id: string, title: string): Promise<void> {
     <div class="author-page-inner author-stack-sm">
       <div class="author-page-header">
         <div>
-          <h1>Process</h1>
-          <p>Build process scenarios with video, severity, and theory questions</p>
+          <h1>Inroads MVP</h1>
+          <p>One lesson with intro, Observe, Process, and Anticipate sections</p>
         </div>
-        <RouterLink v-if="canCreate" to="/studio/process/new" style="text-decoration: none">
-          <AuthorPillButton variant="white">New Process</AuthorPillButton>
+        <RouterLink
+          v-if="canCreate"
+          to="/studio/inroads-mvp/new"
+          style="text-decoration: none"
+        >
+          <AuthorPillButton variant="white">New Inroads MVP</AuthorPillButton>
         </RouterLink>
       </div>
 
@@ -56,30 +70,26 @@ async function remove(id: string, title: string): Promise<void> {
 
       <section class="author-list-card">
         <div class="author-list-card-head">
-          <h2>Process</h2>
-          <span class="author-count">{{ processItems.length }}</span>
+          <h2>Inroads MVP</h2>
+          <span class="author-count">{{ items.length }}</span>
         </div>
 
-        <div v-if="processItems.length === 0" class="author-list-empty">
-          <p class="author-muted">No Process scenarios yet.</p>
+        <div v-if="items.length === 0" class="author-list-empty">
+          <p class="author-muted">No Inroads MVP lessons yet.</p>
           <RouterLink
             v-if="canCreate"
-            to="/studio/process/new"
+            to="/studio/inroads-mvp/new"
             class="author-list-title"
             style="display: inline-block; margin-top: 12px; font-weight: 500"
           >
-            Create your first Process scenario
+            Create your first Inroads MVP
           </RouterLink>
         </div>
 
         <ul v-else class="author-list">
-          <li v-for="item in processItems" :key="item.id" class="author-list-row">
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="none" aria-hidden="true">
-              <rect x="3.5" y="4.5" width="13" height="11" rx="2" stroke="currentColor" stroke-width="1.4" />
-              <path d="M7.5 10.5 9.2 12l3.3-3.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
+          <li v-for="item in items" :key="item.id" class="author-list-row">
             <div style="min-width: 0; flex: 1">
-              <RouterLink :to="`/studio/process/${item.id}`" class="author-list-title">
+              <RouterLink :to="`/studio/inroads-mvp/${item.id}`" class="author-list-title">
                 {{ item.title }}
               </RouterLink>
               <p class="author-list-sub">
@@ -102,7 +112,11 @@ async function remove(id: string, title: string): Promise<void> {
                 </svg>
               </button>
               <div v-if="menuOpenId === item.id" class="author-menu-panel" role="menu">
-                <RouterLink :to="`/studio/process/${item.id}`" class="author-menu-item" role="menuitem">
+                <RouterLink
+                  :to="`/studio/inroads-mvp/${item.id}`"
+                  class="author-menu-item"
+                  role="menuitem"
+                >
                   {{ canEdit(item.createdBy) ? 'Open' : 'View' }}
                 </RouterLink>
                 <button

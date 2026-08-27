@@ -24,6 +24,14 @@ import {
 } from '@/types/anticipate'
 import type { ProcessQuestionBank } from '@/types/questions'
 
+const props = withDefaults(
+  defineProps<{
+    activityIdProp?: string
+    embedded?: boolean
+  }>(),
+  { activityIdProp: undefined, embedded: false },
+)
+
 const route = useRoute()
 const router = useRouter()
 const activities = useActivityStore()
@@ -44,7 +52,9 @@ const enableSecond = ref(false)
 const enableThird = ref(false)
 const video1Questions = ref<{ snapshot: () => ProcessQuestionBank } | null>(null)
 
-const activityId = computed(() => String(route.params.id ?? ''))
+const activityId = computed(
+  () => props.activityIdProp?.trim() || String(route.params.id ?? ''),
+)
 const isPublished = computed(
   () => activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
 )
@@ -276,7 +286,7 @@ async function publish(): Promise<void> {
 }
 
 async function remove(): Promise<void> {
-  if (!editable.value || !activities.current) return
+  if (props.embedded || !editable.value || !activities.current) return
   if (
     !window.confirm(
       'Remove this anticipate scenario from authoring and training? The record will be kept in the database.',
@@ -296,7 +306,7 @@ async function remove(): Promise<void> {
 </script>
 
 <template>
-  <div class="author-page">
+  <div class="author-page" :class="{ 'is-embedded': embedded }">
     <div v-if="loading" class="author-page-inner">
       <p class="author-muted">Loading anticipate…</p>
     </div>
@@ -309,12 +319,17 @@ async function remove(): Promise<void> {
     <div v-else class="author-page-inner author-stack">
       <div class="author-header-row">
         <div class="author-header-left">
-          <RouterLink to="/studio/anticipate" class="author-back" aria-label="Back">
+          <RouterLink
+            v-if="!embedded"
+            to="/studio/anticipate"
+            class="author-back"
+            aria-label="Back"
+          >
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
               <path d="M10 3.5 5.5 8 10 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </RouterLink>
-          <h1 class="author-header-title">Edit Anticipate</h1>
+          <h1 class="author-header-title">{{ embedded ? 'Anticipate' : 'Edit Anticipate' }}</h1>
           <AuthorStatusChip :label="isPublished ? 'PUBLISHED' : 'DRAFT'" />
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 16px">
@@ -326,7 +341,7 @@ async function remove(): Promise<void> {
             {{ saving ? 'Saving…' : 'Preview' }}
           </AuthorPillButton>
           <AuthorPillButton
-            v-if="editable"
+            v-if="editable && !embedded"
             variant="primary"
             :disabled="saving || publishing || deleting"
             @click="publish"
@@ -493,7 +508,12 @@ async function remove(): Promise<void> {
           </svg>
           {{ saving ? 'Saving…' : 'Save' }}
         </AuthorPillButton>
-        <AuthorPillButton variant="ghost" :disabled="saving || deleting" @click="remove">
+        <AuthorPillButton
+          v-if="!embedded"
+          variant="ghost"
+          :disabled="saving || deleting"
+          @click="remove"
+        >
           {{ deleting ? 'Removing…' : 'Remove' }}
         </AuthorPillButton>
         <p v-if="saveMessage" class="author-success">{{ saveMessage }}</p>

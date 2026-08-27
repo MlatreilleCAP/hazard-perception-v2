@@ -4,12 +4,15 @@ import { RouterLink } from 'vue-router'
 import { catalogCoverAt } from '@/app/catalogCovers'
 import { useActivityStore } from '@/stores/activityStore'
 import { useAuthStore } from '@/stores/authStore'
+import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
 
 const activities = useActivityStore()
 const auth = useAuthStore()
 
 const published = computed(() =>
-  activities.summaries.filter((summary) => summary.published),
+  activities.summaries.filter(
+    (summary) => summary.published && !isInroadsMvpChildActivity(summary.tags),
+  ),
 )
 
 async function refreshCatalog(): Promise<void> {

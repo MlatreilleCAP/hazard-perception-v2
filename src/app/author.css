@@ -1191,3 +1191,49 @@ fieldset.author-stack {
     align-items: end;
   }
 }
+
+.mvp-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.mvp-section-tab {
+  appearance: none;
+  border: 1px solid var(--editor-border);
+  border-radius: 999px;
+  background: #fff;
+  padding: 8px 14px;
+  font-family: var(--font-poppins);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--editor-quiet);
+  cursor: pointer;
+}
+
+.mvp-section-tab:hover {
+  border-color: var(--editor-teal);
+  color: var(--editor-ink);
+}
+
+.mvp-section-tab.active {
+  border-color: var(--editor-teal);
+  background: color-mix(in srgb, var(--editor-teal) 12%, #fff);
+  color: var(--editor-ink);
+}
+
+.mvp-embedded-editor {
+  min-width: 0;
+}
+
+.author-page.is-embedded {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.author-page.is-embedded .author-page-inner {
+  max-width: none;
+  padding: 0;
+}

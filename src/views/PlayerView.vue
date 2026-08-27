@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { cloneJson } from '@/app/clone'
 import { services } from '@/app/container'
+import { expandInroadsMvpForPlayback } from '@/activities/expandInroadsMvp'
+import { findInroadsMvpNode } from '@/activities/inroadsMvpDefinition'
 import AnticipateExperience from '@/components/anticipate/AnticipateExperience.vue'
 import LessonExperience from '@/components/lesson/LessonExperience.vue'
 import ProcessExperience from '@/components/process/ProcessExperience.vue'
@@ -11,6 +13,7 @@ import { useActivityStore } from '@/stores/activityStore'
 import { useRuntimeStore } from '@/stores/runtimeStore'
 import type { ActivityDefinition } from '@/types/activity'
 import { isAnticipateActivity } from '@/types/anticipate'
+import { isInroadsMvpActivity, isInroadsMvpChildActivity } from '@/types/inroadsMvp'
 import { isLessonActivity } from '@/types/lesson'
 import { isProcessActivity } from '@/types/process'
 import { isSeeActivity } from '@/types/see'
@@ -23,7 +26,9 @@ const definition = ref<ActivityDefinition | null>(null)
 const loading = ref(false)
 
 const published = computed(() =>
-  activities.summaries.filter((summary) => summary.published),
+  activities.summaries.filter(
+    (summary) => summary.published && !isInroadsMvpChildActivity(summary.tags),
+  ),
 )
 const isProcess = computed(
   () => Boolean(definition.value && isProcessActivity(definition.value.metadata.tags)),
@@ -32,7 +37,12 @@ const isSee = computed(
   () => Boolean(definition.value && isSeeActivity(definition.value.metadata.tags)),
 )
 const isLesson = computed(
-  () => Boolean(definition.value && isLessonActivity(definition.value.metadata.tags)),
+  () =>
+    Boolean(
+      definition.value &&
+        (isLessonActivity(definition.value.metadata.tags) ||
+          isInroadsMvpActivity(definition.value.metadata.tags)),
+    ),
 )
 const isAnticipate = computed(
   () =>
@@ -72,6 +82,18 @@ async function loadActivity(id: string): Promise<void> {
       return
     }
     definition.value = cloneJson(loaded)
+    if (
+      isInroadsMvpActivity(definition.value.metadata.tags) &&
+      findInroadsMvpNode(definition.value)
+    ) {
+      const expanded = expandInroadsMvpForPlayback(definition.value)
+      if (!expanded) {
+        definition.value = null
+        runtime.setError('Inroads MVP is missing required sections')
+        return
+      }
+      definition.value = expanded
+    }
     runtime.playDefinition(definition.value)
   } catch (cause) {
     definition.value = null
@@ -103,6 +125,10 @@ async function playFirstPublished(): Promise<void> {
 
 function onExperienceFinished(): void {
   if (isPreview.value && activityId.value) {
+    if (isInroadsMvpActivity(definition.value?.metadata.tags) || route.query.mvp === '1') {
+      void router.push(`/studio/inroads-mvp/${activityId.value}`)
+      return
+    }
     if (isLesson.value) {
       void router.push(`/studio/lesson/${activityId.value}`)
       return

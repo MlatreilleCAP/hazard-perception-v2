@@ -46,6 +46,7 @@ export interface MediaAssetRow {
   mime_type: string
   size_bytes: number | null
   duration_ms: number | null
+  original_filename: string | null
   created_by: string | null
   created_at: string
 }

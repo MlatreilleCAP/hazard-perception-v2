@@ -5,6 +5,7 @@ import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { isAnticipateActivity } from '@/types/anticipate'
+import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 
 const activities = useActivityStore()
@@ -12,7 +13,9 @@ const { canCreate, canEdit } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
 
 const anticipateItems = computed(() =>
-  activities.summaries.filter((item) => isAnticipateActivity(item.tags)),
+  activities.summaries.filter(
+    (item) => isAnticipateActivity(item.tags) && !isInroadsMvpChildActivity(item.tags),
+  ),
 )
 
 onMounted(async () => {

@@ -46,7 +46,7 @@ export type {
   TrajectoryPoint,
 } from './hazard'
 export type { MediaAsset, MediaRef } from './media'
-export { ACTIVITY_MEDIA_BUCKET, collectMediaAssetIds } from './media'
+export { ACTIVITY_MEDIA_BUCKET, collectMediaAssetIds, mediaAssetDisplayName } from './media'
 export type {
   AnticipateDefinition,
   AnticipateSegment,
@@ -78,6 +78,14 @@ export {
   LESSON_TAG,
   isLessonActivity,
 } from './lesson'
+export type { InroadsMvpDefinition, InroadsMvpSectionId } from './inroadsMvp'
+export {
+  INROADS_MVP_CHILD_TAG,
+  INROADS_MVP_NODE_TYPE,
+  INROADS_MVP_TAG,
+  isInroadsMvpActivity,
+  isInroadsMvpChildActivity,
+} from './inroadsMvp'
 export type { SeeDefinition, SeeHazard } from './see'
 export { SEE_NODE_TYPE, SEE_TAG, isSeeActivity } from './see'
 export type {

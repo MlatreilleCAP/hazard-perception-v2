@@ -170,7 +170,7 @@ export function lessonCompositionItemKindLabel(kind: LessonCompositionItemKind):
 }
 
 /**
- * Inroads Full Lesson order: See → Process → Anticipate.
+ * Inroads Compiled Lesson order: See → Process → Anticipate.
  */
 export function orderedInroadsCompositionItems(
   composition: LessonComposition,

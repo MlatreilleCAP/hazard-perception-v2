@@ -41,7 +41,7 @@ async function remove(id: string, title: string): Promise<void> {
     <div class="author-page-inner author-stack-sm">
       <div class="author-page-header">
         <div>
-          <h1>Full Lessons</h1>
+          <h1>Compiled Lessons</h1>
           <p>Compose lessons from Observe, Process, and Anticipate scenarios</p>
         </div>
         <RouterLink v-if="canCreate" to="/studio/lesson/new" style="text-decoration: none">
@@ -53,12 +53,12 @@ async function remove(id: string, title: string): Promise<void> {
 
       <section class="author-list-card">
         <div class="author-list-card-head">
-          <h2>Full Lessons</h2>
+          <h2>Compiled Lessons</h2>
           <span class="author-count">{{ lessonItems.length }}</span>
         </div>
 
         <div v-if="lessonItems.length === 0" class="author-list-empty">
-          <p class="author-muted">No Full Lessons yet.</p>
+          <p class="author-muted">No Compiled Lessons yet.</p>
           <RouterLink
             v-if="canCreate"
             to="/studio/lesson/new"

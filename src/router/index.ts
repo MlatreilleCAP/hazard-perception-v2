@@ -12,6 +12,9 @@ import AnticipateNewView from '@/views/author/AnticipateNewView.vue'
 import ProcessEditorView from '@/views/author/ProcessEditorView.vue'
 import ProcessListView from '@/views/author/ProcessListView.vue'
 import ProcessNewView from '@/views/author/ProcessNewView.vue'
+import InroadsMvpEditorView from '@/views/author/InroadsMvpEditorView.vue'
+import InroadsMvpListView from '@/views/author/InroadsMvpListView.vue'
+import InroadsMvpNewView from '@/views/author/InroadsMvpNewView.vue'
 import LessonEditorView from '@/views/author/LessonEditorView.vue'
 import LessonListView from '@/views/author/LessonListView.vue'
 import LessonNewView from '@/views/author/LessonNewView.vue'
@@ -121,7 +124,7 @@ export const router = createRouter({
           path: 'lesson',
           name: 'lesson-list',
           component: LessonListView,
-          meta: { layout: 'author', title: 'Full Lessons', requiresAuth: true, requiresStudio: true },
+          meta: { layout: 'author', title: 'Compiled Lessons', requiresAuth: true, requiresStudio: true },
         },
         {
           path: 'lesson/new',
@@ -136,6 +139,39 @@ export const router = createRouter({
           meta: {
             layout: 'author',
             title: 'Lesson composer',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
+        },
+        {
+          path: 'inroads-mvp',
+          name: 'inroads-mvp-list',
+          component: InroadsMvpListView,
+          meta: {
+            layout: 'author',
+            title: 'Inroads MVP',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
+        },
+        {
+          path: 'inroads-mvp/new',
+          name: 'inroads-mvp-new',
+          component: InroadsMvpNewView,
+          meta: {
+            layout: 'author',
+            title: 'New Inroads MVP',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
+        },
+        {
+          path: 'inroads-mvp/:id',
+          name: 'inroads-mvp-edit',
+          component: InroadsMvpEditorView,
+          meta: {
+            layout: 'author',
+            title: 'Edit Inroads MVP',
             requiresAuth: true,
             requiresStudio: true,
           },

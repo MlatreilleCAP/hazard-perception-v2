@@ -18,6 +18,7 @@ function mapAsset(row: MediaAssetRow): MediaAsset {
     mimeType: row.mime_type,
     sizeBytes: row.size_bytes,
     durationMs: row.duration_ms,
+    originalFilename: row.original_filename ?? null,
     createdBy: row.created_by,
     createdAt: row.created_at,
   }
@@ -157,6 +158,7 @@ export class MediaService {
     const path = `${activityId}/${id}`
     const mimeType = file.type || fallbackMime
     const durationMs = await readMediaDurationMs(file)
+    const originalFilename = sanitizeOriginalFilename(file.name)
 
     const { error: insertError } = await client.from('media_assets').insert({
       id,
@@ -166,6 +168,7 @@ export class MediaService {
       mime_type: mimeType,
       size_bytes: file.size,
       duration_ms: durationMs,
+      original_filename: originalFilename,
       created_by: userId,
     })
     if (insertError) {
@@ -219,6 +222,12 @@ async function readMediaDurationMs(file: File): Promise<number | null> {
     }
     element.src = objectUrl
   })
+}
+
+function sanitizeOriginalFilename(name: string): string | null {
+  const trimmed = name.trim().replace(/[/\\]/g, '_')
+  if (!trimmed) return null
+  return trimmed.slice(0, 255)
 }
 
 function requireClient() {
