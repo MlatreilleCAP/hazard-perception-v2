@@ -18,6 +18,8 @@ import InroadsMvpNewView from '@/views/author/InroadsMvpNewView.vue'
 import LessonEditorView from '@/views/author/LessonEditorView.vue'
 import LessonListView from '@/views/author/LessonListView.vue'
 import LessonNewView from '@/views/author/LessonNewView.vue'
+import MediaLibraryView from '@/views/author/MediaLibraryView.vue'
+import PublishedActivitiesView from '@/views/author/PublishedActivitiesView.vue'
 import SeeEditorView from '@/views/author/SeeEditorView.vue'
 import SeeListView from '@/views/author/SeeListView.vue'
 import SeeNewView from '@/views/author/SeeNewView.vue'
@@ -172,6 +174,28 @@ export const router = createRouter({
           meta: {
             layout: 'author',
             title: 'Edit Inroads MVP',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
+        },
+        {
+          path: 'media',
+          name: 'media-library',
+          component: MediaLibraryView,
+          meta: {
+            layout: 'author',
+            title: 'Media',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
+        },
+        {
+          path: 'published',
+          name: 'published-activities',
+          component: PublishedActivitiesView,
+          meta: {
+            layout: 'author',
+            title: 'Published',
             requiresAuth: true,
             requiresStudio: true,
           },

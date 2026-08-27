@@ -7,6 +7,13 @@ const mvpOpen = computed(
   () =>
     route.path === '/studio/inroads-mvp' || route.path.startsWith('/studio/inroads-mvp/'),
 )
+const mediaOpen = computed(
+  () => route.path === '/studio/media' || route.path.startsWith('/studio/media/'),
+)
+const publishedOpen = computed(
+  () =>
+    route.path === '/studio/published' || route.path.startsWith('/studio/published/'),
+)
 </script>
 
 <template>
@@ -34,9 +41,20 @@ const mvpOpen = computed(
       >
         Inroads MVP
       </RouterLink>
-
-      <span class="author-nav-disabled">Media</span>
-      <span class="author-nav-disabled">Publishing</span>
+      <RouterLink
+        to="/studio/media"
+        class="author-nav-link"
+        :class="{ active: mediaOpen }"
+      >
+        Media
+      </RouterLink>
+      <RouterLink
+        to="/studio/published"
+        class="author-nav-link"
+        :class="{ active: publishedOpen }"
+      >
+        Published
+      </RouterLink>
     </nav>
   </aside>
 </template>

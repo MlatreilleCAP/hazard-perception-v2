@@ -100,6 +100,39 @@ export class MediaService {
     return this.listAssetsByMime('image/%')
   }
 
+  async listAssets(): Promise<MediaAsset[]> {
+    const client = requireClient()
+    const { data, error } = await client
+      .from('media_assets')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      throw new Error(`Failed to list media: ${error.message}`)
+    }
+
+    return ((data ?? []) as MediaAssetRow[]).map(mapAsset)
+  }
+
+  async deleteAsset(mediaAssetId: string): Promise<void> {
+    const client = requireClient()
+    const asset = await this.getAsset(mediaAssetId)
+
+    const { error: storageError } = await client.storage
+      .from(ACTIVITY_MEDIA_BUCKET)
+      .remove([asset.path])
+    if (storageError) {
+      throw new Error(`Failed to delete media file: ${storageError.message}`)
+    }
+
+    const { error } = await client.from('media_assets').delete().eq('id', mediaAssetId)
+    if (error) {
+      throw new Error(`Failed to delete media asset: ${error.message}`)
+    }
+
+    this.signedUrlCache.delete(mediaAssetId)
+  }
+
   async uploadVideo(activityId: string, file: File): Promise<MediaAsset> {
     return this.uploadMedia(activityId, file, 'video/mp4')
   }
