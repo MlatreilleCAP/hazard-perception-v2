@@ -18,7 +18,6 @@ import {
   type LessonCompositionItem,
   type LessonSectionResult,
 } from '@/types/lesson'
-import { prefetchLessonSectionAssets } from '@/lib/lesson/prefetchLessonSection'
 
 const props = withDefaults(
   defineProps<{
@@ -84,23 +83,6 @@ async function loadSectionDefinition(item: LessonCompositionItem): Promise<Activ
   return definition
 }
 
-function prefetchSection(index: number): void {
-  const item = orderedItems.value[index]
-  if (!item) return
-
-  void prefetchLessonSectionAssets({
-    item,
-    published: !props.preview,
-    cache: sectionCache.value,
-  }).catch(() => {
-    // Lookahead prefetch is best-effort.
-  })
-}
-
-function prefetchNextSection(currentIndex: number): void {
-  prefetchSection(currentIndex + 1)
-}
-
 async function startIntro(): Promise<boolean> {
   if (!shouldPlayIntro()) return false
   const mediaId = lesson.value.introMedia?.media_asset_id
@@ -109,7 +91,6 @@ async function startIntro(): Promise<boolean> {
   try {
     introSrc.value = await services.media.getSignedUrl(mediaId)
     phase.value = 'intro'
-    prefetchSection(0)
     return true
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Failed to load intro video'
@@ -137,7 +118,6 @@ async function enterSection(index: number): Promise<void> {
     sectionDefinition.value = definition
     sectionIndex.value = index
     phase.value = 'playing'
-    prefetchNextSection(index)
   } catch (cause) {
     if (generation !== loadGeneration) return
     error.value = cause instanceof Error ? cause.message : 'Failed to load lesson section'
@@ -170,7 +150,6 @@ async function startLesson(): Promise<void> {
 
   const showingIntro = await startIntro()
   if (showingIntro || phase.value === 'error') return
-  prefetchSection(0)
   await enterSection(0)
 }
 
