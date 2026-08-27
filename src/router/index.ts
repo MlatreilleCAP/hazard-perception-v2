@@ -55,7 +55,7 @@ export const router = createRouter({
       component: AuthorStudioShell,
       meta: { layout: 'author', title: 'Authoring Studio', requiresAuth: true, requiresStudio: true },
       children: [
-        { path: '', redirect: { name: 'see-list' } },
+        { path: '', redirect: { name: 'inroads-mvp-list' } },
         {
           path: 'see',
           name: 'see-list',

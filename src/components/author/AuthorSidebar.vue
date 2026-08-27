@@ -3,19 +3,6 @@ import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 const route = useRoute()
-const processOpen = computed(
-  () => route.path === '/studio/process' || route.path.startsWith('/studio/process/'),
-)
-const seeOpen = computed(
-  () => route.path === '/studio/see' || route.path.startsWith('/studio/see/'),
-)
-const anticipateOpen = computed(
-  () =>
-    route.path === '/studio/anticipate' || route.path.startsWith('/studio/anticipate/'),
-)
-const lessonOpen = computed(
-  () => route.path === '/studio/lesson' || route.path.startsWith('/studio/lesson/'),
-)
 const mvpOpen = computed(
   () =>
     route.path === '/studio/inroads-mvp' || route.path.startsWith('/studio/inroads-mvp/'),
@@ -40,70 +27,13 @@ const mvpOpen = computed(
     </div>
 
     <nav class="author-nav" aria-label="Authoring">
-      <div class="author-nav-group">
-        <span class="author-nav-group-btn" style="cursor: default">
-          Inroads Separate
-          <svg class="author-chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true">
-            <path
-              d="m1 1.5 5 5 5-5"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.5"
-            />
-          </svg>
-        </span>
-        <div class="author-nav-children">
-          <RouterLink to="/studio/see" class="author-nav-link" :class="{ active: seeOpen }">
-            Observe
-          </RouterLink>
-          <RouterLink
-            to="/studio/process"
-            class="author-nav-link"
-            :class="{ active: processOpen }"
-          >
-            Process
-          </RouterLink>
-          <RouterLink
-            to="/studio/anticipate"
-            class="author-nav-link"
-            :class="{ active: anticipateOpen }"
-          >
-            Anticipate
-          </RouterLink>
-          <RouterLink
-            to="/studio/lesson"
-            class="author-nav-link"
-            :class="{ active: lessonOpen }"
-          >
-            Compiled Lessons
-          </RouterLink>
-        </div>
-      </div>
-
-      <div class="author-nav-group">
-        <span class="author-nav-group-btn" style="cursor: default">
-          Inroads MVP
-          <svg class="author-chevron" viewBox="0 0 12 8" fill="none" aria-hidden="true">
-            <path
-              d="m1 1.5 5 5 5-5"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.5"
-            />
-          </svg>
-        </span>
-        <div class="author-nav-children">
-          <RouterLink
-            to="/studio/inroads-mvp"
-            class="author-nav-link"
-            :class="{ active: mvpOpen }"
-          >
-            Lessons
-          </RouterLink>
-        </div>
-      </div>
+      <RouterLink
+        to="/studio/inroads-mvp"
+        class="author-nav-link"
+        :class="{ active: mvpOpen }"
+      >
+        Inroads MVP
+      </RouterLink>
 
       <span class="author-nav-disabled">Media</span>
       <span class="author-nav-disabled">Publishing</span>
