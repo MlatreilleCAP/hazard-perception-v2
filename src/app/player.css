@@ -50,6 +50,7 @@ body:has(.player-page) {
 }
 
 .player-phone {
+  --question-card-offset-top: max(16px, calc(20% - 9.5rem + 200px));
   width: var(--iphone-17-pro-width);
   height: var(--iphone-17-pro-height);
   overflow: hidden;
@@ -202,15 +203,18 @@ body:has(.player-page) {
   position: absolute;
   inset: 0;
   z-index: 4;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
+  display: block;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-anchor: none;
+  padding: var(--question-card-offset-top, max(16px, calc(20% - 9.5rem + 200px))) 16px 48px;
   pointer-events: none;
 }
 
 .process-autoplay-prompt {
   pointer-events: auto;
+  display: block;
+  margin: 0 auto;
   padding: 14px 28px;
   border: 0;
   border-radius: 999px;
@@ -232,8 +236,9 @@ body:has(.player-page) {
   --process-begin-to: #74629b;
   pointer-events: auto;
   display: flex;
-  width: 355px;
-  max-width: 100%;
+  width: 95%;
+  max-width: 95%;
+  margin: 0 auto;
   flex-direction: column;
   overflow: hidden;
   border-radius: 18px;
@@ -351,6 +356,7 @@ body:has(.player-page) {
 }
 
 .process-experience {
+  --question-card-offset-top: max(16px, calc(20% - 9.5rem + 200px));
   position: relative;
   width: 100%;
   height: 100%;
@@ -373,26 +379,28 @@ body:has(.player-page) {
   position: absolute;
   inset: 0;
   z-index: 6;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  overflow: auto;
-  padding: 48px 16px 24px;
+  display: block;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-anchor: none;
+  padding: var(--question-card-offset-top, max(16px, calc(20% - 9.5rem + 200px))) 16px 48px;
   background: transparent;
 }
 
 .process-question-card {
   position: relative;
+  top: 0;
   width: 95%;
   max-width: 95%;
-  margin: auto;
+  margin: 0 auto;
   border-radius: 16px;
   border: none;
   background: #fff;
   box-shadow: 0 4px 6px rgb(0 0 0 / 15%);
   padding: 24px 16px;
   color: #403b3b;
-  transform-origin: center center;
+  transform-origin: top center;
+  overflow-anchor: none;
   animation: process-question-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
   transition: box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -401,6 +409,7 @@ body:has(.player-page) {
   animation: none;
   opacity: 1;
   transform: none;
+  top: 0;
 }
 
 .process-question-prompt {
@@ -1025,6 +1034,7 @@ body:has(.player-page) {
 }
 
 .see-experience {
+  --question-card-offset-top: max(16px, calc(20% - 9.5rem + 200px));
   position: relative;
   width: 100%;
   height: 100%;
@@ -1039,6 +1049,7 @@ body:has(.player-page) {
 }
 
 .lesson-experience {
+  --question-card-offset-top: max(16px, calc(20% - 9.5rem + 200px));
   position: relative;
   width: 100%;
   height: 100%;
