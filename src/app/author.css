@@ -709,14 +709,26 @@ fieldset.author-stack {
   gap: 12px;
 }
 
+.media-preview-frame {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
 .media-preview-large {
   display: block;
-  width: 100%;
+  width: auto;
+  height: auto;
+  max-width: 100%;
   max-height: min(56vh, 480px);
   margin: 0 auto;
-  border-radius: 6px;
+  border-radius: 16px;
   background: #0b0b0b;
   object-fit: contain;
+}
+
+.media-preview-video {
+  aspect-ratio: var(--media-preview-aspect, auto);
 }
 
 .media-preview-audio {
@@ -745,13 +757,12 @@ fieldset.author-stack {
 }
 
 .media-library-thumb {
-  appearance: none;
   display: block;
   width: 100%;
   aspect-ratio: 16 / 10;
   overflow: hidden;
   border: 0;
-  border-radius: 6px;
+  border-radius: 16px;
   padding: 0;
   background: #111;
   cursor: pointer;

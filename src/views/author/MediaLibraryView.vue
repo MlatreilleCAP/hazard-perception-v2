@@ -11,6 +11,7 @@ import {
 const { canEdit, isAdmin } = useStudioAccess()
 const assets = ref<MediaAsset[]>([])
 const previewUrls = ref<Record<string, string>>({})
+const posterUrls = ref<Record<string, string>>({})
 const loading = ref(true)
 const error = ref<string | null>(null)
 const deletingId = ref<string | null>(null)
@@ -57,32 +58,171 @@ function formatDate(iso: string): string {
   return date.toLocaleString()
 }
 
+function thumbSrc(asset: MediaAsset): string | null {
+  if (isVideo(asset)) return posterUrls.value[asset.id] ?? null
+  return previewUrls.value[asset.id] ?? null
+}
+
+/** Seek a frame and rasterize so video cards show a still on production browsers. */
+function captureVideoPoster(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    let settled = false
+    const finish = (value: string | null) => {
+      if (settled) return
+      settled = true
+      video.removeAttribute('src')
+      video.load()
+      resolve(value)
+    }
+
+    video.muted = true
+    video.playsInline = true
+    video.preload = 'auto'
+    video.crossOrigin = 'anonymous'
+    video.setAttribute('playsinline', '')
+
+    const timeout = window.setTimeout(() => finish(null), 12_000)
+
+    const draw = () => {
+      try {
+        const width = video.videoWidth
+        const height = video.videoHeight
+        if (!width || !height) {
+          window.clearTimeout(timeout)
+          finish(null)
+          return
+        }
+        const canvas = document.createElement('canvas')
+        const maxEdge = 480
+        const scale = Math.min(1, maxEdge / Math.max(width, height))
+        canvas.width = Math.max(1, Math.round(width * scale))
+        canvas.height = Math.max(1, Math.round(height * scale))
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          window.clearTimeout(timeout)
+          finish(null)
+          return
+        }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        window.clearTimeout(timeout)
+        finish(canvas.toDataURL('image/jpeg', 0.72))
+      } catch {
+        window.clearTimeout(timeout)
+        finish(null)
+      }
+    }
+
+    video.addEventListener(
+      'seeked',
+      () => {
+        draw()
+      },
+      { once: true },
+    )
+
+    video.addEventListener(
+      'loadeddata',
+      () => {
+        const duration = Number.isFinite(video.duration) ? video.duration : 0
+        const seekTo = duration > 0 ? Math.min(0.15, duration * 0.05) : 0.01
+        try {
+          if (video.currentTime > 0) {
+            draw()
+            return
+          }
+          video.currentTime = seekTo
+        } catch {
+          draw()
+        }
+      },
+      { once: true },
+    )
+
+    video.addEventListener(
+      'error',
+      () => {
+        window.clearTimeout(timeout)
+        finish(null)
+      },
+      { once: true },
+    )
+
+    // Media fragment helps some browsers decode a visible first frame.
+    video.src = `${url}#t=0.1`
+  })
+}
+
+async function mapPool<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = [...items]
+  const runners = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
+    while (queue.length > 0) {
+      const item = queue.shift()
+      if (!item) return
+      await worker(item)
+    }
+  })
+  await Promise.all(runners)
+}
+
 async function loadPreviewUrls(list: MediaAsset[]): Promise<void> {
   const generation = ++previewGeneration
-  const missing = list.filter((asset) => !previewUrls.value[asset.id])
-  if (missing.length === 0) return
-
-  const next = { ...previewUrls.value }
-  await Promise.all(
-    missing.map(async (asset) => {
-      try {
-        next[asset.id] = await services.media.getSignedUrl(asset.id)
-      } catch {
-        // Leave missing; card shows a placeholder.
-      }
-    }),
+  const missingUrls = list.filter((asset) => !previewUrls.value[asset.id])
+  const missingPosters = list.filter(
+    (asset) => isVideo(asset) && !posterUrls.value[asset.id],
   )
+  if (missingUrls.length === 0 && missingPosters.length === 0) return
+
+  const nextUrls = { ...previewUrls.value }
+  const nextPosters = { ...posterUrls.value }
+
+  await mapPool(missingUrls, 4, async (asset) => {
+    if (generation !== previewGeneration) return
+    try {
+      nextUrls[asset.id] = await services.media.getSignedUrl(asset.id)
+    } catch {
+      // Card keeps a placeholder when a signed URL fails.
+    }
+  })
+
   if (generation !== previewGeneration) return
-  previewUrls.value = next
+  // Expose signed URLs immediately so images can render while posters generate.
+  previewUrls.value = nextUrls
+
+  const postersToBuild = list.filter(
+    (asset) =>
+      isVideo(asset) && Boolean(nextUrls[asset.id]) && !nextPosters[asset.id],
+  )
+
+  await mapPool(postersToBuild, 3, async (asset) => {
+    if (generation !== previewGeneration) return
+    const url = nextUrls[asset.id]
+    if (!url) return
+    try {
+      const poster = await captureVideoPoster(url)
+      if (poster) nextPosters[asset.id] = poster
+    } catch {
+      // Fall back to inline video thumb with a media fragment.
+    }
+  })
+
+  if (generation !== previewGeneration) return
+  posterUrls.value = nextPosters
 }
 
 async function refresh(): Promise<void> {
   loading.value = true
   error.value = null
   selectedId.value = null
+  previewGeneration += 1
+  previewUrls.value = {}
+  posterUrls.value = {}
   try {
     assets.value = await services.media.listAssets()
-    previewUrls.value = {}
   } catch (cause) {
     assets.value = []
     error.value = cause instanceof Error ? cause.message : 'Failed to load media'
@@ -110,6 +250,24 @@ function openPreview(asset: MediaAsset): void {
   selectedId.value = selectedId.value === asset.id ? null : asset.id
 }
 
+function fitPreviewVideo(event: Event): void {
+  const el = event.target as HTMLVideoElement
+  const w = el.videoWidth
+  const h = el.videoHeight
+  if (!w || !h) return
+  el.style.setProperty('--media-preview-aspect', `${w} / ${h}`)
+  const parentWidth = el.parentElement?.clientWidth || w
+  const maxHeightPx = Number.parseFloat(getComputedStyle(el).maxHeight) || 480
+  let height = Math.min(maxHeightPx, h)
+  let width = (w / h) * height
+  if (width > parentWidth) {
+    width = parentWidth
+    height = width / (w / h)
+  }
+  el.style.width = `${Math.round(width)}px`
+  el.style.height = `${Math.round(height)}px`
+}
+
 async function remove(asset: MediaAsset): Promise<void> {
   const name = mediaAssetDisplayName(asset)
   if (
@@ -124,8 +282,10 @@ async function remove(asset: MediaAsset): Promise<void> {
   try {
     await services.media.deleteAsset(asset.id)
     assets.value = assets.value.filter((item) => item.id !== asset.id)
-    const { [asset.id]: _removed, ...rest } = previewUrls.value
-    previewUrls.value = rest
+    const { [asset.id]: _url, ...restUrls } = previewUrls.value
+    const { [asset.id]: _poster, ...restPosters } = posterUrls.value
+    previewUrls.value = restUrls
+    posterUrls.value = restPosters
     if (selectedId.value === asset.id) selectedId.value = null
   } catch (cause) {
     window.alert(cause instanceof Error ? cause.message : 'Failed to delete media')
@@ -200,25 +360,29 @@ async function remove(asset: MediaAsset): Promise<void> {
           </div>
           <button type="button" class="ghost-mini" @click="selectedId = null">Close</button>
         </div>
-        <img
-          v-if="isImage(selected)"
-          class="media-preview-large"
-          :src="previewUrls[selected.id]"
-          :alt="mediaAssetDisplayName(selected)"
-        />
-        <video
-          v-else-if="isVideo(selected)"
-          class="media-preview-large"
-          :src="previewUrls[selected.id]"
-          controls
-          playsinline
-        />
-        <audio
-          v-else-if="isAudio(selected)"
-          class="media-preview-audio"
-          :src="previewUrls[selected.id]"
-          controls
-        />
+        <div class="media-preview-frame">
+          <img
+            v-if="isImage(selected)"
+            class="media-preview-large"
+            :src="previewUrls[selected.id]"
+            :alt="mediaAssetDisplayName(selected)"
+          />
+          <video
+            v-else-if="isVideo(selected)"
+            :key="selected.id"
+            class="media-preview-large media-preview-video"
+            :src="previewUrls[selected.id]"
+            controls
+            playsinline
+            @loadedmetadata="fitPreviewVideo"
+          />
+          <audio
+            v-else-if="isAudio(selected)"
+            class="media-preview-audio"
+            :src="previewUrls[selected.id]"
+            controls
+          />
+        </div>
       </section>
 
       <section class="author-list-card">
@@ -242,23 +406,26 @@ async function remove(asset: MediaAsset): Promise<void> {
             class="media-library-card"
             :class="{ 'is-selected': selectedId === asset.id }"
           >
-            <button
-              type="button"
+            <div
               class="media-library-thumb"
+              role="button"
+              tabindex="0"
               :aria-label="`Preview ${mediaAssetDisplayName(asset)}`"
               @click="openPreview(asset)"
+              @keydown.enter.prevent="openPreview(asset)"
+              @keydown.space.prevent="openPreview(asset)"
             >
               <img
-                v-if="isImage(asset) && previewUrls[asset.id]"
-                :src="previewUrls[asset.id]"
+                v-if="thumbSrc(asset)"
+                :src="thumbSrc(asset)!"
                 :alt="mediaAssetDisplayName(asset)"
               />
               <video
                 v-else-if="isVideo(asset) && previewUrls[asset.id]"
-                :src="previewUrls[asset.id]"
+                :src="`${previewUrls[asset.id]}#t=0.1`"
                 muted
                 playsinline
-                preload="metadata"
+                preload="auto"
               />
               <div v-else-if="isAudio(asset)" class="media-library-audio-thumb">
                 <span>Audio</span>
@@ -266,7 +433,7 @@ async function remove(asset: MediaAsset): Promise<void> {
               <div v-else class="media-library-audio-thumb">
                 <span>{{ previewUrls[asset.id] ? kindLabel(asset.mimeType) : '…' }}</span>
               </div>
-            </button>
+            </div>
 
             <div class="media-library-card-body">
               <p class="author-list-title" style="margin: 0">
