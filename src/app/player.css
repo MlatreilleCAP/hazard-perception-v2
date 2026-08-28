@@ -108,13 +108,6 @@ body:has(.player-page) {
     border-radius: 0;
     transform: none;
     box-shadow: none;
-    --question-card-offset-top: max(16px, 8svh);
-  }
-
-  .process-experience,
-  .see-experience,
-  .lesson-experience {
-    --question-card-offset-top: max(16px, 8svh);
   }
 }
 
@@ -410,8 +403,7 @@ body:has(.player-page) {
   overflow-anchor: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  touch-action: pan-y;
-  padding: var(--question-card-offset-top, max(16px, calc(20% - 9.5rem + 200px))) 16px max(48px, env(safe-area-inset-bottom, 0px));
+  padding: var(--question-card-offset-top, max(16px, calc(20% - 9.5rem + 200px))) 16px 48px;
   background: transparent;
 }
 
@@ -666,21 +658,6 @@ body:has(.player-page) {
 .process-question-card .process-instruction-begin {
   width: 100%;
   margin-top: 4px;
-}
-
-.process-question-submit-plain {
-  width: 100%;
-}
-
-.process-question-reveal.is-plain {
-  display: block;
-  grid-template-rows: none;
-}
-
-.process-question-reveal.is-plain .process-question-reveal-inner {
-  min-height: auto;
-  overflow: visible;
-  padding-top: 21px;
 }
 
 .process-question-continue {

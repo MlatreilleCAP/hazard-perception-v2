@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { readProcessDefinition } from '@/activities/processDefinition'
+import LessonSegmentPreloader from '@/components/lesson/LessonSegmentPreloader.vue'
 import ProcessSeverityPopover from '@/components/process/ProcessSeverityPopover.vue'
 import ProcessTheoryPopover from '@/components/process/ProcessTheoryPopover.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
@@ -38,6 +39,7 @@ const error = ref<string | null>(null)
 const phase = ref<Phase>('playing')
 const questionIndex = ref(0)
 const answers = ref<Record<string, number>>({})
+const awaitingSegmentVideo = ref(false)
 
 const process = computed(() => readProcessDefinition(props.definition))
 const passThreshold = computed(() => process.value.secondSegmentScoreThreshold ?? 70)
@@ -134,13 +136,22 @@ watch(
 )
 
 async function startSegment(index: ProcessSegmentIndex): Promise<void> {
+  if (index > 0) awaitingSegmentVideo.value = true
   const mediaId = process.value.segments[index]?.media?.media_asset_id ?? null
   const nextSrc = await loadSrcForMediaId(mediaId, index)
-  if (nextSrc == null) return
+  if (nextSrc == null) {
+    awaitingSegmentVideo.value = false
+    return
+  }
   segmentIndex.value = index
   questionIndex.value = 0
   phase.value = 'playing'
   src.value = nextSrc
+}
+
+function onStageReady(): void {
+  awaitingSegmentVideo.value = false
+  emit('ready')
 }
 
 function storeAnswer(questionId: string, answerIndex: number): void {
@@ -218,6 +229,7 @@ async function afterVideo1Questions(): Promise<void> {
 
 <template>
   <div class="process-experience">
+    <LessonSegmentPreloader v-if="awaitingSegmentVideo" />
     <p v-if="error" class="process-player-message">{{ error }}</p>
     <template v-else-if="src">
       <ProcessVideoStage
@@ -225,7 +237,7 @@ async function afterVideo1Questions(): Promise<void> {
         :instruction-text="instructionText"
         :instruction-pill="instructionPill"
         :hold-end="phase !== 'playing'"
-        @ready="$emit('ready')"
+        @ready="onStageReady"
         @ended="onVideoEnded"
       />
       <div v-if="phase === 'questions' && currentQuestion" class="process-dim-overlay">
