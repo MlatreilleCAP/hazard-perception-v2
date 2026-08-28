@@ -18,6 +18,8 @@ function mapAsset(row: MediaAssetRow): MediaAsset {
     mimeType: row.mime_type,
     sizeBytes: row.size_bytes,
     durationMs: row.duration_ms,
+    widthPx: row.width_px ?? null,
+    heightPx: row.height_px ?? null,
     originalFilename: row.original_filename ?? null,
     createdBy: row.created_by,
     createdAt: row.created_at,
@@ -190,7 +192,7 @@ export class MediaService {
     const id = crypto.randomUUID()
     const path = `${activityId}/${id}`
     const mimeType = file.type || fallbackMime
-    const durationMs = await readMediaDurationMs(file)
+    const probe = await readMediaProbe(file)
     const originalFilename = sanitizeOriginalFilename(file.name)
 
     const { error: insertError } = await client.from('media_assets').insert({
@@ -200,7 +202,9 @@ export class MediaService {
       path,
       mime_type: mimeType,
       size_bytes: file.size,
-      duration_ms: durationMs,
+      duration_ms: probe.durationMs,
+      width_px: probe.widthPx,
+      height_px: probe.heightPx,
       original_filename: originalFilename,
       created_by: userId,
     })
@@ -228,13 +232,22 @@ export class MediaService {
   }
 }
 
-async function readMediaDurationMs(file: File): Promise<number | null> {
+async function readMediaProbe(file: File): Promise<{
+  durationMs: number | null
+  widthPx: number | null
+  heightPx: number | null
+}> {
+  if (file.type.startsWith('image/')) {
+    const size = await readImageSize(file)
+    return { durationMs: null, widthPx: size.widthPx, heightPx: size.heightPx }
+  }
+
   const kind = file.type.startsWith('audio/')
     ? 'audio'
     : file.type.startsWith('video/')
       ? 'video'
       : null
-  if (!kind) return null
+  if (!kind) return { durationMs: null, widthPx: null, heightPx: null }
 
   return new Promise((resolve) => {
     const element = document.createElement(kind)
@@ -242,18 +255,44 @@ async function readMediaDurationMs(file: File): Promise<number | null> {
     element.preload = 'metadata'
     element.onloadedmetadata = () => {
       const seconds = element.duration
+      const durationMs =
+        Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1000) : null
+      const widthPx =
+        kind === 'video' && element instanceof HTMLVideoElement && element.videoWidth > 0
+          ? element.videoWidth
+          : null
+      const heightPx =
+        kind === 'video' && element instanceof HTMLVideoElement && element.videoHeight > 0
+          ? element.videoHeight
+          : null
       URL.revokeObjectURL(objectUrl)
-      if (!Number.isFinite(seconds) || seconds <= 0) {
-        resolve(null)
-        return
-      }
-      resolve(Math.round(seconds * 1000))
+      resolve({ durationMs, widthPx, heightPx })
     }
     element.onerror = () => {
       URL.revokeObjectURL(objectUrl)
-      resolve(null)
+      resolve({ durationMs: null, widthPx: null, heightPx: null })
     }
     element.src = objectUrl
+  })
+}
+
+function readImageSize(
+  file: File,
+): Promise<{ widthPx: number | null; heightPx: number | null }> {
+  return new Promise((resolve) => {
+    const image = new Image()
+    const objectUrl = URL.createObjectURL(file)
+    image.onload = () => {
+      const widthPx = image.naturalWidth > 0 ? image.naturalWidth : null
+      const heightPx = image.naturalHeight > 0 ? image.naturalHeight : null
+      URL.revokeObjectURL(objectUrl)
+      resolve({ widthPx, heightPx })
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve({ widthPx: null, heightPx: null })
+    }
+    image.src = objectUrl
   })
 }
 

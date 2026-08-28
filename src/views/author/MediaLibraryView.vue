@@ -15,29 +15,65 @@ const posterUrls = ref<Record<string, string>>({})
 const loading = ref(true)
 const error = ref<string | null>(null)
 const deletingId = ref<string | null>(null)
-const filter = ref<'all' | 'video' | 'audio' | 'image'>('all')
+const filter = ref<'all' | 'video' | 'audio' | 'image' | 'lottie'>('all')
+const searchQuery = ref('')
 const selectedId = ref<string | null>(null)
 let previewGeneration = 0
 
+function isLottie(asset: MediaAsset): boolean {
+  const mime = asset.mimeType.toLowerCase()
+  const name = `${asset.originalFilename ?? ''} ${asset.path}`.toLowerCase()
+  if (name.includes('.lottie')) return true
+  if (mime.includes('lottie')) return true
+  if (mime === 'application/json' || mime.endsWith('+json')) return true
+  return name.endsWith('.json') && (mime.startsWith('application/') || mime === 'text/json')
+}
+
 const filtered = computed(() => {
-  if (filter.value === 'all') return assets.value
-  const prefix = `${filter.value}/`
-  return assets.value.filter((asset) => asset.mimeType.startsWith(prefix))
+  const query = searchQuery.value.trim().toLowerCase()
+  return assets.value.filter((asset) => {
+    if (filter.value === 'lottie') {
+      if (!isLottie(asset)) return false
+    } else if (filter.value !== 'all') {
+      if (isLottie(asset) || !asset.mimeType.startsWith(`${filter.value}/`)) return false
+    }
+    if (!query) return true
+    const name = mediaAssetDisplayName(asset).toLowerCase()
+    const kind = kindLabel(asset).toLowerCase()
+    return (
+      name.includes(query) ||
+      kind.includes(query) ||
+      asset.mimeType.toLowerCase().includes(query)
+    )
+  })
 })
 
 const selected = computed(
   () => filtered.value.find((asset) => asset.id === selectedId.value) ?? null,
 )
+const previewDimensions = ref<{ width: number; height: number } | null>(null)
+
+const SAMPLE_META = [
+  { label: 'Time of Day', value: 'Daytime' },
+  { label: 'Metadata Title', value: 'Metadata example' },
+  { label: 'Metadata Title', value: 'Metadata example' },
+  { label: 'Metadata Title', value: 'Metadata example' },
+  { label: 'Metadata Title', value: 'Metadata example' },
+  { label: 'Metadata Title', value: 'Metadata example' },
+] as const
+
+const selectedMeta = computed(() => (selected.value ? SAMPLE_META : []))
 
 function canDelete(asset: MediaAsset): boolean {
   return isAdmin.value || canEdit(asset.createdBy)
 }
 
-function kindLabel(mimeType: string): string {
-  if (mimeType.startsWith('video/')) return 'Video'
-  if (mimeType.startsWith('audio/')) return 'Audio'
-  if (mimeType.startsWith('image/')) return 'Image'
-  return mimeType
+function kindLabel(asset: MediaAsset): string {
+  if (isLottie(asset)) return 'Lottie'
+  if (asset.mimeType.startsWith('video/')) return 'Video'
+  if (asset.mimeType.startsWith('audio/')) return 'Audio'
+  if (asset.mimeType.startsWith('image/')) return 'Image'
+  return asset.mimeType
 }
 
 function isImage(asset: MediaAsset): boolean {
@@ -59,6 +95,7 @@ function formatDate(iso: string): string {
 }
 
 function thumbSrc(asset: MediaAsset): string | null {
+  if (isLottie(asset)) return null
   if (isVideo(asset)) return posterUrls.value[asset.id] ?? null
   return previewUrls.value[asset.id] ?? null
 }
@@ -250,11 +287,21 @@ function openPreview(asset: MediaAsset): void {
   selectedId.value = selectedId.value === asset.id ? null : asset.id
 }
 
+watch(selectedId, () => {
+  previewDimensions.value = null
+})
+
+function recordPreviewSize(width: number, height: number): void {
+  if (!width || !height) return
+  previewDimensions.value = { width, height }
+}
+
 function fitPreviewVideo(event: Event): void {
   const el = event.target as HTMLVideoElement
   const w = el.videoWidth
   const h = el.videoHeight
   if (!w || !h) return
+  recordPreviewSize(w, h)
   el.style.setProperty('--media-preview-aspect', `${w} / ${h}`)
   const parentWidth = el.parentElement?.clientWidth || w
   const maxHeightPx = Number.parseFloat(getComputedStyle(el).maxHeight) || 480
@@ -266,6 +313,11 @@ function fitPreviewVideo(event: Event): void {
   }
   el.style.width = `${Math.round(width)}px`
   el.style.height = `${Math.round(height)}px`
+}
+
+function fitPreviewImage(event: Event): void {
+  const el = event.target as HTMLImageElement
+  recordPreviewSize(el.naturalWidth, el.naturalHeight)
 }
 
 async function remove(asset: MediaAsset): Promise<void> {
@@ -340,17 +392,23 @@ async function remove(asset: MediaAsset): Promise<void> {
         >
           Image
         </button>
+        <button
+          type="button"
+          class="mvp-section-tab"
+          :class="{ active: filter === 'lottie' }"
+          @click="filter = 'lottie'"
+        >
+          Lotties
+        </button>
       </div>
 
-      <section v-if="selected && previewUrls[selected.id]" class="media-preview-stage">
+      <section v-if="selected" class="media-preview-stage">
         <div class="media-preview-stage-head">
           <div>
-            <p class="author-list-title" style="margin: 0">
-              {{ mediaAssetDisplayName(selected) }}
-            </p>
-            <p class="author-list-sub">
-              {{ kindLabel(selected.mimeType) }}
-              ·
+            <h2 class="media-preview-title">{{ mediaAssetDisplayName(selected) }}</h2>
+            <p class="media-preview-sub">
+              {{ kindLabel(selected) }}
+              -
               {{
                 selected.sizeBytes != null
                   ? formatMediaSize(selected.sizeBytes)
@@ -358,37 +416,64 @@ async function remove(asset: MediaAsset): Promise<void> {
               }}
             </p>
           </div>
-          <button type="button" class="ghost-mini" @click="selectedId = null">Close</button>
+          <button type="button" class="media-preview-close" @click="selectedId = null">
+            Close
+          </button>
         </div>
-        <div class="media-preview-frame">
-          <img
-            v-if="isImage(selected)"
-            class="media-preview-large"
-            :src="previewUrls[selected.id]"
-            :alt="mediaAssetDisplayName(selected)"
-          />
-          <video
-            v-else-if="isVideo(selected)"
-            :key="selected.id"
-            class="media-preview-large media-preview-video"
-            :src="previewUrls[selected.id]"
-            controls
-            playsinline
-            @loadedmetadata="fitPreviewVideo"
-          />
-          <audio
-            v-else-if="isAudio(selected)"
-            class="media-preview-audio"
-            :src="previewUrls[selected.id]"
-            controls
-          />
+        <div class="media-preview-body">
+          <div class="media-preview-frame">
+            <p v-if="!previewUrls[selected.id]" class="author-muted">Loading preview…</p>
+            <img
+              v-else-if="isImage(selected)"
+              class="media-preview-large"
+              :src="previewUrls[selected.id]"
+              :alt="mediaAssetDisplayName(selected)"
+              @load="fitPreviewImage"
+            />
+            <video
+              v-else-if="isVideo(selected)"
+              :key="selected.id"
+              class="media-preview-large media-preview-video"
+              :src="previewUrls[selected.id]"
+              controls
+              playsinline
+              @loadedmetadata="fitPreviewVideo"
+            />
+            <audio
+              v-else-if="isAudio(selected)"
+              class="media-preview-audio"
+              :src="previewUrls[selected.id]"
+              controls
+            />
+            <div v-else-if="isLottie(selected)" class="media-library-audio-thumb">
+              <span>Lottie</span>
+            </div>
+          </div>
+          <div class="media-meta-panel">
+            <h3 class="media-meta-heading">Metadata</h3>
+            <dl class="media-meta-list">
+              <div v-for="(item, index) in selectedMeta" :key="`${item.label}-${index}`" class="media-meta-card">
+                <dt class="media-meta-label">{{ item.label }}</dt>
+                <dd class="media-meta-value">{{ item.value }}</dd>
+              </div>
+            </dl>
+          </div>
         </div>
       </section>
 
       <section class="author-list-card">
-        <div class="author-list-card-head">
+        <div class="author-list-card-head media-library-head">
           <h2>Library</h2>
           <span class="author-count">{{ filtered.length }}</span>
+          <label class="media-library-search">
+            <span class="sr-only">Search library</span>
+            <input
+              v-model="searchQuery"
+              type="search"
+              placeholder="Search"
+              autocomplete="off"
+            />
+          </label>
         </div>
 
         <div v-if="loading" class="author-list-empty">
@@ -396,7 +481,13 @@ async function remove(asset: MediaAsset): Promise<void> {
         </div>
 
         <div v-else-if="filtered.length === 0" class="author-list-empty">
-          <p class="author-muted">No media in this filter.</p>
+          <p class="author-muted">
+            {{
+              searchQuery.trim()
+                ? 'No media matches this search.'
+                : 'No media in this filter.'
+            }}
+          </p>
         </div>
 
         <div v-else class="media-library-grid">
@@ -430,8 +521,11 @@ async function remove(asset: MediaAsset): Promise<void> {
               <div v-else-if="isAudio(asset)" class="media-library-audio-thumb">
                 <span>Audio</span>
               </div>
+              <div v-else-if="isLottie(asset)" class="media-library-audio-thumb">
+                <span>Lottie</span>
+              </div>
               <div v-else class="media-library-audio-thumb">
-                <span>{{ previewUrls[asset.id] ? kindLabel(asset.mimeType) : '…' }}</span>
+                <span>{{ previewUrls[asset.id] ? kindLabel(asset) : '…' }}</span>
               </div>
             </div>
 
@@ -440,7 +534,7 @@ async function remove(asset: MediaAsset): Promise<void> {
                 {{ mediaAssetDisplayName(asset) }}
               </p>
               <p class="author-list-sub">
-                {{ kindLabel(asset.mimeType) }}
+                {{ kindLabel(asset) }}
                 ·
                 {{ asset.sizeBytes != null ? formatMediaSize(asset.sizeBytes) : 'Unknown size' }}
                 ·
