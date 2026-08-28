@@ -17,9 +17,13 @@ const emit = defineEmits<{
   complete: []
 }>()
 
+const REVEAL_DELAY_MS = 1000
+
 const selectedIndex = ref<number | null>(null)
 const locked = ref(false)
+const revealExplanation = ref(false)
 let advanceTimer = 0
+let revealTimer = 0
 
 const answers = computed(() => configuredAnswerEntries(props.question))
 const showExplanation = computed(() => props.question.showExplanation !== false)
@@ -34,24 +38,27 @@ const feedback = computed(() => {
   }
   return answeredCorrectly.value ? 'correct' : 'incorrect'
 })
-/** Explanation + Continue only after an incorrect answer when the toggle is on. */
-const awaitingContinue = computed(
+const needsExplanation = computed(
   () => locked.value && showExplanation.value && !answeredCorrectly.value,
 )
+/** Explanation + Continue only after an incorrect answer, after a short pause. */
+const awaitingContinue = computed(() => needsExplanation.value && revealExplanation.value)
 
 watch(
   () => props.question.id,
   () => {
     selectedIndex.value = null
     locked.value = false
+    revealExplanation.value = false
     window.clearTimeout(advanceTimer)
+    window.clearTimeout(revealTimer)
   },
 )
 
 function answerState(index: number): 'default' | 'correct' | 'incorrect' {
   if (!locked.value || !showCorrectIncorrect.value) return 'default'
-  if (awaitingContinue.value) {
-    if (index === props.question.correctIndex) return 'correct'
+  if (needsExplanation.value) {
+    if (awaitingContinue.value && index === props.question.correctIndex) return 'correct'
     if (selectedIndex.value === index && index !== props.question.correctIndex) {
       return 'incorrect'
     }
@@ -68,7 +75,12 @@ function select(index: number): void {
   selectedIndex.value = index
   locked.value = true
   emit('answer', index)
-  if (showExplanation.value && !isAnswerCorrect(props.question, index)) return
+  if (showExplanation.value && !isAnswerCorrect(props.question, index)) {
+    revealTimer = window.setTimeout(() => {
+      revealExplanation.value = true
+    }, REVEAL_DELAY_MS)
+    return
+  }
   if (!showCorrectIncorrect.value) {
     emit('complete')
     return
@@ -82,6 +94,7 @@ function continueToNext(): void {
 
 onBeforeUnmount(() => {
   window.clearTimeout(advanceTimer)
+  window.clearTimeout(revealTimer)
 })
 </script>
 

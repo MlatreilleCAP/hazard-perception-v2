@@ -558,6 +558,10 @@ body:has(.player-page) {
   opacity: 1;
 }
 
+.process-question-card.is-explained .process-severity-label.is-correct {
+  animation: process-correct-label-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .process-severity-label.is-incorrect,
 .process-severity-label.is-incorrect:disabled {
   font-weight: 500;
@@ -621,6 +625,10 @@ body:has(.player-page) {
   background: #60a1a7;
   border-color: #60a1a7;
   color: #fff;
+}
+
+.process-question-card.is-explained .process-theory-answer.correct {
+  animation: process-correct-answer-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .process-theory-answer.incorrect,
@@ -752,6 +760,32 @@ body:has(.player-page) {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes process-correct-answer-in {
+  from {
+    background-color: #f5f5f5;
+    border-color: transparent;
+    color: #403b3b;
+  }
+
+  to {
+    background-color: #60a1a7;
+    border-color: #60a1a7;
+    color: #fff;
+  }
+}
+
+@keyframes process-correct-label-in {
+  from {
+    color: rgb(64 59 59 / 70%);
+    opacity: 0.6;
+  }
+
+  to {
+    color: #60a1a7;
+    opacity: 1;
   }
 }
 
@@ -1036,7 +1070,9 @@ body:has(.player-page) {
   .see-results-hazard-token,
   .process-question-card.is-explained,
   .process-question-reveal.is-open .process-question-feedback,
-  .process-question-reveal.is-open .process-question-continue {
+  .process-question-reveal.is-open .process-question-continue,
+  .process-question-card.is-explained .process-theory-answer.correct,
+  .process-question-card.is-explained .process-severity-label.is-correct {
     animation: none;
   }
 

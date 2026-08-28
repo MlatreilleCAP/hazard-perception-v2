@@ -27,11 +27,15 @@ const SEVERITY_POSITION: Record<HazardSeverity, number> = {
 }
 
 const answers = computed(() => configuredAnswerEntries(props.question).slice(0, 3))
+const REVEAL_DELAY_MS = 1000
+
 const draftIndex = ref(1)
 const submitted = ref(false)
+const revealExplanation = ref(false)
 const dragging = ref(false)
 const trackEl = ref<HTMLElement | null>(null)
 let advanceTimer = 0
+let revealTimer = 0
 
 const optionLabels = computed(() => {
   const defaults = ['Low', 'Medium', 'High'] as const
@@ -52,9 +56,10 @@ const isCorrect = computed(
 const showExplanation = computed(() => props.question.showExplanation === true)
 const showCorrectIncorrect = computed(() => props.question.showCorrectIncorrect !== false)
 const explanationText = computed(() => props.question.explanation.trim())
-const awaitingContinue = computed(
+const needsExplanation = computed(
   () => submitted.value && showExplanation.value && !isCorrect.value,
 )
+const awaitingContinue = computed(() => needsExplanation.value && revealExplanation.value)
 const revealAnswerFeedback = computed(
   () => submitted.value && showCorrectIncorrect.value,
 )
@@ -74,8 +79,10 @@ watch(
   () => props.question.id,
   () => {
     submitted.value = false
+    revealExplanation.value = false
     draftIndex.value = Math.min(1, Math.max(0, answers.value.length - 1))
     window.clearTimeout(advanceTimer)
+    window.clearTimeout(revealTimer)
   },
 )
 
@@ -136,7 +143,12 @@ function submit(): void {
   if (submitted.value) return
   submitted.value = true
   emit('answer', draftIndex.value)
-  if (showExplanation.value && !isAnswerCorrect(props.question, draftIndex.value)) return
+  if (showExplanation.value && !isAnswerCorrect(props.question, draftIndex.value)) {
+    revealTimer = window.setTimeout(() => {
+      revealExplanation.value = true
+    }, REVEAL_DELAY_MS)
+    return
+  }
   advanceTimer = window.setTimeout(() => emit('complete'), 1600)
 }
 
@@ -151,6 +163,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.clearTimeout(advanceTimer)
+  window.clearTimeout(revealTimer)
   window.removeEventListener('pointermove', onWindowPointerMove)
   window.removeEventListener('pointerup', onWindowPointerUp)
 })
@@ -221,7 +234,10 @@ onBeforeUnmount(() => {
           class="process-severity-label"
           :class="{
             'is-active': draftIndex === option.index && !revealAnswerFeedback,
-            'is-correct': revealAnswerFeedback && option.index === question.correctIndex,
+            'is-correct':
+              revealAnswerFeedback &&
+              option.index === question.correctIndex &&
+              (isCorrect || awaitingContinue),
             'is-incorrect':
               revealAnswerFeedback && !isCorrect && draftIndex === option.index,
           }"
