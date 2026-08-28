@@ -126,6 +126,19 @@ let resizeObserver: ResizeObserver | null = null
 let pointerStart: { x: number; y: number; pan: number; pointerId: number; scaleX: number } | null =
   null
 let pointerPanned = false
+let panInertiaFrame = 0
+let panVelocity = 0
+let panInertiaStamp = 0
+let panStartedAt = 0
+let panSamples: { t: number; pan: number }[] = []
+
+const PAN_SAMPLE_WINDOW_MS = 80
+const PAN_FLING_STALE_MS = 40
+const PAN_SWIPE_MAX_MS = 320
+const PAN_FLING_MIN_VELOCITY = 0.45
+const PAN_FLING_VELOCITY_SCALE = 0.9
+const PAN_INERTIA_STOP_VELOCITY = 0.02
+const PAN_INERTIA_DECEL_MS = 320
 
 function emitReadyOnce(): void {
   if (didEmitReady) return
@@ -311,6 +324,70 @@ function clampPan(value: number): number {
   return Math.min(maxPan.value, Math.max(0, value))
 }
 
+function stopPanInertia(): void {
+  if (panInertiaFrame) {
+    cancelAnimationFrame(panInertiaFrame)
+    panInertiaFrame = 0
+  }
+  panVelocity = 0
+}
+
+function recordPanSample(pan: number): void {
+  const t = performance.now()
+  panSamples.push({ t, pan })
+  const cutoff = t - PAN_SAMPLE_WINDOW_MS
+  while (panSamples.length > 2 && panSamples[0]!.t < cutoff) {
+    panSamples.shift()
+  }
+}
+
+function panVelocityFromSamples(): number {
+  const now = performance.now()
+  const recent = panSamples.filter((sample) => now - sample.t <= PAN_SAMPLE_WINDOW_MS)
+  if (recent.length < 2) return 0
+  const first = recent[0]!
+  const last = recent[recent.length - 1]!
+  if (now - last.t > PAN_FLING_STALE_MS) return 0
+  const dt = last.t - first.t
+  if (dt < 8) return 0
+  return (last.pan - first.pan) / dt
+}
+
+function tickPanInertia(now: number): void {
+  const dt = Math.min(32, Math.max(0, now - panInertiaStamp))
+  panInertiaStamp = now
+  const unclamped = panX.value + panVelocity * dt
+  const next = clampPan(unclamped)
+  panX.value = next
+  if (next !== unclamped) {
+    stopPanInertia()
+    return
+  }
+  panVelocity *= Math.exp(-dt / PAN_INERTIA_DECEL_MS)
+  if (Math.abs(panVelocity) < PAN_INERTIA_STOP_VELOCITY) {
+    stopPanInertia()
+    return
+  }
+  panInertiaFrame = requestAnimationFrame(tickPanInertia)
+}
+
+function startPanInertia(velocity: number): void {
+  stopPanInertia()
+  if (
+    Math.abs(velocity) < PAN_FLING_MIN_VELOCITY ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    return
+  }
+  panVelocity = velocity
+  panInertiaStamp = performance.now()
+  panInertiaFrame = requestAnimationFrame(tickPanInertia)
+}
+
+watch(clicksEnabled, (enabled) => {
+  if (!enabled) stopPanInertia()
+})
+
 function centerPan(): void {
   panX.value = clampPan(maxPan.value / 2 - SEE_INITIAL_PAN_OFFSET_X)
 }
@@ -383,6 +460,7 @@ const postResultsHazardId = computed(() => {
 })
 
 function resetSession(): void {
+  stopPanInertia()
   resolvedIds.value = new Set()
   deferredMissIds.value = new Set()
   passedEndIds.value = new Set()
@@ -880,7 +958,11 @@ watch(
 
 function onPointerDown(event: PointerEvent): void {
   if (!clicksEnabled.value || event.button !== 0) return
+  stopPanInertia()
   pointerPanned = false
+  panStartedAt = 0
+  panSamples = []
+  recordPanSample(panX.value)
   const target = event.currentTarget as HTMLElement
   const rect = target.getBoundingClientRect()
   const layoutWidth = Math.max(1, target.offsetWidth)
@@ -907,8 +989,12 @@ function onPointerMove(event: PointerEvent): void {
   if (!pointerPanned && Math.abs(dx) < VIDEO_PAN_SLOP_PX && Math.abs(dy) < VIDEO_PAN_SLOP_PX) {
     return
   }
-  pointerPanned = true
+  if (!pointerPanned) {
+    pointerPanned = true
+    panStartedAt = performance.now()
+  }
   panX.value = clampPan(start.pan - dx / start.scaleX)
+  recordPanSample(panX.value)
 }
 
 function onPointerUp(event: PointerEvent): void {
@@ -922,13 +1008,25 @@ function onPointerUp(event: PointerEvent): void {
   } catch {
     /* already released */
   }
-  if (wasPan) return
+  if (wasPan) {
+    const duration = panStartedAt > 0 ? performance.now() - panStartedAt : Number.POSITIVE_INFINITY
+    const velocity =
+      duration <= PAN_SWIPE_MAX_MS ? panVelocityFromSamples() * PAN_FLING_VELOCITY_SCALE : 0
+    panSamples = []
+    panStartedAt = 0
+    startPanInertia(velocity)
+    return
+  }
+  panSamples = []
   onTap(event.clientX, event.clientY)
 }
 
 function onPointerCancel(): void {
   pointerStart = null
   pointerPanned = false
+  panStartedAt = 0
+  panSamples = []
+  stopPanInertia()
 }
 
 watch(videoAspect, () => {
@@ -979,6 +1077,7 @@ function onQuestionComplete(): void {
 onBeforeUnmount(() => {
   readyToken += 1
   cancelAnimationFrame(playFrame)
+  stopPanInertia()
   stopPresentedFrameLoop()
   window.clearTimeout(outOfAttemptsTimer)
   window.clearTimeout(missTimer)
