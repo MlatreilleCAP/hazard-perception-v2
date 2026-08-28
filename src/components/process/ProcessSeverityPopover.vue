@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import questionPassIcon from '@/assets/lesson/question-pass.svg'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import sliderFaceIcon from '@/assets/severity-slider-face.svg'
@@ -34,6 +34,7 @@ const submitted = ref(false)
 const revealExplanation = ref(false)
 const dragging = ref(false)
 const trackEl = ref<HTMLElement | null>(null)
+const revealEl = ref<HTMLElement | null>(null)
 let advanceTimer = 0
 let revealTimer = 0
 
@@ -85,6 +86,12 @@ watch(
     window.clearTimeout(revealTimer)
   },
 )
+
+watch(awaitingContinue, async (open) => {
+  if (!open) return
+  await nextTick()
+  revealEl.value?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+})
 
 function snapIndexFromRatio(ratio: number): number {
   if (ratio < 0.33) return 0
@@ -267,6 +274,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div
+      ref="revealEl"
       class="process-question-reveal"
       :class="{ 'is-open': awaitingContinue }"
       :aria-hidden="!awaitingContinue"

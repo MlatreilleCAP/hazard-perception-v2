@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import questionPassIcon from '@/assets/lesson/question-pass.svg'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import {
@@ -22,6 +22,7 @@ const REVEAL_DELAY_MS = 1000
 const selectedIndex = ref<number | null>(null)
 const locked = ref(false)
 const revealExplanation = ref(false)
+const revealEl = ref<HTMLElement | null>(null)
 let advanceTimer = 0
 let revealTimer = 0
 
@@ -54,6 +55,12 @@ watch(
     window.clearTimeout(revealTimer)
   },
 )
+
+watch(awaitingContinue, async (open) => {
+  if (!open) return
+  await nextTick()
+  revealEl.value?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+})
 
 function answerState(index: number): 'default' | 'correct' | 'incorrect' {
   if (!locked.value || !showCorrectIncorrect.value) return 'default'
@@ -129,6 +136,7 @@ onBeforeUnmount(() => {
       </button>
     </div>
     <div
+      ref="revealEl"
       class="process-question-reveal"
       :class="{ 'is-open': awaitingContinue }"
       :aria-hidden="!awaitingContinue"

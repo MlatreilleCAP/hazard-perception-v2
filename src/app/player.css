@@ -401,6 +401,8 @@ body:has(.player-page) {
   overflow-x: hidden;
   overflow-y: auto;
   overflow-anchor: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: var(--question-card-offset-top, max(16px, calc(20% - 9.5rem + 200px))) 16px 48px;
   background: transparent;
 }
@@ -701,6 +703,27 @@ body:has(.player-page) {
 .process-question-reveal-inner {
   min-height: 0;
   overflow: hidden;
+}
+
+.process-question-submit-slot:not(.is-hidden) .process-question-submit-inner,
+.process-question-reveal.is-open .process-question-reveal-inner {
+  min-height: min-content;
+}
+
+/*
+ * iOS Safari can fail to interpolate 0fr → 1fr, leaving the open row at 0 height.
+ * Size to content instead so explanation / Continue actually appear.
+ */
+@supports (-webkit-touch-callout: none) {
+  .process-question-submit-slot,
+  .process-question-reveal {
+    transition: none;
+  }
+
+  .process-question-submit-slot:not(.is-hidden),
+  .process-question-reveal.is-open {
+    grid-template-rows: max-content;
+  }
 }
 
 .process-question-submit-slot.is-hidden .process-question-submit-inner {
