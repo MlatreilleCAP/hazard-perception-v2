@@ -61,6 +61,7 @@ const needsExplanation = computed(
   () => submitted.value && showExplanation.value && !isCorrect.value,
 )
 const awaitingContinue = computed(() => needsExplanation.value && revealExplanation.value)
+const showSubmit = computed(() => !awaitingContinue.value)
 const revealAnswerFeedback = computed(
   () => submitted.value && showCorrectIncorrect.value,
 )
@@ -90,7 +91,12 @@ watch(
 watch(awaitingContinue, async (open) => {
   if (!open) return
   await nextTick()
-  revealEl.value?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  requestAnimationFrame(() => {
+    const overlay = revealEl.value?.closest('.process-dim-overlay')
+    if (overlay instanceof HTMLElement) {
+      overlay.scrollTo({ top: overlay.scrollHeight, behavior: 'smooth' })
+    }
+  })
 })
 
 function snapIndexFromRatio(ratio: number): number {
@@ -121,7 +127,7 @@ function onThumbPointerDown(event: PointerEvent): void {
 }
 
 function onWindowPointerMove(event: PointerEvent): void {
-  if (!dragging.value) return
+  if (!dragging.value || submitted.value) return
   updateFromClientX(event.clientX)
 }
 
@@ -164,8 +170,9 @@ function continueToNext(): void {
 }
 
 onMounted(() => {
-  window.addEventListener('pointermove', onWindowPointerMove)
-  window.addEventListener('pointerup', onWindowPointerUp)
+  window.addEventListener('pointermove', onWindowPointerMove, { passive: true })
+  window.addEventListener('pointerup', onWindowPointerUp, { passive: true })
+  window.addEventListener('pointercancel', onWindowPointerUp, { passive: true })
 })
 
 onBeforeUnmount(() => {
@@ -173,6 +180,7 @@ onBeforeUnmount(() => {
   window.clearTimeout(revealTimer)
   window.removeEventListener('pointermove', onWindowPointerMove)
   window.removeEventListener('pointerup', onWindowPointerUp)
+  window.removeEventListener('pointercancel', onWindowPointerUp)
 })
 </script>
 
@@ -256,28 +264,21 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div
-      class="process-question-submit-slot"
-      :class="{ 'is-hidden': awaitingContinue }"
-    >
-      <div class="process-question-submit-inner">
-        <button
-          type="button"
-          class="process-instruction-begin"
-          :disabled="submitted"
-          :tabindex="awaitingContinue ? -1 : 0"
-          @click="submit"
-        >
-          Submit
-        </button>
-      </div>
+    <div v-if="showSubmit" class="process-question-submit-plain">
+      <button
+        type="button"
+        class="process-instruction-begin"
+        :disabled="submitted"
+        @click="submit"
+      >
+        Submit
+      </button>
     </div>
 
     <div
+      v-if="awaitingContinue"
       ref="revealEl"
-      class="process-question-reveal"
-      :class="{ 'is-open': awaitingContinue }"
-      :aria-hidden="!awaitingContinue"
+      class="process-question-reveal is-open is-plain"
     >
       <div class="process-question-reveal-inner">
         <p v-if="explanationText" class="process-question-feedback">
@@ -286,8 +287,6 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="process-question-continue"
-          :tabindex="awaitingContinue ? 0 : -1"
-          :disabled="!awaitingContinue"
           @click="continueToNext"
         >
           Continue
