@@ -425,6 +425,7 @@ fieldset.author-stack {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
+  color: var(--editor-ink);
 }
 
 .author-count {
@@ -586,6 +587,7 @@ fieldset.author-stack {
   font-weight: 600;
   line-height: 29px;
   letter-spacing: -0.05em;
+  color: #000;
 }
 
 .author-video {
@@ -1061,6 +1063,7 @@ fieldset.author-stack {
   font-family: inherit;
   font-size: 12px;
   font-weight: 500;
+  color: var(--editor-ink);
   cursor: pointer;
 }
 

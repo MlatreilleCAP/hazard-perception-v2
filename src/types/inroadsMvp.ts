@@ -88,10 +88,10 @@ export function normalizeInroadsMvpDefinition(
 }
 
 export const INROADS_MVP_SECTIONS = [
-  { id: 'intro', label: 'Section 1 · Intro video' },
-  { id: 'see', label: 'Section 2 · Observe' },
-  { id: 'process', label: 'Section 3 · Process' },
-  { id: 'anticipate', label: 'Section 4 · Anticipate' },
+  { id: 'intro', label: '1 · Intro video' },
+  { id: 'see', label: '2 · Observe' },
+  { id: 'process', label: '3 · Process' },
+  { id: 'anticipate', label: '4 · Anticipate' },
 ] as const
 
 export type InroadsMvpSectionId = (typeof INROADS_MVP_SECTIONS)[number]['id']
