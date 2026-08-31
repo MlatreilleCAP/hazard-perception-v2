@@ -1,19 +1,24 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import ProcessInstructionCard from '@/components/process/ProcessInstructionCard.vue'
-import { DEFAULT_SEE_INSTRUCTION_PILL } from '@/types/see'
+import SeeHazardSummaryCard from '@/components/see/SeeHazardSummaryCard.vue'
+import { DEFAULT_SEE_INSTRUCTION_PILL, type HazardClipSummary } from '@/types/see'
 
 const props = withDefaults(
   defineProps<{
     src: string
     instructionText?: string
     instructionPill?: string
+    introAudioSrc?: string | null
+    summary?: HazardClipSummary | null
     /** Keep the last frame visible (e.g. while questions show over the clip). */
     holdEnd?: boolean
   }>(),
   {
     instructionText: '',
     instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
+    introAudioSrc: null,
+    summary: null,
     holdEnd: false,
   },
 )
@@ -24,9 +29,12 @@ const emit = defineEmits<{
 }>()
 
 const video = ref<HTMLVideoElement | null>(null)
+const introAudio = ref<HTMLAudioElement | null>(null)
 const started = ref(false)
 const finished = ref(false)
 const frameReady = ref(false)
+const introActive = ref(false)
+let introPlayed = false
 let primeToken = 0
 let priming = false
 
@@ -39,6 +47,18 @@ const showInstruction = computed(
     !props.holdEnd &&
     !finished.value,
 )
+const EMPTY_SUMMARY: HazardClipSummary = {
+  maneuver: '',
+  roadway: '',
+  trafficDensity: '',
+  timeOfDay: '',
+  roadConditions: '',
+}
+
+const resolvedSummary = computed(() => props.summary ?? EMPTY_SUMMARY)
+const showSummary = computed(
+  () => introActive.value && !props.holdEnd && !finished.value,
+)
 
 watch(
   () => props.src,
@@ -48,13 +68,20 @@ watch(
     started.value = false
     finished.value = false
     frameReady.value = false
+    introActive.value = false
+    introPlayed = false
+    introAudio.value?.pause()
   },
 )
 
 watch(
   () => props.holdEnd,
   (hold) => {
-    if (hold) holdLastFrame()
+    if (hold) {
+      introActive.value = false
+      introAudio.value?.pause()
+      holdLastFrame()
+    }
   },
 )
 
@@ -210,20 +237,49 @@ async function primeFirstFrame(): Promise<void> {
   emit('ready')
 
   if (!trimmedInstruction.value) {
-    started.value = true
-    void el.play().catch(() => undefined)
+    startClip()
+  }
+}
+
+function startClip(): void {
+  if (!frameReady.value || finished.value || props.holdEnd) return
+  started.value = true
+  const clip = video.value
+  clip?.pause()
+  if (props.introAudioSrc && !introPlayed) {
+    introActive.value = true
+    void nextTick().then(() => {
+      const audio = introAudio.value
+      if (!audio) {
+        finishIntro()
+        return
+      }
+      audio.currentTime = 0
+      void audio.play().catch(() => finishIntro())
+    })
+    return
+  }
+  void clip?.play().catch(() => undefined)
+}
+
+function finishIntro(): void {
+  introPlayed = true
+  introActive.value = false
+  introAudio.value?.pause()
+  if (!finished.value && !props.holdEnd) {
+    void video.value?.play().catch(() => undefined)
   }
 }
 
 function begin(): void {
-  if (!frameReady.value) return
-  started.value = true
-  void video.value?.play().catch(() => undefined)
+  startClip()
 }
 
 function onEnded(): void {
   if (finished.value) return
   finished.value = true
+  introActive.value = false
+  introAudio.value?.pause()
   holdLastFrame()
   emit('continue')
 }
@@ -231,6 +287,7 @@ function onEnded(): void {
 onBeforeUnmount(() => {
   primeToken += 1
   video.value?.pause()
+  introAudio.value?.pause()
 })
 </script>
 
@@ -253,12 +310,23 @@ onBeforeUnmount(() => {
       @loadeddata="primeFirstFrame"
       @ended="onEnded"
     />
+    <audio
+      v-if="introAudioSrc"
+      ref="introAudio"
+      :src="introAudioSrc"
+      preload="auto"
+      @ended="finishIntro"
+      @error="finishIntro"
+    />
     <div v-if="showInstruction" class="process-instruction-overlay">
       <ProcessInstructionCard
         :text="trimmedInstruction"
         :tag="instructionPill.trim() || DEFAULT_SEE_INSTRUCTION_PILL"
         @begin="begin"
       />
+    </div>
+    <div v-if="showSummary" class="see-hazard-summary-overlay">
+      <SeeHazardSummaryCard :summary="resolvedSummary" />
     </div>
   </div>
 </template>

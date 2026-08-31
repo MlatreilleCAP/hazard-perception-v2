@@ -53,6 +53,11 @@ async function workbookContentFromParent(parentId: string): Promise<ImportWorkbo
     observe: {
       instruction: see.instructionText,
       instructionPill: see.instructionPill,
+      maneuver: see.maneuver,
+      roadway: see.roadway,
+      trafficDensity: see.trafficDensity,
+      timeOfDay: see.timeOfDay,
+      roadConditions: see.roadConditions,
       hazardName: hazard?.name ?? '',
       coreCompetency: hazard?.hazardType ?? '',
       hazardExplanation: hazard?.explanation ?? '',

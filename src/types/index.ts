@@ -86,7 +86,7 @@ export {
   isInroadsMvpActivity,
   isInroadsMvpChildActivity,
 } from './inroadsMvp'
-export type { SeeDefinition, SeeHazard } from './see'
+export type { SeeDefinition, SeeHazard, HazardClipSummary } from './see'
 export { SEE_NODE_TYPE, SEE_TAG, isSeeActivity } from './see'
 export type {
   ProcessAnswerOption,

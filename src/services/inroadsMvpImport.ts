@@ -9,7 +9,7 @@ import {
 import { readProcessDefinition, writeProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
-import { IMAGE_SLOT_IDS, LIBRARY_ONLY_SLOTS, type VideoSlotId } from '@/lib/inroadsMvp/packageSpec'
+import { AUDIO_SLOT_IDS, IMAGE_SLOT_IDS, LIBRARY_ONLY_SLOTS, type VideoSlotId } from '@/lib/inroadsMvp/packageSpec'
 import type { ImportedQuestionRow, ParsedImportPackage } from '@/lib/inroadsMvp/parseImportPackage'
 import { loadActivityOrThrow } from '@/services/createInroadsMvp'
 import type { ActivityDefinition } from '@/types/activity'
@@ -124,7 +124,9 @@ async function uploadSlot(
   onProgress?.(`Uploading ${slot}…`)
   const asset = IMAGE_SLOT_IDS.includes(slot)
     ? await services.media.uploadImage(activityId, file)
-    : await services.media.uploadVideo(activityId, file)
+    : AUDIO_SLOT_IDS.includes(slot)
+      ? await services.media.uploadAudio(activityId, file)
+      : await services.media.uploadVideo(activityId, file)
   return {
     media: { media_asset_id: asset.id },
     durationMs: asset.durationMs && asset.durationMs > 0 ? asset.durationMs : 0,
@@ -253,6 +255,12 @@ function patchSee(
     duration: durationSeconds,
     instructionText: copy.instruction ?? current.instructionText,
     instructionPill: copy.instruction_pill || current.instructionPill,
+    introAudio: uploaded['observe-summary-audio']?.media ?? current.introAudio,
+    maneuver: copy.maneuver ?? current.maneuver,
+    roadway: copy.roadway ?? current.roadway,
+    trafficDensity: copy.traffic_density ?? current.trafficDensity,
+    timeOfDay: copy.time_of_day ?? current.timeOfDay,
+    roadConditions: copy.road_conditions ?? current.roadConditions,
     hazards,
   }
 }

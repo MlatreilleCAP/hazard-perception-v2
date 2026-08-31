@@ -123,6 +123,11 @@ function setHazards(hazards: SeeHazard[]): void {
   see.value = { ...see.value, hazards }
 }
 
+function patchSee(next: Partial<SeeDefinition>): void {
+  if (!see.value) return
+  see.value = { ...see.value, ...next }
+}
+
 async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
   if (!editable.value || !activities.current || !see.value) return false
 
@@ -309,6 +314,57 @@ async function remove(): Promise<void> {
           label="Instruction text"
           multiline
           :rows="3"
+        />
+      </section>
+
+      <section class="author-stack-sm">
+        <AuthorSectionHeader title="Clip intro" />
+        <p class="author-muted">
+          After Start, the scenario video stays paused on this summary card until the audio ends.
+        </p>
+        <MediaUploadField
+          :id="`${activityId}-intro-audio`"
+          :activity-id="activityId"
+          label="Intro audio"
+          kind="audio"
+          :model-value="see.introAudio"
+          :readonly="!editable"
+          @update:model-value="patchSee({ introAudio: $event })"
+        />
+        <AuthorField
+          :id="`${activityId}-maneuver`"
+          :model-value="see.maneuver"
+          label="Maneuver"
+          placeholder="Travelling Straight"
+          @update:model-value="patchSee({ maneuver: $event })"
+        />
+        <AuthorField
+          :id="`${activityId}-roadway`"
+          :model-value="see.roadway"
+          label="Roadway"
+          placeholder="Divided 2-Lane"
+          @update:model-value="patchSee({ roadway: $event })"
+        />
+        <AuthorField
+          :id="`${activityId}-density`"
+          :model-value="see.trafficDensity"
+          label="Traffic Density"
+          placeholder="Moderate"
+          @update:model-value="patchSee({ trafficDensity: $event })"
+        />
+        <AuthorField
+          :id="`${activityId}-time-of-day`"
+          :model-value="see.timeOfDay"
+          label="Time of Day"
+          placeholder="Daytime"
+          @update:model-value="patchSee({ timeOfDay: $event })"
+        />
+        <AuthorField
+          :id="`${activityId}-road-conditions`"
+          :model-value="see.roadConditions"
+          label="Road Conditions"
+          placeholder="Dry"
+          @update:model-value="patchSee({ roadConditions: $event })"
         />
       </section>
 

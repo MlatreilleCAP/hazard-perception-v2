@@ -32,9 +32,14 @@ export type ImportWorkbookContent = {
   title: string
   description: string
   introFirstVisit: boolean
-  observe: {
+    observe: {
     instruction: string
     instructionPill: string
+    maneuver: string
+    roadway: string
+    trafficDensity: string
+    timeOfDay: string
+    roadConditions: string
     hazardName: string
     coreCompetency: string
     hazardExplanation: string
@@ -67,6 +72,11 @@ function copyRows(content: ImportWorkbookContent): string[][] {
     ['section', 'field', 'text'],
     ['observe', 'instruction', content.observe.instruction],
     ['observe', 'instruction_pill', content.observe.instructionPill],
+    ['observe', 'maneuver', content.observe.maneuver],
+    ['observe', 'roadway', content.observe.roadway],
+    ['observe', 'traffic_density', content.observe.trafficDensity],
+    ['observe', 'time_of_day', content.observe.timeOfDay],
+    ['observe', 'road_conditions', content.observe.roadConditions],
     ['observe', 'hazard_name', content.observe.hazardName],
     ['observe', 'core_competency', content.observe.coreCompetency],
     ['observe', 'hazard_explanation', content.observe.hazardExplanation],
@@ -218,6 +228,11 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     observe: {
       instruction: DEFAULT_SEE_INSTRUCTION,
       instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
+      maneuver: 'Travelling Straight',
+      roadway: 'Divided 2-Lane',
+      trafficDensity: 'Moderate',
+      timeOfDay: 'Daytime',
+      roadConditions: 'Dry',
       hazardName: 'Hazard 1',
       coreCompetency: 'Scanning',
       hazardExplanation: 'Explain the hazard to the learner',

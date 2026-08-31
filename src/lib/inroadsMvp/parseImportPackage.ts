@@ -11,6 +11,7 @@ import {
   SLOT_FOLDER_LABELS,
   SHEET_NAMES,
   basename,
+  isAudioName,
   isImageName,
   isMediaName,
   isVideoName,
@@ -329,14 +330,23 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
       warnings.push(`Observe Explanation Image needs a JPG, PNG, WebP, or GIF (${path}).`)
       continue
     }
-    if (slot !== 'observe-explanation' && !isVideoName(path)) {
+    if (slot === 'observe-summary-audio' && !isAudioName(path)) {
+      unusedFiles.push(path)
+      warnings.push(`Hazard Summary Audio needs an MP3, M4A, WAV, or OGG (${path}).`)
+      continue
+    }
+    if (
+      slot !== 'observe-explanation' &&
+      slot !== 'observe-summary-audio' &&
+      !isVideoName(path)
+    ) {
       unusedFiles.push(path)
       warnings.push(`${SLOT_FOLDER_LABELS[slot]} needs a video file (${path}).`)
       continue
     }
     if (videos[slot]) {
       warnings.push(
-        `Ignoring extra video ${path} for ${slot} (already using ${videos[slot]?.zipPath}).`,
+        `Ignoring extra file ${path} for ${slot} (already using ${videos[slot]?.zipPath}).`,
       )
       unusedFiles.push(path)
       continue

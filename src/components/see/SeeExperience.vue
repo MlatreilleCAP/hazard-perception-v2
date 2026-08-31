@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { readSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
 import ProcessInstructionCard from '@/components/process/ProcessInstructionCard.vue'
@@ -9,6 +9,7 @@ import ProcessTheoryPopover from '@/components/process/ProcessTheoryPopover.vue'
 import AttemptTouchFeedback from '@/components/see/AttemptTouchFeedback.vue'
 import ClickConfetti from '@/components/see/ClickConfetti.vue'
 import SeeHazardFeedbackCard from '@/components/see/SeeHazardFeedbackCard.vue'
+import SeeHazardSummaryCard from '@/components/see/SeeHazardSummaryCard.vue'
 import SeeMissedVideoOverlay from '@/components/see/SeeMissedVideoOverlay.vue'
 import SeeResultsPassCard from '@/components/see/SeeResultsPassCard.vue'
 import { playHitTapSound, playMissTapSound, stopHitTapSound, unlockTapAudio } from '@/lib/audio/tapFeedback'
@@ -38,7 +39,7 @@ import {
   type ProcessQuestionResult,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
-import { DEFAULT_SEE_INSTRUCTION_PILL } from '@/types/see'
+import { DEFAULT_SEE_INSTRUCTION_PILL, hazardClipSummary } from '@/types/see'
 
 const props = withDefaults(
   defineProps<{
@@ -110,6 +111,14 @@ const hitAtSeconds = ref<Record<string, number>>({})
 const tapAttemptsByHazard = ref<Record<string, number>>({})
 const missReasons = ref<Record<string, 'attempts' | 'time'>>({})
 const missedVideoUrls = ref<Record<string, string>>({})
+const scenarioIntroUrl = ref<string | null>(null)
+const introAudioEl = ref<HTMLAudioElement | null>(null)
+const instructionOverlay = ref<HTMLElement | null>(null)
+const instructionCardHeight = ref<number | null>(null)
+const introActive = ref(false)
+const introRemaining = ref(1)
+let introPlayed = false
+let introProgressFrame = 0
 const explanationImageUrls = ref<Record<string, string>>({})
 
 let playFrame = 0
@@ -123,6 +132,7 @@ let didEmitReady = false
 let readyToken = 0
 let firstFrameWarmToken = 0
 let resizeObserver: ResizeObserver | null = null
+let instructionCardObserver: ResizeObserver | null = null
 let pointerStart: { x: number; y: number; pan: number; pointerId: number; scaleX: number } | null =
   null
 let pointerPanned = false
@@ -249,8 +259,15 @@ const instructionPill = computed(
   () => see.value.instructionPill?.trim() || DEFAULT_SEE_INSTRUCTION_PILL,
 )
 const showScenarioInstruction = computed(() => Boolean(instructionText.value.trim()))
+const scenarioSummary = computed(() => hazardClipSummary(see.value))
 const sortedHazards = computed(() =>
   [...see.value.hazards].sort((a, b) => a.startTime - b.startTime),
+)
+const scenarioIntroAudioId = computed(
+  () =>
+    see.value.introAudio?.media_asset_id ??
+    sortedHazards.value[0]?.introAudio?.media_asset_id ??
+    null,
 )
 const questions = computed(() =>
   see.value.hazards.flatMap((hazard) =>
@@ -479,6 +496,11 @@ function resetSession(): void {
   answers.value = {}
   currentTime.value = 0
   coachingReady.value = false
+  introActive.value = false
+  introRemaining.value = 1
+  introPlayed = false
+  stopIntroProgress()
+  introAudioEl.value?.pause()
 }
 
 watch(
@@ -531,6 +553,20 @@ watch(
       }),
     )
     missedVideoUrls.value = next
+  },
+  { immediate: true },
+)
+
+watch(
+  scenarioIntroAudioId,
+  async (mediaId) => {
+    scenarioIntroUrl.value = null
+    if (!mediaId) return
+    try {
+      scenarioIntroUrl.value = await services.media.getSignedUrl(mediaId)
+    } catch {
+      scenarioIntroUrl.value = null
+    }
   },
   { immediate: true },
 )
@@ -637,9 +673,87 @@ function startPlayhead(): void {
   playFrame = requestAnimationFrame(tick)
 }
 
+function measureInstructionCard(): void {
+  const card = instructionOverlay.value?.querySelector('.process-instruction-card')
+  if (!(card instanceof HTMLElement)) return
+  const height = card.getBoundingClientRect().height
+  if (height > 0) instructionCardHeight.value = height
+}
+
+function observeInstructionCard(): void {
+  instructionCardObserver?.disconnect()
+  const card = instructionOverlay.value?.querySelector('.process-instruction-card')
+  if (!(card instanceof HTMLElement) || typeof ResizeObserver === 'undefined') {
+    measureInstructionCard()
+    return
+  }
+  instructionCardObserver = new ResizeObserver(() => measureInstructionCard())
+  instructionCardObserver.observe(card)
+  measureInstructionCard()
+}
+
 function begin(): void {
-  if (!frameReady.value) return
+  if (!frameReady.value || introActive.value) return
+  measureInstructionCard()
   unlockTapAudio()
+  if (scenarioIntroUrl.value && !introPlayed) {
+    introActive.value = true
+    return
+  }
+  startScenarioPlayback()
+}
+
+function syncIntroProgress(): void {
+  const audio = introAudioEl.value
+  const duration = audio?.duration ?? NaN
+  if (!audio || !Number.isFinite(duration) || duration <= 0) {
+    introRemaining.value = 1
+    return
+  }
+  introRemaining.value = Math.max(0, 1 - audio.currentTime / duration)
+}
+
+function tickIntroProgress(): void {
+  syncIntroProgress()
+  if (!introActive.value) return
+  introProgressFrame = requestAnimationFrame(tickIntroProgress)
+}
+
+function startIntroProgress(): void {
+  stopIntroProgress()
+  introRemaining.value = 1
+  introProgressFrame = requestAnimationFrame(tickIntroProgress)
+}
+
+function stopIntroProgress(): void {
+  cancelAnimationFrame(introProgressFrame)
+  introProgressFrame = 0
+}
+
+function onClipIntroEnter(): void {
+  if (!introActive.value || introPlayed) return
+  void nextTick().then(() => {
+    const audio = introAudioEl.value
+    if (!audio) {
+      finishScenarioIntro()
+      return
+    }
+    audio.currentTime = 0
+    startIntroProgress()
+    void audio.play().catch(() => finishScenarioIntro())
+  })
+}
+
+function finishScenarioIntro(): void {
+  introPlayed = true
+  introActive.value = false
+  introRemaining.value = 0
+  stopIntroProgress()
+  introAudioEl.value?.pause()
+  startScenarioPlayback()
+}
+
+function startScenarioPlayback(): void {
   phase.value = 'playing'
   clipEnded.value = false
   const el = video.value
@@ -1074,6 +1188,18 @@ function onQuestionComplete(): void {
   overlay.value = { ...overlay.value, questionIndex: next }
 }
 
+watch(
+  [instructionOverlay, () => phase.value === 'ready' && frameReady.value && showScenarioInstruction.value && !introActive.value],
+  ([host, visible]) => {
+    if (!host || !visible) {
+      instructionCardObserver?.disconnect()
+      instructionCardObserver = null
+      return
+    }
+    void nextTick(() => observeInstructionCard())
+  },
+)
+
 onBeforeUnmount(() => {
   readyToken += 1
   cancelAnimationFrame(playFrame)
@@ -1083,7 +1209,10 @@ onBeforeUnmount(() => {
   window.clearTimeout(missTimer)
   window.clearTimeout(hitTimer)
   resizeObserver?.disconnect()
+  instructionCardObserver?.disconnect()
   stopHitTapSound()
+  stopIntroProgress()
+  introAudioEl.value?.pause()
   video.value?.pause()
 })
 </script>
@@ -1170,13 +1299,43 @@ onBeforeUnmount(() => {
         >
           <p>Out of attempts</p>
         </div>
-        <div v-if="phase === 'ready' && frameReady && showScenarioInstruction" class="process-instruction-overlay">
-          <ProcessInstructionCard
-            :text="instructionText"
-            :tag="instructionPill"
-            @begin="begin"
-          />
-        </div>
+        <Transition
+          name="see-clip-intro"
+          mode="out-in"
+          :duration="{ enter: 420, leave: 280 }"
+          @enter="onClipIntroEnter"
+        >
+          <div
+            v-if="phase === 'ready' && frameReady && showScenarioInstruction && !introActive"
+            key="instruction"
+            ref="instructionOverlay"
+            class="process-instruction-overlay"
+          >
+            <ProcessInstructionCard
+              :text="instructionText"
+              :tag="instructionPill"
+              @begin="begin"
+            />
+          </div>
+          <div
+            v-else-if="phase === 'ready' && frameReady && introActive"
+            key="summary"
+            class="process-instruction-overlay"
+          >
+            <audio
+              ref="introAudioEl"
+              :src="scenarioIntroUrl ?? undefined"
+              preload="auto"
+              @ended="finishScenarioIntro"
+              @error="finishScenarioIntro"
+            />
+            <SeeHazardSummaryCard
+              :summary="scenarioSummary"
+              :card-height="instructionCardHeight"
+              :progress="introRemaining"
+            />
+          </div>
+        </Transition>
         <div
           v-if="overlay && (overlay.step === 'success' || overlay.step === 'missed')"
           class="see-feedback-overlay"

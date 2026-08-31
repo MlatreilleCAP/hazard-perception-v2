@@ -3,6 +3,7 @@ export const WORKBOOK_EXTENSIONS = ['.xls', '.xlsx'] as const
 export const VIDEO_SLOT_IDS = [
   'intro',
   'observe-1',
+  'observe-summary-audio',
   'observe-coaching',
   'observe-explanation',
   'process-1',
@@ -24,10 +25,12 @@ export const REQUIRED_VIDEO_SLOTS: readonly VideoSlotId[] = [
 export const LIBRARY_ONLY_SLOTS: readonly VideoSlotId[] = []
 
 export const IMAGE_SLOT_IDS: readonly VideoSlotId[] = ['observe-explanation']
+export const AUDIO_SLOT_IDS: readonly VideoSlotId[] = ['observe-summary-audio']
 
 export const TEMPLATE_FOLDER_SLOT_IDS: readonly VideoSlotId[] = [
   'intro',
   'observe-1',
+  'observe-summary-audio',
   'observe-coaching',
   'observe-explanation',
   'process-1',
@@ -50,6 +53,11 @@ export type CopySection = (typeof COPY_SECTIONS)[number]
 export const COPY_FIELDS = [
   'instruction',
   'instruction_pill',
+  'maneuver',
+  'roadway',
+  'traffic_density',
+  'time_of_day',
+  'road_conditions',
   'hazard_name',
   'core_competency',
   'hazard_explanation',
@@ -106,6 +114,7 @@ const SKIP_PATH_PATTERN = /(^|\/)(\.|__macosx)/i
 export const SLOT_FOLDER_LABELS: Record<VideoSlotId, string> = {
   intro: 'Intro Video',
   'observe-1': 'Observe Hazard Scenario',
+  'observe-summary-audio': 'Hazard Summary Audio',
   'observe-coaching': 'Observe Coaching Video',
   'observe-explanation': 'Observe Explanation Image',
   'process-1': 'Process Lesson',
@@ -144,8 +153,12 @@ export function isImageName(filename: string): boolean {
   return /\.(jpe?g|png|webp|gif)$/i.test(basename(filename))
 }
 
+export function isAudioName(filename: string): boolean {
+  return /\.(mp3|m4a|wav|ogg)$/i.test(basename(filename))
+}
+
 export function isMediaName(filename: string): boolean {
-  return isVideoName(filename) || isImageName(filename)
+  return isVideoName(filename) || isImageName(filename) || isAudioName(filename)
 }
 
 export function videoMimeForName(filename: string): string {
@@ -156,6 +169,10 @@ export function videoMimeForName(filename: string): string {
   if (ext === 'webp') return 'image/webp'
   if (ext === 'gif') return 'image/gif'
   if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+  if (ext === 'mp3') return 'audio/mpeg'
+  if (ext === 'm4a') return 'audio/mp4'
+  if (ext === 'wav') return 'audio/wav'
+  if (ext === 'ogg') return 'audio/ogg'
   return 'video/mp4'
 }
 
@@ -176,6 +193,7 @@ export function matchMediaSlot(label: string): VideoSlotId | null {
   }
   if (/^intro( video)?$/.test(n)) return 'intro'
   if (/^observe explanation( image)?$/.test(n)) return 'observe-explanation'
+  if (/^hazard summary audio$/.test(n)) return 'observe-summary-audio'
   if (/^observe coaching( video)?$/.test(n)) return 'observe-coaching'
   if (/^observe( hazard)?( scenario)?$/.test(n) && n !== 'observe') {
     if (/hazard|scenario/.test(n)) return 'observe-1'
@@ -218,6 +236,7 @@ Folder names (case-insensitive):
 
   Intro Video/
   Observe Hazard Scenario/
+  Hazard Summary Audio/       (MP3, M4A, WAV, or OGG — plays after Observe Start)
   Observe Coaching Video/     (missed-hazard / coaching clip on Observe)
   Observe Explanation Image/  (JPG, PNG, WebP, or GIF)
   Process Lesson/
@@ -238,8 +257,11 @@ Copy: header row, then section | field | text
   section: observe | process | anticipate
   field: instruction | instruction_pill | second_instruction |
          second_instruction_pill | second_score_threshold
-  Observe also uses: hazard_name | core_competency | hazard_explanation
+  Observe also uses: hazard_name | core_competency | hazard_explanation |
+         maneuver | roadway | traffic_density | time_of_day | road_conditions
   Observe instruction / instruction_pill = scenario overlay on the hazard clip
+  Observe maneuver / roadway / traffic_density / time_of_day / road_conditions
+         = summary card after Start, before the first video
   Observe second_instruction / second_instruction_pill = coaching clip overlay
   core_competency: Attitude | Speed Management | Space Management |
                    Danger Zones | Scanning | Other Motorists
@@ -260,4 +282,5 @@ Draw additional tap hazards in the Observe editor after import if needed.
 
 Videos: .mp4, .webm, or .mov
 Images: .jpg, .jpeg, .png, .webp, .gif
+Audio: .mp3, .m4a, .wav, or .ogg
 `

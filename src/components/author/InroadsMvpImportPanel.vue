@@ -134,7 +134,7 @@ async function runImport(file: File): Promise<void> {
     <p class="author-muted">
       Upload a zip with lesson.xls (or .xlsx) and media in the named folders. The workbook
       and those files are applied to the builder together, including the full Observe page
-      (hazard clip, details, coaching clip, explanation image, and questions).
+      (hazard clip, details, coaching clip, explanation image, summary audio, and questions).
     </p>
     <p v-if="createLesson" class="author-muted">
       Download template includes a filled workbook and empty named folders.

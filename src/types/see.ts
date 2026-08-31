@@ -33,9 +33,46 @@ export interface SeeHazard extends HazardDetails {
   explanation: string
   explanationImage: MediaRef | null
   missedVideo: MediaRef | null
+  /** Plays at the start of the hazard clip while the summary card is shown. */
+  introAudio: MediaRef | null
+  maneuver: string
+  roadway: string
+  trafficDensity: string
+  timeOfDay: string
+  roadConditions: string
   instructionText: string
   instructionPill: string
   questions: ProcessQuestionBank
+}
+
+export type HazardClipSummary = {
+  maneuver: string
+  roadway: string
+  trafficDensity: string
+  timeOfDay: string
+  roadConditions: string
+}
+
+export function hazardClipSummary(
+  source: Partial<HazardClipSummary> | null | undefined,
+): HazardClipSummary {
+  return {
+    maneuver: typeof source?.maneuver === 'string' ? source.maneuver : '',
+    roadway: typeof source?.roadway === 'string' ? source.roadway : '',
+    trafficDensity: typeof source?.trafficDensity === 'string' ? source.trafficDensity : '',
+    timeOfDay: typeof source?.timeOfDay === 'string' ? source.timeOfDay : '',
+    roadConditions: typeof source?.roadConditions === 'string' ? source.roadConditions : '',
+  }
+}
+
+function summaryHasContent(summary: HazardClipSummary): boolean {
+  return Boolean(
+    summary.maneuver.trim() ||
+      summary.roadway.trim() ||
+      summary.trafficDensity.trim() ||
+      summary.timeOfDay.trim() ||
+      summary.roadConditions.trim(),
+  )
 }
 
 export interface SeeDefinition {
@@ -46,6 +83,13 @@ export interface SeeDefinition {
   instructionText: string
   /** Pill label on the scenario instruction card. Empty uses "Observe". */
   instructionPill: string
+  /** Plays after the instruction card and before the scenario video. */
+  introAudio: MediaRef | null
+  maneuver: string
+  roadway: string
+  trafficDensity: string
+  timeOfDay: string
+  roadConditions: string
   hazards: SeeHazard[]
 }
 
@@ -111,6 +155,12 @@ export function createEmptySeeHazard(
     explanation: '',
     explanationImage: null,
     missedVideo: null,
+    introAudio: null,
+    maneuver: '',
+    roadway: '',
+    trafficDensity: '',
+    timeOfDay: '',
+    roadConditions: '',
     instructionText: '',
     instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
     questions: emptyQuestionBank(),
@@ -124,6 +174,12 @@ export function createDefaultSeeDefinition(): SeeDefinition {
     media: null,
     instructionText: DEFAULT_SEE_INSTRUCTION,
     instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
+    introAudio: null,
+    maneuver: '',
+    roadway: '',
+    trafficDensity: '',
+    timeOfDay: '',
+    roadConditions: '',
     hazards: [],
   }
 }
@@ -186,6 +242,12 @@ export function normalizeSeeHazard(hazard: Partial<SeeHazard> | undefined): SeeH
           : '',
     explanationImage: readMediaRef(hazard?.explanationImage),
     missedVideo: readMediaRef(hazard?.missedVideo),
+    introAudio: readMediaRef(hazard?.introAudio),
+    maneuver: typeof hazard?.maneuver === 'string' ? hazard.maneuver : '',
+    roadway: typeof hazard?.roadway === 'string' ? hazard.roadway : '',
+    trafficDensity: typeof hazard?.trafficDensity === 'string' ? hazard.trafficDensity : '',
+    timeOfDay: typeof hazard?.timeOfDay === 'string' ? hazard.timeOfDay : '',
+    roadConditions: typeof hazard?.roadConditions === 'string' ? hazard.roadConditions : '',
     instructionText: typeof hazard?.instructionText === 'string' ? hazard.instructionText : '',
     instructionPill:
       typeof hazard?.instructionPill === 'string' && hazard.instructionPill.trim()
@@ -197,6 +259,10 @@ export function normalizeSeeHazard(hazard: Partial<SeeHazard> | undefined): SeeH
 
 export function normalizeSeeDefinition(definition: SeeDefinition): SeeDefinition {
   const hazards = (definition.hazards ?? []).map((hazard) => normalizeSeeHazard(hazard))
+  const first = hazards[0]
+  const fromDefinition = hazardClipSummary(definition)
+  const fromHazard = hazardClipSummary(first)
+  const summary = summaryHasContent(fromDefinition) ? fromDefinition : fromHazard
   return {
     version: 1,
     duration: typeof definition.duration === 'number' && definition.duration > 0 ? definition.duration : 0,
@@ -209,6 +275,8 @@ export function normalizeSeeDefinition(definition: SeeDefinition): SeeDefinition
       typeof definition.instructionPill === 'string'
         ? definition.instructionPill
         : DEFAULT_SEE_INSTRUCTION_PILL,
+    introAudio: readMediaRef(definition.introAudio) ?? readMediaRef(first?.introAudio),
+    ...summary,
     hazards: hazards.sort((a, b) => a.startTime - b.startTime),
   }
 }
