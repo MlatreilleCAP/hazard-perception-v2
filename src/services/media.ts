@@ -195,7 +195,7 @@ export class MediaService {
     const probe = await readMediaProbe(file)
     const originalFilename = sanitizeOriginalFilename(file.name)
 
-    const { error: insertError } = await client.from('media_assets').insert({
+    const row = {
       id,
       activity_id: activityId,
       bucket: ACTIVITY_MEDIA_BUCKET,
@@ -203,11 +203,18 @@ export class MediaService {
       mime_type: mimeType,
       size_bytes: file.size,
       duration_ms: probe.durationMs,
-      width_px: probe.widthPx,
-      height_px: probe.heightPx,
       original_filename: originalFilename,
       created_by: userId,
-    })
+    }
+    const withDimensions = {
+      ...row,
+      width_px: probe.widthPx,
+      height_px: probe.heightPx,
+    }
+    let { error: insertError } = await client.from('media_assets').insert(withDimensions)
+    if (insertError && /width_px|height_px/.test(insertError.message)) {
+      ;({ error: insertError } = await client.from('media_assets').insert(row))
+    }
     if (insertError) {
       throw new Error(`Failed to register media asset: ${insertError.message}`)
     }

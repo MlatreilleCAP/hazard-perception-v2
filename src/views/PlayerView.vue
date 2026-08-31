@@ -123,10 +123,27 @@ async function playFirstPublished(): Promise<void> {
   await loadActivity(first.id)
 }
 
+function mvpPreviewReturn(): { path: string; query?: { section: string } } | null {
+  const mvp = route.query.mvp
+  if (typeof mvp !== 'string' || !mvp) return null
+  const parentId = mvp === '1' ? activityId.value : mvp
+  if (!parentId) return null
+  const section = route.query.section
+  const query =
+    section === 'intro' ||
+    section === 'see' ||
+    section === 'process' ||
+    section === 'anticipate'
+      ? { section }
+      : undefined
+  return { path: `/studio/inroads-mvp/${parentId}`, query }
+}
+
 function onExperienceFinished(): void {
   if (isPreview.value && activityId.value) {
-    if (isInroadsMvpActivity(definition.value?.metadata.tags) || route.query.mvp === '1') {
-      void router.push(`/studio/inroads-mvp/${activityId.value}`)
+    const mvpReturn = mvpPreviewReturn()
+    if (mvpReturn) {
+      void router.push(mvpReturn)
       return
     }
     if (isLesson.value) {

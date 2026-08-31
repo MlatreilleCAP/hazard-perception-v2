@@ -42,7 +42,7 @@ const answers = ref<Record<string, number>>({})
 const awaitingSegmentVideo = ref(false)
 
 const anticipate = computed(() => readAnticipateDefinition(props.definition))
-const passThreshold = computed(() => anticipate.value.secondSegmentScoreThreshold ?? 70)
+const passThreshold = computed(() => anticipate.value.secondSegmentScoreThreshold ?? 100)
 
 const video1Questions = computed(() =>
   configuredSurveyQuestions(anticipate.value.segments[0]?.questions ?? emptyQuestionBank()),

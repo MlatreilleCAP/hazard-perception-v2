@@ -8,6 +8,7 @@ import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import SeeTimelineEditor from '@/components/author/SeeTimelineEditor.vue'
+import { useAuthorAutosave } from '@/composables/useAuthorAutosave'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
 import type { MediaRef } from '@/types/media'
@@ -40,7 +41,6 @@ const saveMessage = ref<string | null>(null)
 let loadGeneration = 0
 const title = ref('')
 const description = ref('')
-const titleError = ref<string | null>(null)
 const see = ref<SeeDefinition | null>(null)
 
 const activityId = computed(
@@ -123,33 +123,55 @@ function setHazards(hazards: SeeHazard[]): void {
   see.value = { ...see.value, hazards }
 }
 
-async function save(): Promise<boolean> {
+async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
   if (!editable.value || !activities.current || !see.value) return false
-  titleError.value = title.value.trim() ? null : 'Title is required'
-  if (titleError.value) return false
 
   await nextTick()
-  saving.value = true
+  if (origin === 'manual') saving.value = true
   saveMessage.value = null
   try {
     const next = writeSeeDefinition(activities.current, see.value)
-    next.metadata.title = title.value.trim()
+    next.metadata.title = title.value.trim() || next.metadata.title
     next.metadata.description = description.value.trim()
     await activities.save(next)
     activities.stagePreview(next)
-    see.value = readSeeDefinition(next)
+    if (origin === 'manual') {
+      autosave.pause()
+      see.value = readSeeDefinition(next)
+      await nextTick()
+      autosave.resume()
+    }
     saveMessage.value = 'Saved'
     window.setTimeout(() => {
       saveMessage.value = null
     }, 2000)
     return true
   } catch (cause) {
-    window.alert(cause instanceof Error ? cause.message : 'Failed to save scenario')
+    const message = cause instanceof Error ? cause.message : 'Failed to save scenario'
+    if (origin === 'auto') {
+      saveMessage.value = message
+    } else {
+      window.alert(message)
+    }
     return false
   } finally {
-    saving.value = false
+    if (origin === 'manual') saving.value = false
   }
 }
+
+const autosave = useAuthorAutosave({
+  editable,
+  loading,
+  save: () => save('auto'),
+})
+
+watch(
+  see,
+  () => {
+    autosave.schedule()
+  },
+  { deep: true },
+)
 
 async function openPreview(): Promise<void> {
   if (!activityId.value) return
@@ -157,7 +179,15 @@ async function openPreview(): Promise<void> {
     const saved = await save()
     if (!saved) return
   }
-  await router.push({ path: '/player', query: { activity: activityId.value, preview: '1' } })
+  const query: Record<string, string> = { activity: activityId.value, preview: '1' }
+  if (props.embedded) {
+    const parentId = String(route.params.id ?? '')
+    if (parentId) {
+      query.mvp = parentId
+      query.section = 'see'
+    }
+  }
+  await router.push({ path: '/player', query })
 }
 
 async function publish(): Promise<void> {
@@ -264,12 +294,6 @@ async function remove(): Promise<void> {
 
       <fieldset class="author-stack" :disabled="!editable">
       <section class="author-stack-sm">
-        <AuthorSectionHeader title="Hazard Info" />
-        <AuthorField id="see-title" v-model="title" label="Title" placeholder="Hazard Title goes here" :error="titleError ?? undefined" />
-        <AuthorField id="see-description" v-model="description" label="Description" placeholder="Description" multiline :rows="1" />
-      </section>
-
-      <section class="author-stack-sm">
         <AuthorSectionHeader title="Instruction" />
         <p class="author-muted">
           Shown over the paused first frame of the scenario video until the learner taps Start.
@@ -305,7 +329,6 @@ async function remove(): Promise<void> {
       </section>
 
       <SeeTimelineEditor
-        v-else
         :activity-id="activityId"
         :media="see.media"
         :duration="see.duration"

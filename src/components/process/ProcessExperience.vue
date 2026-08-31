@@ -42,7 +42,7 @@ const answers = ref<Record<string, number>>({})
 const awaitingSegmentVideo = ref(false)
 
 const process = computed(() => readProcessDefinition(props.definition))
-const passThreshold = computed(() => process.value.secondSegmentScoreThreshold ?? 70)
+const passThreshold = computed(() => process.value.secondSegmentScoreThreshold ?? 100)
 
 const video1Questions = computed(() =>
   configuredSurveyQuestions(process.value.segments[0]?.questions ?? emptyQuestionBank()),

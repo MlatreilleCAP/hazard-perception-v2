@@ -54,6 +54,13 @@ let playFrame = 0
 const selectedHazard = computed(
   () => props.hazards.find((hazard) => hazard.id === selectedHazardId.value) ?? null,
 )
+const draftHazard = ref<SeeHazard | null>(null)
+const editingHazard = computed(() => selectedHazard.value ?? draftHazard.value)
+
+function createDraftHazard(): SeeHazard {
+  const span = duration.value > 0 ? duration.value : 10
+  return createEmptySeeHazard(1, 0, span, newHazardRadius.value)
+}
 
 watch(
   () => props.media?.media_asset_id,
@@ -82,12 +89,14 @@ watch(
 watch(
   () => props.hazards,
   (hazards) => {
-    if (hazards.length === 1) {
-      selectedHazardId.value = hazards[0]?.id ?? null
-      return
-    }
     if (hazards.length === 0) {
       selectedHazardId.value = null
+      if (!draftHazard.value) draftHazard.value = createDraftHazard()
+      return
+    }
+    draftHazard.value = null
+    if (hazards.length === 1) {
+      selectedHazardId.value = hazards[0]?.id ?? null
       return
     }
     if (!selectedHazardId.value || !hazards.some((hazard) => hazard.id === selectedHazardId.value)) {
@@ -221,29 +230,37 @@ function onTrajectoryChange(hazard: SeeHazard, trajectory: TrajectoryPoint[]): v
   updateHazard(hazard.id, { trajectory })
 }
 
+function commitEditingHazard(patch: Partial<SeeHazard> | SeeHazard): void {
+  if (props.readonly) return
+  const current = editingHazard.value ?? createDraftHazard()
+  const next = { ...current, ...patch }
+  if (!props.hazards.some((hazard) => hazard.id === current.id)) {
+    patchHazards([...props.hazards, next])
+    selectedHazardId.value = next.id
+    draftHazard.value = null
+    return
+  }
+  updateHazard(current.id, patch)
+}
+
 function onDetailsChange(details: SeeHazard): void {
-  if (!selectedHazard.value) return
-  updateHazard(selectedHazard.value.id, details)
+  commitEditingHazard(details)
 }
 
 function onQuestionsChange(questions: ProcessQuestionBank): void {
-  if (!selectedHazard.value) return
-  updateHazard(selectedHazard.value.id, { questions })
+  commitEditingHazard({ questions })
 }
 
 function onMissedVideoChange(video: MediaRef | null): void {
-  if (!selectedHazard.value) return
-  updateHazard(selectedHazard.value.id, { missedVideo: video })
+  commitEditingHazard({ missedVideo: video })
 }
 
 function onInstructionTextChange(value: string): void {
-  if (!selectedHazard.value) return
-  updateHazard(selectedHazard.value.id, { instructionText: value })
+  commitEditingHazard({ instructionText: value })
 }
 
 function onInstructionPillChange(value: string): void {
-  if (!selectedHazard.value) return
-  updateHazard(selectedHazard.value.id, { instructionPill: value })
+  commitEditingHazard({ instructionPill: value })
 }
 
 async function replaceVideo(file: File): Promise<void> {
@@ -356,19 +373,15 @@ watch(previewUrl, () => {
     />
   </section>
 
-  <div v-if="media && !selectedHazard" class="see-empty-select">
-    {{
-      hazards.length === 0
-        ? 'Add a hazard on the timeline to configure details and questions.'
-        : 'Select a hazard on the timeline to edit its details and questions.'
-    }}
+  <div v-if="hazards.length > 1 && !selectedHazard" class="see-empty-select">
+    Select a hazard on the timeline to edit its details and questions.
   </div>
 
-  <div v-else-if="selectedHazard" class="author-stack">
+  <div v-else-if="editingHazard" class="author-stack">
     <SeeHazardDetailsForm
-      :hazard-id="selectedHazard.id"
+      :hazard-id="editingHazard.id"
       :activity-id="activityId"
-      :model-value="selectedHazard"
+      :model-value="editingHazard"
       @update:model-value="onDetailsChange"
     />
     <section class="author-stack-sm">
@@ -377,15 +390,15 @@ watch(previewUrl, () => {
         Shown over the paused first frame of the hazard video until the learner taps Start.
       </p>
       <AuthorField
-        :id="`${selectedHazard.id}-instruction-pill`"
-        :model-value="selectedHazard.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
+        :id="`${editingHazard.id}-instruction-pill`"
+        :model-value="editingHazard.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
         label="Pill label"
         :disabled="readonly"
         @update:model-value="onInstructionPillChange"
       />
       <AuthorField
-        :id="`${selectedHazard.id}-instruction`"
-        :model-value="selectedHazard.instructionText ?? ''"
+        :id="`${editingHazard.id}-instruction`"
+        :model-value="editingHazard.instructionText ?? ''"
         label="Instruction text"
         placeholder="Instruction text goes here"
         multiline
@@ -401,20 +414,20 @@ watch(previewUrl, () => {
         then any configured severity and theory questions.
       </p>
       <MediaUploadField
-        :id="`${selectedHazard.id}-missed-video`"
+        :id="`${editingHazard.id}-missed-video`"
         :activity-id="activityId"
         label="Hazard video"
-        :model-value="selectedHazard.missedVideo ?? null"
-        :instruction-text="selectedHazard.instructionText"
-        :instruction-pill="selectedHazard.instructionPill"
+        :model-value="editingHazard.missedVideo ?? null"
+        :instruction-text="editingHazard.instructionText"
+        :instruction-pill="editingHazard.instructionPill"
         :readonly="readonly"
         @update:model-value="onMissedVideoChange"
       />
     </section>
     <ProcessQuestionsForm
-      :key="selectedHazard.id"
-      :segment-id="selectedHazard.id"
-      :model-value="selectedHazard.questions"
+      :key="editingHazard.id"
+      :segment-id="editingHazard.id"
+      :model-value="editingHazard.questions"
       @update:model-value="onQuestionsChange"
     />
   </div>

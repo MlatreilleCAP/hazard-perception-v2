@@ -11,6 +11,7 @@ import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import AuthorToggle from '@/components/author/AuthorToggle.vue'
+import InroadsMvpImportPanel from '@/components/author/InroadsMvpImportPanel.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import ProcessEditorView from '@/views/author/ProcessEditorView.vue'
 import SeeEditorView from '@/views/author/SeeEditorView.vue'
@@ -38,7 +39,22 @@ const title = ref('')
 const description = ref('')
 const titleError = ref<string | null>(null)
 const mvp = ref<InroadsMvpDefinition | null>(null)
-const activeSection = ref<InroadsMvpSectionId>('intro')
+
+function sectionFromQuery(): InroadsMvpSectionId {
+  const section = route.query.section
+  if (
+    section === 'intro' ||
+    section === 'see' ||
+    section === 'process' ||
+    section === 'anticipate'
+  ) {
+    return section
+  }
+  return 'intro'
+}
+
+const activeSection = ref<InroadsMvpSectionId>(sectionFromQuery())
+const sectionReload = ref(0)
 let loadGeneration = 0
 
 const activityId = computed(() => String(route.params.id ?? ''))
@@ -53,9 +69,9 @@ async function ensureParentLoaded(): Promise<boolean> {
   return activities.current?.id === activityId.value
 }
 
-async function load(): Promise<void> {
+async function load(options?: { keepVisible?: boolean }): Promise<void> {
   const generation = ++loadGeneration
-  loading.value = true
+  if (!options?.keepVisible) loading.value = true
   loadError.value = null
   try {
     await activities.refreshList()
@@ -88,11 +104,23 @@ watch(activityId, () => {
   void load()
 })
 
+watch(
+  () => route.query.section,
+  () => {
+    activeSection.value = sectionFromQuery()
+  },
+)
+
 watch(activeSection, async (section) => {
   if (section === 'intro') {
     await ensureParentLoaded()
   }
 })
+
+async function onImported(): Promise<void> {
+  sectionReload.value += 1
+  await load({ keepVisible: true })
+}
 
 function setIntroMedia(media: MediaRef | null): void {
   if (!mvp.value) return
@@ -146,7 +174,12 @@ async function openPreview(): Promise<void> {
   }
   await router.push({
     path: '/player',
-    query: { activity: activityId.value, preview: '1', mvp: '1' },
+    query: {
+      activity: activityId.value,
+      preview: '1',
+      mvp: '1',
+      section: activeSection.value,
+    },
   })
 }
 
@@ -282,6 +315,15 @@ async function remove(): Promise<void> {
           />
         </section>
 
+        <section v-if="editable" class="author-stack-sm">
+          <AuthorSectionHeader title="Bulk import" />
+          <InroadsMvpImportPanel
+            :parent-id="activityId"
+            :disabled="saving || publishing || deleting"
+            @imported="onImported"
+          />
+        </section>
+
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Section 1 · Intro video" />
           <p class="author-muted">
@@ -289,6 +331,7 @@ async function remove(): Promise<void> {
           </p>
           <MediaUploadField
             :id="`${activityId}-intro-video`"
+            :key="mvp.introMedia?.media_asset_id ?? 'intro-empty'"
             :activity-id="activityId"
             label="Intro video"
             :model-value="mvp.introMedia"
@@ -316,13 +359,25 @@ async function remove(): Promise<void> {
       </template>
 
       <div v-else-if="activeSection === 'see'" class="mvp-embedded-editor">
-        <SeeEditorView :activity-id-prop="mvp.seeActivityId" embedded />
+        <SeeEditorView
+          :key="`see-${mvp.seeActivityId}-${sectionReload}`"
+          :activity-id-prop="mvp.seeActivityId"
+          embedded
+        />
       </div>
       <div v-else-if="activeSection === 'process'" class="mvp-embedded-editor">
-        <ProcessEditorView :activity-id-prop="mvp.processActivityId" embedded />
+        <ProcessEditorView
+          :key="`process-${mvp.processActivityId}-${sectionReload}`"
+          :activity-id-prop="mvp.processActivityId"
+          embedded
+        />
       </div>
       <div v-else-if="activeSection === 'anticipate'" class="mvp-embedded-editor">
-        <AnticipateEditorView :activity-id-prop="mvp.anticipateActivityId" embedded />
+        <AnticipateEditorView
+          :key="`anticipate-${mvp.anticipateActivityId}-${sectionReload}`"
+          :activity-id-prop="mvp.anticipateActivityId"
+          embedded
+        />
       </div>
     </div>
   </div>

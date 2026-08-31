@@ -6,10 +6,10 @@ import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import {
   ANSWER_LABELS,
+  answersWithFixedPoints,
   createAnswerOption,
   createSeveritySurveyQuestion,
   createTheorySurveyQuestion,
-  DEFAULT_ANSWER_POINTS,
   questionKindLabel,
   surveyQuestionIsConfigured,
   type ProcessQuestionBank,
@@ -27,7 +27,7 @@ const props = withDefaults(
   {
     title: 'Theory',
     description:
-      'Add severity and theory questions from the dropdown. Theory questions are optional — if one is configured it is asked; otherwise it is skipped. Customize the text, answers, correct answer, and points for each answer. Use Up/Down to set the learner order.',
+      'Add severity and theory questions from the dropdown. Theory questions are optional — if one is configured it is asked; otherwise it is skipped. Customize the text, answers, and correct answer. The correct answer is always worth 10 points. Use Up/Down to set the learner order.',
   },
 )
 
@@ -53,8 +53,12 @@ watch(
 )
 
 function commit(next: ProcessSurveyQuestion[]): void {
-  questions.value = next
-  emit('update:modelValue', { version: 2, questions: next })
+  const normalized = next.map((question) => ({
+    ...question,
+    answers: answersWithFixedPoints(question.answers, question.correctIndex),
+  }))
+  questions.value = normalized
+  emit('update:modelValue', { version: 2, questions: normalized })
 }
 
 function snapshot(): ProcessQuestionBank {
@@ -91,21 +95,12 @@ function moveQuestion(from: number, to: number): void {
 }
 
 function setCorrect(question: ProcessSurveyQuestion, index: number): void {
-  const answers = question.answers.map((answer, answerIndex) => {
-    if (answerIndex !== index) return answer
-    if (answer.points > 0) return answer
-    return { ...answer, points: DEFAULT_ANSWER_POINTS }
-  })
-  updateQuestion(question.id, { ...question, correctIndex: index, answers })
+  updateQuestion(question.id, { ...question, correctIndex: index })
 }
 
-function updateAnswer(
-  question: ProcessSurveyQuestion,
-  index: number,
-  patch: { text?: string; points?: number },
-): void {
+function updateAnswer(question: ProcessSurveyQuestion, index: number, text: string): void {
   const answers = question.answers.map((answer, answerIndex) =>
-    answerIndex === index ? { ...answer, ...patch } : answer,
+    answerIndex === index ? { ...answer, text } : answer,
   )
   updateQuestion(question.id, { ...question, answers })
 }
@@ -241,19 +236,9 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
                     :value="answer.text"
                     :placeholder="`Answer ${ANSWER_LABELS[answerIndex] ?? answerIndex + 1} goes here`"
                     class="author-field-control"
-                    @input="updateAnswer(question, answerIndex, { text: ($event.target as HTMLInputElement).value })"
+                    @input="updateAnswer(question, answerIndex, ($event.target as HTMLInputElement).value)"
                   />
                 </span>
-              </div>
-              <div class="answer-points">
-                <span class="author-field-label">Points</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  :value="answer.points"
-                  @input="updateAnswer(question, answerIndex, { points: Math.max(0, Math.floor(Number(($event.target as HTMLInputElement).value) || 0)) })"
-                />
               </div>
               <button
                 type="button"

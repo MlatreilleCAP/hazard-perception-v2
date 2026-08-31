@@ -9,9 +9,9 @@ import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
-import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import ProcessQuestionsForm from '@/components/author/ProcessQuestionsForm.vue'
+import { useAuthorAutosave } from '@/composables/useAuthorAutosave'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
 import type { MediaRef } from '@/types/media'
@@ -46,9 +46,7 @@ const saveMessage = ref<string | null>(null)
 let loadGeneration = 0
 const title = ref('')
 const description = ref('')
-const titleError = ref<string | null>(null)
 const process = ref<ProcessDefinition | null>(null)
-const enableSecond = ref(false)
 const enableThird = ref(false)
 const video1Questions = ref<{ snapshot: () => ProcessQuestionBank } | null>(null)
 
@@ -62,11 +60,7 @@ const editable = computed(() => canEdit(activities.current?.metadata.authorId))
 
 const working = computed(() => {
   if (!process.value) return null
-  return buildPersistableProcessDefinition(
-    process.value,
-    enableSecond.value,
-    enableThird.value,
-  )
+  return buildPersistableProcessDefinition(process.value, true, enableThird.value)
 })
 
 const instructionText = computed({
@@ -125,8 +119,10 @@ async function load(): Promise<void> {
     title.value = current.metadata.title
     description.value = current.metadata.description
     const parsed = readProcessDefinition(current)
-    process.value = parsed
-    enableSecond.value = parsed.segments.length > 1
+    process.value = {
+      ...parsed,
+      secondSegmentScoreThreshold: 100,
+    }
     enableThird.value = parsed.segments.length > 2
   } catch (cause) {
     if (generation !== loadGeneration) return
@@ -151,8 +147,7 @@ function patchSegment(
   process.value = {
     ...process.value,
     segments,
-    secondSegmentScoreThreshold:
-      index > 0 ? (process.value.secondSegmentScoreThreshold ?? 70) : process.value.secondSegmentScoreThreshold,
+    secondSegmentScoreThreshold: 100,
     thirdSegmentScoreThreshold: null,
   }
 }
@@ -172,42 +167,6 @@ function setDuration(index: ProcessSegmentIndex, durationMs: number): void {
   })
 }
 
-function onEnableSecond(checked: boolean): void {
-  enableSecond.value = checked
-  if (!checked) {
-    enableThird.value = false
-    return
-  }
-  if (!process.value) return
-  if (!process.value.segments[1]) {
-    process.value = {
-      ...process.value,
-      segments: [process.value.segments[0] ?? createEmptyProcessSegment(), createEmptyProcessSegment()],
-      secondSegmentScoreThreshold: process.value.secondSegmentScoreThreshold ?? 70,
-      thirdSegmentScoreThreshold: null,
-    }
-  }
-}
-
-function onEnableThird(checked: boolean): void {
-  enableThird.value = checked
-  if (!checked || !process.value) return
-  const segmentTwo = process.value.segments[1] ?? createEmptyProcessSegment()
-  if (!process.value.segments[2]) {
-    process.value = {
-      ...process.value,
-      version: 1,
-      segments: [
-        process.value.segments[0] ?? createEmptyProcessSegment(),
-        segmentTwo,
-        createEmptyProcessSegment(),
-      ],
-      secondSegmentScoreThreshold: process.value.secondSegmentScoreThreshold ?? 70,
-      thirdSegmentScoreThreshold: null,
-    }
-  }
-}
-
 function flushVideo1Questions(): void {
   if (!process.value) return
   const bank = video1Questions.value?.snapshot()
@@ -218,25 +177,25 @@ function flushVideo1Questions(): void {
   process.value = { ...process.value, segments }
 }
 
-async function save(): Promise<boolean> {
+async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
   if (!editable.value || !activities.current || !process.value) return false
-  titleError.value = title.value.trim() ? null : 'Title is required'
-  if (titleError.value) return false
 
   await nextTick()
   flushVideo1Questions()
-  saving.value = true
+  if (origin === 'manual') saving.value = true
   saveMessage.value = null
   try {
-    const nextProcess = buildPersistableProcessDefinition(
-      process.value,
-      enableSecond.value,
-      enableThird.value,
-    )
+    const nextProcess = {
+      ...buildPersistableProcessDefinition(process.value, true, enableThird.value),
+      secondSegmentScoreThreshold: 100,
+    }
+    autosave.pause()
     process.value = nextProcess
     const next = writeProcessDefinition(activities.current, nextProcess)
-    next.metadata.title = title.value.trim()
+    next.metadata.title = title.value.trim() || next.metadata.title
     next.metadata.description = description.value.trim()
+    await nextTick()
+    autosave.resume()
     await activities.save(next)
     activities.stagePreview(next)
     saveMessage.value = 'Saved'
@@ -245,12 +204,31 @@ async function save(): Promise<boolean> {
     }, 2000)
     return true
   } catch (cause) {
-    window.alert(cause instanceof Error ? cause.message : 'Failed to save process')
+    const message = cause instanceof Error ? cause.message : 'Failed to save process'
+    if (origin === 'auto') {
+      saveMessage.value = message
+    } else {
+      window.alert(message)
+    }
     return false
   } finally {
-    saving.value = false
+    if (origin === 'manual') saving.value = false
   }
 }
+
+const autosave = useAuthorAutosave({
+  editable,
+  loading,
+  save: () => save('auto'),
+})
+
+watch(
+  process,
+  () => {
+    autosave.schedule()
+  },
+  { deep: true },
+)
 
 async function openPreview(): Promise<void> {
   if (!activityId.value) return
@@ -258,7 +236,15 @@ async function openPreview(): Promise<void> {
     const saved = await save()
     if (!saved) return
   }
-  await router.push({ path: '/player', query: { activity: activityId.value, preview: '1' } })
+  const query: Record<string, string> = { activity: activityId.value, preview: '1' }
+  if (props.embedded) {
+    const parentId = String(route.params.id ?? '')
+    if (parentId) {
+      query.mvp = parentId
+      query.section = 'process'
+    }
+  }
+  await router.push({ path: '/player', query })
 }
 
 async function publish(): Promise<void> {
@@ -352,12 +338,6 @@ async function remove(): Promise<void> {
 
       <fieldset class="author-stack" :disabled="!editable">
       <section class="author-stack-sm">
-        <AuthorSectionHeader title="Hazard Info" />
-        <AuthorField id="process-title" v-model="title" label="Title" :error="titleError ?? undefined" />
-        <AuthorField id="process-description" v-model="description" label="Description" multiline :rows="1" />
-      </section>
-
-      <section class="author-stack-sm">
         <AuthorSectionHeader title="Instruction" />
         <p class="author-muted">
           Shown over the paused first frame of Video 1 until the learner taps Start.
@@ -398,31 +378,7 @@ async function remove(): Promise<void> {
         @update:model-value="setQuestions(0, $event)"
       />
 
-      <section class="author-panel">
-        <AuthorToggle
-          :id="`${activityId}-enable-second`"
-          :model-value="enableSecond"
-          label="Add second video"
-          description="Shown to learners when their video 1 score is below the threshold."
-          @update:model-value="onEnableSecond"
-        />
-        <AuthorField
-          v-if="enableSecond"
-          :id="`${activityId}-threshold-2`"
-          :model-value="String(working.secondSegmentScoreThreshold ?? 70)"
-          label="Show video 2 when video 1 score is below (%)"
-          type="number"
-          @update:model-value="
-            process &&
-              (process = {
-                ...process,
-                secondSegmentScoreThreshold: Math.min(100, Math.max(0, Math.round(Number($event) || 0))),
-              })
-          "
-        />
-      </section>
-
-      <template v-if="enableSecond && working.segments[1]">
+      <template v-if="working.segments[1]">
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Instruction" />
           <p class="author-muted">
@@ -465,33 +421,7 @@ async function remove(): Promise<void> {
           :model-value="working.segments[1].questions"
           @update:model-value="setQuestions(1, $event)"
         />
-
-        <section class="author-panel">
-          <AuthorToggle
-            :id="`${activityId}-enable-third`"
-            :model-value="enableThird"
-            label="Add third video"
-            description="Always shown after video 1. If video 2 is required by the score threshold, it plays first."
-            @update:model-value="onEnableThird"
-          />
-        </section>
       </template>
-
-      <section v-if="enableSecond && enableThird && working.segments[2]" class="author-stack-sm">
-        <AuthorSectionHeader title="Video 3" />
-        <p class="author-muted">
-          Always shown after video 1 (and after video 2 when it plays). Video 3 has
-          no questions — comprehension ends when it finishes.
-        </p>
-        <MediaUploadField
-          :id="`${activityId}-video-3`"
-          :activity-id="activityId"
-          label="Video 3"
-          :model-value="working.segments[2].media"
-          @update:model-value="setMedia(2, $event)"
-          @duration="setDuration(2, $event)"
-        />
-      </section>
 
       </fieldset>
 

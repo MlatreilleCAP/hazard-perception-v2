@@ -1,15 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { createAnticipateActivity } from '@/activities/createAnticipateActivity'
-import { createInroadsMvpActivity } from '@/activities/createInroadsMvpActivity'
-import { createProcessActivity } from '@/activities/createProcessActivity'
-import { createSeeActivity } from '@/activities/createSeeActivity'
 import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
+import { createBlankInroadsMvp } from '@/services/createInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
-import { INROADS_MVP_CHILD_TAG } from '@/types/inroadsMvp'
 
 const router = useRouter()
 const activities = useActivityStore()
@@ -24,31 +20,8 @@ async function create(): Promise<void> {
 
   saving.value = true
   try {
-    const base = title.value.trim()
-
-    const see = createSeeActivity(`${base} · Observe`)
-    see.metadata.tags = [...see.metadata.tags, INROADS_MVP_CHILD_TAG]
-    await activities.save(see)
-    const seeId = activities.current?.id
-    if (!seeId) throw new Error('Failed to create Observe section')
-
-    const process = createProcessActivity(`${base} · Process`)
-    process.metadata.tags = [...process.metadata.tags, INROADS_MVP_CHILD_TAG]
-    await activities.save(process)
-    const processId = activities.current?.id
-    if (!processId) throw new Error('Failed to create Process section')
-
-    const anticipate = createAnticipateActivity(`${base} · Anticipate`)
-    anticipate.metadata.tags = [...anticipate.metadata.tags, INROADS_MVP_CHILD_TAG]
-    await activities.save(anticipate)
-    const anticipateId = activities.current?.id
-    if (!anticipateId) throw new Error('Failed to create Anticipate section')
-
-    const mvp = createInroadsMvpActivity(base, seeId, processId, anticipateId)
-    mvp.metadata.description = description.value.trim()
-    await activities.save(mvp)
-    const id = activities.current?.id
-    if (!id) throw new Error('Inroads MVP was created but could not be loaded')
+    const id = await createBlankInroadsMvp(title.value.trim(), description.value.trim())
+    await activities.refreshList()
     await router.push(`/studio/inroads-mvp/${id}`)
   } catch (cause) {
     window.alert(cause instanceof Error ? cause.message : 'Failed to create Inroads MVP')

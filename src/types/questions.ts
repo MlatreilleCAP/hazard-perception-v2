@@ -102,20 +102,28 @@ export function surveyQuestionIsConfigured(question: ProcessSurveyQuestion): boo
   )
 }
 
-function parseAnswerOption(value: unknown, fallbackPoints: number): ProcessAnswerOption {
+function parseAnswerOption(value: unknown): ProcessAnswerOption {
   if (typeof value === 'string') {
-    return createAnswerOption(value, fallbackPoints)
+    return createAnswerOption(value, 0)
   }
   if (!value || typeof value !== 'object') {
-    return createAnswerOption('', fallbackPoints)
+    return createAnswerOption('', 0)
   }
   const raw = value as Partial<ProcessAnswerOption>
   const text = typeof raw.text === 'string' ? raw.text : ''
-  const points =
-    typeof raw.points === 'number' && Number.isFinite(raw.points)
-      ? Math.max(0, Math.floor(raw.points))
-      : fallbackPoints
-  return createAnswerOption(text, points)
+  return createAnswerOption(text, 0)
+}
+
+export function answersWithFixedPoints(
+  answers: ProcessAnswerOption[],
+  correctIndex: number,
+): ProcessAnswerOption[] {
+  return answers.map((answer, index) =>
+    createAnswerOption(
+      typeof answer?.text === 'string' ? answer.text : '',
+      index === correctIndex ? DEFAULT_ANSWER_POINTS : 0,
+    ),
+  )
 }
 
 function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
@@ -125,16 +133,12 @@ function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
   const answersRaw = Array.isArray(raw.answers) ? raw.answers : []
   const correctIndexRaw =
     typeof raw.correctIndex === 'number' ? Math.floor(raw.correctIndex) : 0
-  const answers =
+  const parsedAnswers =
     answersRaw.length > 0
-      ? answersRaw.map((item, index) =>
-          parseAnswerOption(item, index === correctIndexRaw ? DEFAULT_ANSWER_POINTS : 0),
-        )
-      : [
-          createAnswerOption('', DEFAULT_ANSWER_POINTS),
-          createAnswerOption('', 0),
-        ]
-  const correctIndex = Math.min(answers.length - 1, Math.max(0, correctIndexRaw))
+      ? answersRaw.map((item) => parseAnswerOption(item))
+      : [createAnswerOption('', 0), createAnswerOption('', 0)]
+  const correctIndex = Math.min(parsedAnswers.length - 1, Math.max(0, correctIndexRaw))
+  const answers = answersWithFixedPoints(parsedAnswers, correctIndex)
   const questionText = typeof raw.questionText === 'string' ? raw.questionText : ''
   return {
     id: typeof raw.id === 'string' && raw.id ? raw.id : newQuestionId(),
@@ -191,7 +195,7 @@ export function pointsForAnswer(
   question: ProcessSurveyQuestion,
   answerIndex: number,
 ): number {
-  return question.answers[answerIndex]?.points ?? 0
+  return isAnswerCorrect(question, answerIndex) ? DEFAULT_ANSWER_POINTS : 0
 }
 
 export function isAnswerCorrect(
@@ -210,12 +214,7 @@ export function scoreProcessQuestions(
   let max = 0
 
   for (const question of questions) {
-    const maxForQuestion = Math.max(
-      0,
-      ...question.answers.map((answer) => answer.points),
-      pointsForAnswer(question, question.correctIndex),
-    )
-    max += maxForQuestion
+    max += DEFAULT_ANSWER_POINTS
     const selected = answers[question.id]
     if (typeof selected === 'number') {
       earned += pointsForAnswer(question, selected)
@@ -252,10 +251,7 @@ export function processQuestionResults(
 }
 
 export function questionBankMaxPoints(bank: ProcessQuestionBank): number {
-  return bank.questions.reduce((sum, question) => {
-    const maxForQuestion = Math.max(0, ...question.answers.map((answer) => answer.points))
-    return sum + maxForQuestion
-  }, 0)
+  return configuredSurveyQuestions(bank).length * DEFAULT_ANSWER_POINTS
 }
 
 export function questionKindLabel(kind: ProcessQuestionKind): string {

@@ -614,8 +614,10 @@ fieldset.author-stack {
 
 .author-image {
   display: block;
+  align-self: flex-start;
   max-height: 16rem;
   width: auto;
+  height: auto;
   max-width: 100%;
   margin-top: 8px;
   border-radius: 16px;
@@ -654,6 +656,26 @@ fieldset.author-stack {
   font-family: var(--font-raleway);
   font-size: 14px;
   color: var(--editor-muted);
+}
+
+.inroads-import-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--editor-ink);
+}
+
+.inroads-import-panel .author-actions {
+  position: relative;
+}
+
+.inroads-import-panel input[type='file'] {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .media-upload {
@@ -995,30 +1017,6 @@ fieldset.author-stack {
   border: 0;
   background: var(--editor-charcoal);
   color: #fff;
-}
-
-.answer-points {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-@media (min-width: 640px) {
-  .answer-points {
-    width: 9rem;
-  }
-}
-
-.answer-points input {
-  height: 36px;
-  width: 100%;
-  border-radius: 6px;
-  border: 1px solid var(--editor-border);
-  background: #fff;
-  padding: 0 8px;
-  font-family: var(--font-raleway);
-  font-size: 14px;
-  font-weight: 600;
 }
 
 .question-add {
@@ -1472,6 +1470,9 @@ fieldset.author-stack {
   height: auto;
   min-height: 0;
   overflow: visible;
+  padding-top: 0;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .author-page.is-embedded .author-page-inner {
