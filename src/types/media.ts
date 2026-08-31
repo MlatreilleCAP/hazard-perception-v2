@@ -32,6 +32,9 @@ export function mediaAssetDisplayName(asset: MediaAsset): string {
 
 export const ACTIVITY_MEDIA_BUCKET = 'activity-media' as const
 
+/** Storage path prefix for files uploaded from the media library (no activity). */
+export const LIBRARY_MEDIA_PATH_PREFIX = 'library' as const
+
 /** Matches activity-media bucket limit in supabase/migrations (500 MiB). */
 export const MAX_VIDEO_UPLOAD_BYTES = 524_288_000
 

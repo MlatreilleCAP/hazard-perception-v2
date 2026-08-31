@@ -13,10 +13,20 @@ const router = useRouter()
 const activities = useActivityStore()
 const { canCreate, canEdit } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
+const searchQuery = ref('')
 
 const items = computed(() =>
   activities.summaries.filter((item) => isInroadsMvpActivity(item.tags)),
 )
+
+const filtered = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return items.value
+  return items.value.filter((item) => {
+    const status = item.published ? 'published' : 'draft'
+    return item.title.toLowerCase().includes(query) || status.includes(query)
+  })
+})
 
 onMounted(async () => {
   await activities.refreshList()
@@ -78,9 +88,18 @@ async function remove(id: string, title: string): Promise<void> {
       </section>
 
       <section class="author-list-card">
-        <div class="author-list-card-head">
+        <div class="author-list-card-head media-library-head">
           <h2>Inroads MVP</h2>
-          <span class="author-count">{{ items.length }}</span>
+          <span class="author-count">{{ filtered.length }}</span>
+          <label class="media-library-search">
+            <span class="sr-only">Search Inroads MVP</span>
+            <input
+              v-model="searchQuery"
+              type="search"
+              placeholder="Search"
+              autocomplete="off"
+            />
+          </label>
         </div>
 
         <div v-if="items.length === 0" class="author-list-empty">
@@ -95,8 +114,12 @@ async function remove(id: string, title: string): Promise<void> {
           </RouterLink>
         </div>
 
+        <div v-else-if="filtered.length === 0" class="author-list-empty">
+          <p class="author-muted">No lessons match this search.</p>
+        </div>
+
         <ul v-else class="author-list">
-          <li v-for="item in items" :key="item.id" class="author-list-row">
+          <li v-for="item in filtered" :key="item.id" class="author-list-row">
             <div style="min-width: 0; flex: 1">
               <RouterLink :to="`/studio/inroads-mvp/${item.id}`" class="author-list-title">
                 {{ item.title }}

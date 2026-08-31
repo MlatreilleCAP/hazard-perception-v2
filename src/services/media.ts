@@ -1,6 +1,7 @@
 import { getSupabase } from '@/services/supabase'
 import {
   ACTIVITY_MEDIA_BUCKET,
+  LIBRARY_MEDIA_PATH_PREFIX,
   collectMediaAssetIds,
   imageUploadSizeError,
   videoUploadSizeError,
@@ -135,20 +136,35 @@ export class MediaService {
     this.signedUrlCache.delete(mediaAssetId)
   }
 
-  async uploadVideo(activityId: string, file: File): Promise<MediaAsset> {
+  async uploadVideo(activityId: string | null, file: File): Promise<MediaAsset> {
     return this.uploadMedia(activityId, file, 'video/mp4')
   }
 
-  async uploadAudio(activityId: string, file: File): Promise<MediaAsset> {
+  async uploadAudio(activityId: string | null, file: File): Promise<MediaAsset> {
     return this.uploadMedia(activityId, file, 'audio/mpeg')
   }
 
-  async uploadImage(activityId: string, file: File): Promise<MediaAsset> {
+  async uploadImage(activityId: string | null, file: File): Promise<MediaAsset> {
     const sizeError = imageUploadSizeError(file.size)
     if (sizeError) {
       throw new Error(sizeError)
     }
     return this.uploadMedia(activityId, file, 'image/jpeg')
+  }
+
+  async uploadLibraryFile(file: File): Promise<MediaAsset> {
+    const mime = file.type.toLowerCase()
+    const name = file.name.toLowerCase()
+    if (mime.startsWith('image/') || /\.(jpe?g|png|webp|gif)$/.test(name)) {
+      return this.uploadImage(null, file)
+    }
+    if (mime.startsWith('audio/') || /\.(mp3|m4a|wav|ogg)$/.test(name)) {
+      return this.uploadAudio(null, file)
+    }
+    if (mime.startsWith('video/') || /\.(mp4|webm|mov)$/.test(name)) {
+      return this.uploadVideo(null, file)
+    }
+    throw new Error('Upload a video, audio, or image file')
   }
 
   private async listAssetsByMime(mimePattern: string): Promise<MediaAsset[]> {
@@ -167,7 +183,7 @@ export class MediaService {
   }
 
   private async uploadMedia(
-    activityId: string,
+    activityId: string | null,
     file: File,
     fallbackMime: string,
   ): Promise<MediaAsset> {
@@ -190,7 +206,9 @@ export class MediaService {
     }
 
     const id = crypto.randomUUID()
-    const path = `${activityId}/${id}`
+    const path = activityId
+      ? `${activityId}/${id}`
+      : `${LIBRARY_MEDIA_PATH_PREFIX}/${id}`
     const mimeType = file.type || fallbackMime
     const probe = await readMediaProbe(file)
     const originalFilename = sanitizeOriginalFilename(file.name)

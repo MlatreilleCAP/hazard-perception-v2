@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { services } from '@/app/container'
+import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import {
   formatMediaSize,
@@ -8,38 +9,30 @@ import {
   type MediaAsset,
 } from '@/types/media'
 
-const { canEdit, isAdmin } = useStudioAccess()
+const { canCreate, canEdit, isAdmin } = useStudioAccess()
 const assets = ref<MediaAsset[]>([])
 const previewUrls = ref<Record<string, string>>({})
 const posterUrls = ref<Record<string, string>>({})
 const loading = ref(true)
 const error = ref<string | null>(null)
 const deletingId = ref<string | null>(null)
-const filter = ref<'all' | 'video' | 'audio' | 'image' | 'lottie'>('all')
+const uploading = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+const LIBRARY_ACCEPT =
+  'video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp4,audio/wav,audio/ogg,image/jpeg,image/png,image/webp,image/gif,.mp4,.webm,.mov,.mp3,.m4a,.wav,.ogg,.jpg,.jpeg,.png,.webp,.gif'
+const filter = ref<'all' | 'video' | 'audio' | 'image'>('all')
 const searchQuery = ref('')
 const selectedId = ref<string | null>(null)
 let previewGeneration = 0
 
-function isLottie(asset: MediaAsset): boolean {
-  const mime = asset.mimeType.toLowerCase()
-  const name = `${asset.originalFilename ?? ''} ${asset.path}`.toLowerCase()
-  if (name.includes('.lottie')) return true
-  if (mime.includes('lottie')) return true
-  if (mime === 'application/json' || mime.endsWith('+json')) return true
-  return name.endsWith('.json') && (mime.startsWith('application/') || mime === 'text/json')
-}
-
 const filtered = computed(() => {
+  const prefix = filter.value === 'all' ? null : `${filter.value}/`
   const query = searchQuery.value.trim().toLowerCase()
   return assets.value.filter((asset) => {
-    if (filter.value === 'lottie') {
-      if (!isLottie(asset)) return false
-    } else if (filter.value !== 'all') {
-      if (isLottie(asset) || !asset.mimeType.startsWith(`${filter.value}/`)) return false
-    }
+    if (prefix && !asset.mimeType.startsWith(prefix)) return false
     if (!query) return true
     const name = mediaAssetDisplayName(asset).toLowerCase()
-    const kind = kindLabel(asset).toLowerCase()
+    const kind = kindLabel(asset.mimeType).toLowerCase()
     return (
       name.includes(query) ||
       kind.includes(query) ||
@@ -68,12 +61,11 @@ function canDelete(asset: MediaAsset): boolean {
   return isAdmin.value || canEdit(asset.createdBy)
 }
 
-function kindLabel(asset: MediaAsset): string {
-  if (isLottie(asset)) return 'Lottie'
-  if (asset.mimeType.startsWith('video/')) return 'Video'
-  if (asset.mimeType.startsWith('audio/')) return 'Audio'
-  if (asset.mimeType.startsWith('image/')) return 'Image'
-  return asset.mimeType
+function kindLabel(mimeType: string): string {
+  if (mimeType.startsWith('video/')) return 'Video'
+  if (mimeType.startsWith('audio/')) return 'Audio'
+  if (mimeType.startsWith('image/')) return 'Image'
+  return mimeType
 }
 
 function isImage(asset: MediaAsset): boolean {
@@ -95,7 +87,6 @@ function formatDate(iso: string): string {
 }
 
 function thumbSrc(asset: MediaAsset): string | null {
-  if (isLottie(asset)) return null
   if (isVideo(asset)) return posterUrls.value[asset.id] ?? null
   return previewUrls.value[asset.id] ?? null
 }
@@ -320,6 +311,39 @@ function fitPreviewImage(event: Event): void {
   recordPreviewSize(el.naturalWidth, el.naturalHeight)
 }
 
+function chooseFiles(): void {
+  if (!canCreate.value || uploading.value) return
+  fileInput.value?.click()
+}
+
+async function onFiles(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  if (files.length === 0 || !canCreate.value) return
+
+  uploading.value = true
+  error.value = null
+  const uploaded: MediaAsset[] = []
+  const failures: string[] = []
+  for (const file of files) {
+    try {
+      uploaded.push(await services.media.uploadLibraryFile(file))
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Failed to upload'
+      failures.push(`${file.name}: ${message}`)
+    }
+  }
+  if (uploaded.length > 0) {
+    assets.value = [...uploaded, ...assets.value]
+    selectedId.value = uploaded[0].id
+  }
+  if (failures.length > 0) {
+    error.value = failures.join(' ')
+  }
+  uploading.value = false
+}
+
 async function remove(asset: MediaAsset): Promise<void> {
   const name = mediaAssetDisplayName(asset)
   if (
@@ -355,6 +379,22 @@ async function remove(asset: MediaAsset): Promise<void> {
           <h1>Media</h1>
           <p>Browse uploaded media and delete files you no longer need</p>
         </div>
+        <AuthorPillButton
+          v-if="canCreate"
+          variant="white"
+          :disabled="uploading"
+          @click="chooseFiles"
+        >
+          {{ uploading ? 'Uploading…' : 'Upload' }}
+        </AuthorPillButton>
+        <input
+          ref="fileInput"
+          class="sr-only"
+          type="file"
+          :accept="LIBRARY_ACCEPT"
+          multiple
+          @change="onFiles"
+        />
       </div>
 
       <p v-if="error" class="author-error">{{ error }}</p>
@@ -392,14 +432,6 @@ async function remove(asset: MediaAsset): Promise<void> {
         >
           Image
         </button>
-        <button
-          type="button"
-          class="mvp-section-tab"
-          :class="{ active: filter === 'lottie' }"
-          @click="filter = 'lottie'"
-        >
-          Lotties
-        </button>
       </div>
 
       <section v-if="selected" class="media-preview-stage">
@@ -407,7 +439,7 @@ async function remove(asset: MediaAsset): Promise<void> {
           <div>
             <h2 class="media-preview-title">{{ mediaAssetDisplayName(selected) }}</h2>
             <p class="media-preview-sub">
-              {{ kindLabel(selected) }}
+              {{ kindLabel(selected.mimeType) }}
               -
               {{
                 selected.sizeBytes != null
@@ -445,9 +477,6 @@ async function remove(asset: MediaAsset): Promise<void> {
               :src="previewUrls[selected.id]"
               controls
             />
-            <div v-else-if="isLottie(selected)" class="media-library-audio-thumb">
-              <span>Lottie</span>
-            </div>
           </div>
           <div class="media-meta-panel">
             <h3 class="media-meta-heading">Metadata</h3>
@@ -521,11 +550,8 @@ async function remove(asset: MediaAsset): Promise<void> {
               <div v-else-if="isAudio(asset)" class="media-library-audio-thumb">
                 <span>Audio</span>
               </div>
-              <div v-else-if="isLottie(asset)" class="media-library-audio-thumb">
-                <span>Lottie</span>
-              </div>
               <div v-else class="media-library-audio-thumb">
-                <span>{{ previewUrls[asset.id] ? kindLabel(asset) : '…' }}</span>
+                <span>{{ previewUrls[asset.id] ? kindLabel(asset.mimeType) : '…' }}</span>
               </div>
             </div>
 
@@ -534,7 +560,7 @@ async function remove(asset: MediaAsset): Promise<void> {
                 {{ mediaAssetDisplayName(asset) }}
               </p>
               <p class="author-list-sub">
-                {{ kindLabel(asset) }}
+                {{ kindLabel(asset.mimeType) }}
                 ·
                 {{ asset.sizeBytes != null ? formatMediaSize(asset.sizeBytes) : 'Unknown size' }}
                 ·
