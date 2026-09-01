@@ -254,7 +254,7 @@ async function remove(): Promise<void> {
               />
             </svg>
           </RouterLink>
-          <h1 class="author-header-title">Inroads MVP</h1>
+          <h1 class="author-header-title">{{ title.trim() || 'Inroads MVP' }}</h1>
           <AuthorStatusChip :label="isPublished ? 'PUBLISHED' : 'DRAFT'" />
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 16px">

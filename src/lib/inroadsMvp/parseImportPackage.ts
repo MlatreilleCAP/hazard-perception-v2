@@ -2,8 +2,10 @@ import JSZip from 'jszip'
 import * as XLSX from 'xlsx'
 import {
   ANSWER_COLUMNS,
+  AUDIO_SLOT_IDS,
   COPY_FIELDS,
   COPY_SECTIONS,
+  IMAGE_SLOT_IDS,
   LESSON_KEYS,
   QUESTION_SECTIONS,
   REQUIRED_VIDEO_SLOTS,
@@ -27,6 +29,7 @@ import type { ProcessQuestionKind } from '@/types/questions'
 import {
   parseMediaClipMetadata,
   type MediaClipMetadata,
+  type MediaLibraryFileKind,
 } from '@/types/media'
 
 export type ImportedVideoFile = {
@@ -311,6 +314,12 @@ function parseQuestionsSheet(
   return questions
 }
 
+function libraryKindForSlot(slot: VideoSlotId): MediaLibraryFileKind {
+  if (IMAGE_SLOT_IDS.includes(slot)) return 'image'
+  if (AUDIO_SLOT_IDS.includes(slot)) return 'audio'
+  return 'video'
+}
+
 function parseMetadataSheet(
   workbook: XLSX.WorkBook,
   warnings: string[],
@@ -346,7 +355,10 @@ function parseMetadataSheet(
   for (const [slot, sheetRowsForSlot] of Object.entries(raw) as Array<
     [VideoSlotId, Array<{ name: string; text: string }>]
   >) {
-    mediaMetadata[slot] = parseMediaClipMetadata({ rows: sheetRowsForSlot })
+    mediaMetadata[slot] = parseMediaClipMetadata({
+      libraryKind: libraryKindForSlot(slot),
+      rows: sheetRowsForSlot,
+    })
   }
   if (Object.keys(mediaMetadata).length === 0 && records.length > 0) {
     warnings.push('Metadata sheet has rows, but none matched a media folder.')

@@ -14,6 +14,7 @@ export const MEDIA_CLIP_META_FIELDS = [
   { key: 'roadConditions', label: 'Road Conditions', aliases: ['road_conditions'] },
   { key: 'country', label: 'Country', aliases: ['country'] },
   { key: 'vehicleType', label: 'Vehicle Type', aliases: ['vehicle_type'] },
+  { key: 'language', label: 'Language', aliases: ['language'] },
   { key: 'lever', label: 'Lever', aliases: ['lever'] },
   { key: 'hazardName', label: 'Hazard Name', aliases: ['hazard_name'] },
   { key: 'coreCompetency', label: 'Core Competency', aliases: ['core_competency'] },
@@ -56,6 +57,7 @@ export function emptyMediaClipMetadata(): MediaClipMetadata {
     roadConditions: '',
     country: '',
     vehicleType: '',
+    language: '',
     lever: '',
     hazardName: '',
     coreCompetency: '',
@@ -123,28 +125,68 @@ export function parseMediaClipMetadata(value: unknown): MediaClipMetadata {
   return next
 }
 
+export type MediaLibraryFileKind = 'video' | 'image' | 'audio'
+
 export const MEDIA_LIBRARY_META_KINDS = [
-  { id: 'audio-file', label: 'Audio file' },
-  { id: 'image-file', label: 'Image File' },
-  { id: 'observe-challenge', label: 'Observe Challenge' },
-  { id: 'coaching', label: 'Coaching' },
-  { id: 'lesson', label: 'Lesson' },
+  { id: 'video', label: 'Video' },
+  { id: 'image', label: 'Image' },
+  { id: 'audio', label: 'Audio' },
 ] as const
 
-export type MediaLibraryMetaKindId = (typeof MEDIA_LIBRARY_META_KINDS)[number]['id']
+export type MediaLibraryMetaKindId = MediaLibraryFileKind
 
-export const MEDIA_LIBRARY_KIND_FIELDS = [
-  { key: 'country', label: 'Country' },
-  { key: 'coreCompetency', label: 'Core Competency' },
-  { key: 'vehicleType', label: 'Vehicle type' },
-] as const
+export const MEDIA_LIBRARY_KIND_FIELDS: Record<
+  MediaLibraryFileKind,
+  ReadonlyArray<{ key: MediaClipMetaKey; label: string }>
+> = {
+  video: [
+    { key: 'country', label: 'Country' },
+    { key: 'vehicleType', label: 'Vehicle type' },
+    { key: 'coreCompetency', label: 'Core Competency' },
+  ],
+  image: [
+    { key: 'country', label: 'Country' },
+    { key: 'vehicleType', label: 'Vehicle type' },
+    { key: 'coreCompetency', label: 'Core Competency' },
+  ],
+  audio: [
+    { key: 'country', label: 'Country' },
+    { key: 'language', label: 'Language' },
+  ],
+}
+
+export function mediaLibraryKindFromMime(mimeType: string): MediaLibraryFileKind | null {
+  if (mimeType.startsWith('video/')) return 'video'
+  if (mimeType.startsWith('image/')) return 'image'
+  if (mimeType.startsWith('audio/')) return 'audio'
+  return null
+}
 
 export function mediaLibraryKindLabel(kind: string): string {
   return MEDIA_LIBRARY_META_KINDS.find((item) => item.id === kind)?.label ?? ''
 }
 
-export function mediaLibraryKindRows(): MediaClipMetaRow[] {
-  return MEDIA_LIBRARY_KIND_FIELDS.map((field) => ({ name: field.label, text: '' }))
+export function mediaLibraryKindRows(kind: MediaLibraryFileKind): MediaClipMetaRow[] {
+  return MEDIA_LIBRARY_KIND_FIELDS[kind].map((field) => ({ name: field.label, text: '' }))
+}
+
+export function mediaLibraryDraftForAsset(asset: {
+  mimeType: string
+  metadata: MediaClipMetadata
+}): MediaClipMetadata {
+  const kind = mediaLibraryKindFromMime(asset.mimeType)
+  if (!kind) return emptyMediaClipMetadata()
+  const parsed = parseMediaClipMetadata(asset.metadata)
+  const rows = MEDIA_LIBRARY_KIND_FIELDS[kind].map((field) => {
+    const fromRow = parsed.rows.find(
+      (row) => normalizeMetaAlias(row.name) === normalizeMetaAlias(field.label),
+    )
+    return {
+      name: field.label,
+      text: (fromRow?.text || parsed[field.key]).trim(),
+    }
+  })
+  return parseMediaClipMetadata({ libraryKind: kind, rows })
 }
 
 export const DEFAULT_MEDIA_META_NAME = 'metadata'
@@ -152,17 +194,10 @@ export const DEFAULT_MEDIA_META_TEXT = 'Empty'
 
 export function mediaClipMetadataHasContent(meta: MediaClipMetadata): boolean {
   return (
-    Boolean(meta.libraryKind.trim()) ||
     meta.rows.some((row) => {
-      const name = row.name.trim()
       const text = row.text.trim()
-      if (!name && !text) return false
-      if (
-        name.toLowerCase() === DEFAULT_MEDIA_META_NAME &&
-        (!text || text.toLowerCase() === DEFAULT_MEDIA_META_TEXT.toLowerCase())
-      ) {
-        return false
-      }
+      if (!text) return false
+      if (text.toLowerCase() === DEFAULT_MEDIA_META_TEXT.toLowerCase()) return false
       return true
     }) || MEDIA_CLIP_META_FIELDS.some((field) => meta[field.key].trim().length > 0)
   )
@@ -179,7 +214,7 @@ export function mediaClipMetadataPreviewRows(
     }))
   }
   if (!meta) return []
-  return MEDIA_LIBRARY_KIND_FIELDS.flatMap((field) => {
+  return MEDIA_CLIP_META_FIELDS.flatMap((field) => {
     const text = meta[field.key].trim()
     return text ? [{ name: field.label, text }] : []
   })

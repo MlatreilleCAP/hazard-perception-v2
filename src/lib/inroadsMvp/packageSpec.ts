@@ -274,7 +274,8 @@ Copy: header row, then section | field | text
 Metadata: header row, then Video Folder | Metadata Name | Metadata text
   Video Folder must match a media folder name (e.g. Observe Hazard Scenario).
   Only rows for that folder are saved on that folder’s file and shown on preview.
-  Files with no Metadata rows show header "metadata" and text "Empty".
+  Video and image folders: Country, Vehicle Type, core_competency
+  Audio (Hazard Summary Audio): Country, Language
   Observe Hazard Scenario core_competency also fills the Observe hazard type.
   core_competency: Attitude | Speed Management | Space Management |
                    Danger Zones | Scanning | Other Motorists

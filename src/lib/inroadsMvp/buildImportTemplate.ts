@@ -93,49 +93,37 @@ function copyRows(content: ImportWorkbookContent): string[][] {
   ]
 }
 
-const CLIP_META_NAMES: Array<[string, (content: ImportWorkbookContent) => string]> = [
-  ['maneuver', (content) => content.observe.maneuver],
-  ['roadway', (content) => content.observe.roadway],
-  ['traffic_density', (content) => content.observe.trafficDensity],
-  ['time_of_day', (content) => content.observe.timeOfDay],
-  ['Country', () => 'Canada'],
-  ['Vehicle Type', () => 'Passenger Vehicle'],
-]
-
-const HAZARD_SCENARIO_META_NAMES: Array<
+const VIDEO_IMAGE_META_NAMES: Array<
   [string, (content: ImportWorkbookContent) => string]
 > = [
-  ['Lever', () => 'SPC_001'],
   ['Country', () => 'Canada'],
   ['Vehicle Type', () => 'Passenger Vehicle'],
   ['core_competency', (content) => content.observe.coreCompetency],
 ]
 
-const COUNTRY_VEHICLE_META_NAMES: Array<
-  [string, (content: ImportWorkbookContent) => string]
-> = [
+const AUDIO_META_NAMES: Array<[string, (content: ImportWorkbookContent) => string]> = [
   ['Country', () => 'Canada'],
-  ['Vehicle Type', () => 'Passenger Vehicle'],
+  ['Language', () => 'English'],
 ]
 
 const METADATA_TEMPLATE_FOLDERS: Array<{
   folder: string
-  names?: Array<[string, (content: ImportWorkbookContent) => string]>
+  names: Array<[string, (content: ImportWorkbookContent) => string]>
 }> = [
-  { folder: 'Observe Hazard Scenario', names: HAZARD_SCENARIO_META_NAMES },
-  { folder: 'Observe Coaching Video', names: COUNTRY_VEHICLE_META_NAMES },
-  { folder: 'Process Lesson Video' },
-  { folder: 'Process Coaching Video' },
-  { folder: 'Anticipate Lesson Video' },
-  { folder: 'Anticipate Coaching Video' },
-  { folder: 'Observe Explanation Image' },
-  { folder: 'Hazard Summary Audio' },
+  { folder: 'Observe Hazard Scenario', names: VIDEO_IMAGE_META_NAMES },
+  { folder: 'Observe Coaching Video', names: VIDEO_IMAGE_META_NAMES },
+  { folder: 'Process Lesson Video', names: VIDEO_IMAGE_META_NAMES },
+  { folder: 'Process Coaching Video', names: VIDEO_IMAGE_META_NAMES },
+  { folder: 'Anticipate Lesson Video', names: VIDEO_IMAGE_META_NAMES },
+  { folder: 'Anticipate Coaching Video', names: VIDEO_IMAGE_META_NAMES },
+  { folder: 'Observe Explanation Image', names: VIDEO_IMAGE_META_NAMES },
+  { folder: 'Hazard Summary Audio', names: AUDIO_META_NAMES },
 ]
 
 function metadataRows(content: ImportWorkbookContent): string[][] {
   const rows: string[][] = [['Video Folder', 'Metadata Name', 'Metadata text']]
   for (const item of METADATA_TEMPLATE_FOLDERS) {
-    for (const [name, value] of item.names ?? CLIP_META_NAMES) {
+    for (const [name, value] of item.names) {
       rows.push([item.folder, name, value(content)])
     }
   }

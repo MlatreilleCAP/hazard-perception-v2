@@ -9,15 +9,13 @@ import {
   formatMediaSize,
   mediaAssetDisplayName,
   mediaClipMetadataHasContent,
-  mediaClipMetadataPreviewRows,
+  mediaLibraryDraftForAsset,
+  mediaLibraryKindFromMime,
   mediaLibraryKindLabel,
-  mediaLibraryKindRows,
   parseMediaClipMetadata,
   MEDIA_CLIP_META_FIELDS,
-  MEDIA_LIBRARY_META_KINDS,
   type MediaAsset,
   type MediaClipMetadata,
-  type MediaLibraryMetaKindId,
 } from '@/types/media'
 
 const { canCreate, canEdit, isAdmin } = useStudioAccess()
@@ -31,7 +29,6 @@ const uploading = ref(false)
 const savingMeta = ref(false)
 const metaDraft = ref<MediaClipMetadata>(emptyMediaClipMetadata())
 const metaBaseline = ref('')
-const metaMenuOpen = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const LIBRARY_ACCEPT =
   'video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp4,audio/wav,audio/ogg,image/jpeg,image/png,image/webp,image/gif,.mp4,.webm,.mov,.mp3,.m4a,.wav,.ogg,.jpg,.jpeg,.png,.webp,.gif'
@@ -94,14 +91,7 @@ function snapshotMeta(meta: MediaClipMetadata): string {
 }
 
 function draftFromAsset(asset: MediaAsset): MediaClipMetadata {
-  if (!mediaClipMetadataHasContent(asset.metadata)) {
-    return emptyMediaClipMetadata()
-  }
-  const rows = mediaClipMetadataPreviewRows(asset.metadata)
-  return parseMediaClipMetadata({
-    libraryKind: asset.metadata.libraryKind,
-    rows: rows.length > 0 ? rows : mediaLibraryKindRows(),
-  })
+  return mediaLibraryDraftForAsset(asset)
 }
 
 function loadMetaDraft(asset: MediaAsset | null): void {
@@ -304,7 +294,6 @@ async function refresh(): Promise<void> {
   loading.value = true
   error.value = null
   selectedId.value = null
-  metaMenuOpen.value = false
   loadMetaDraft(null)
   previewGeneration += 1
   previewUrls.value = {}
@@ -344,23 +333,12 @@ function openPreview(asset: MediaAsset): void {
 }
 
 function closePreview(): void {
-  metaMenuOpen.value = false
   loadMetaDraft(null)
   selectedId.value = null
 }
 
-function addMetadata(kindId: MediaLibraryMetaKindId): void {
-  if (!selected.value || !canEditSelectedMeta.value) return
-  metaDraft.value = parseMediaClipMetadata({
-    libraryKind: kindId,
-    rows: mediaLibraryKindRows(),
-  })
-  metaMenuOpen.value = false
-}
-
 watch(selectedId, (id) => {
   previewDimensions.value = null
-  metaMenuOpen.value = false
   loadMetaDraft(assets.value.find((asset) => asset.id === id) ?? null)
 })
 
@@ -464,8 +442,10 @@ async function saveMetadata(): Promise<void> {
   savingMeta.value = true
   error.value = null
   try {
+    const kind =
+      mediaLibraryKindFromMime(asset.mimeType) || metaDraft.value.libraryKind
     const savedMeta = parseMediaClipMetadata({
-      libraryKind: metaDraft.value.libraryKind,
+      libraryKind: kind,
       rows: metaDraft.value.rows.map((row) => ({
         name: row.name.trim(),
         text: row.text.trim(),
@@ -626,55 +606,24 @@ async function saveMetadata(): Promise<void> {
               <h3 class="media-meta-heading">Metadata</h3>
               <p v-if="draftKindLabel" class="media-meta-kind">{{ draftKindLabel }}</p>
             </div>
-            <template v-if="showingMetaFields">
-              <dl class="media-meta-list">
-                <div
-                  v-for="(row, index) in metaDraft.rows"
-                  :key="`${row.name}-${index}`"
-                  class="media-meta-card"
-                >
-                  <dt class="media-meta-label">{{ row.name }}</dt>
-                  <dd class="media-meta-value">
-                    <input
-                      v-model="row.text"
-                      class="media-meta-input"
-                      type="text"
-                      :aria-label="row.name"
-                      :readonly="!canEditSelectedMeta"
-                    />
-                  </dd>
-                </div>
-              </dl>
-            </template>
-            <template v-else>
-              <p class="media-meta-empty">There is no metadata for this media</p>
-              <div v-if="canEditSelectedMeta" class="author-menu">
-                <AuthorPillButton
-                  variant="white"
-                  :disabled="savingMeta"
-                  @click="metaMenuOpen = !metaMenuOpen"
-                >
-                  Add metadata
-                </AuthorPillButton>
-                <div
-                  v-if="metaMenuOpen"
-                  class="author-menu-panel media-meta-kinds"
-                  role="menu"
-                  aria-label="Metadata media types"
-                >
-                  <button
-                    v-for="kind in MEDIA_LIBRARY_META_KINDS"
-                    :key="kind.id"
-                    type="button"
-                    class="author-menu-item"
-                    role="menuitem"
-                    @click="addMetadata(kind.id)"
-                  >
-                    {{ kind.label }}
-                  </button>
-                </div>
+            <dl v-if="showingMetaFields" class="media-meta-list">
+              <div
+                v-for="(row, index) in metaDraft.rows"
+                :key="`${row.name}-${index}`"
+                class="media-meta-card"
+              >
+                <dt class="media-meta-label">{{ row.name }}</dt>
+                <dd class="media-meta-value">
+                  <input
+                    v-model="row.text"
+                    class="media-meta-input"
+                    type="text"
+                    :aria-label="row.name"
+                    :readonly="!canEditSelectedMeta"
+                  />
+                </dd>
               </div>
-            </template>
+            </dl>
           </div>
         </div>
       </section>
