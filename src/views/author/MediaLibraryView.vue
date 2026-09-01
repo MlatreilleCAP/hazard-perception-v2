@@ -744,14 +744,12 @@ async function saveMetadata(): Promise<void> {
                   <span>{{ previewUrls[asset.id] ? kindLabel(asset.mimeType) : '…' }}</span>
                 </div>
               </div>
-              <span class="media-library-meta-pill">
-                <template v-if="mediaClipMetadataHasContent(asset.metadata)">
-                  Metadata added
-                </template>
-                <template v-else>
-                  No metadata
-                  <span class="media-library-meta-pill-x" aria-hidden="true">×</span>
-                </template>
+              <span
+                v-if="!mediaClipMetadataHasContent(asset.metadata)"
+                class="media-library-meta-pill"
+              >
+                metadata
+                <span class="media-library-meta-pill-x" aria-hidden="true">×</span>
               </span>
             </div>
 
