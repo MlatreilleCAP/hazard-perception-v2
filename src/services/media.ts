@@ -4,8 +4,10 @@ import {
   LIBRARY_MEDIA_PATH_PREFIX,
   collectMediaAssetIds,
   imageUploadSizeError,
+  parseMediaClipMetadata,
   videoUploadSizeError,
   type MediaAsset,
+  type MediaClipMetadata,
 } from '@/types/media'
 import type { MediaAssetRow } from '@/types/database'
 import type { ActivityDefinition } from '@/types/activity'
@@ -22,6 +24,7 @@ function mapAsset(row: MediaAssetRow): MediaAsset {
     widthPx: row.width_px ?? null,
     heightPx: row.height_px ?? null,
     originalFilename: row.original_filename ?? null,
+    metadata: parseMediaClipMetadata(row.metadata),
     createdBy: row.created_by,
     createdAt: row.created_at,
   }
@@ -134,6 +137,31 @@ export class MediaService {
     }
 
     this.signedUrlCache.delete(mediaAssetId)
+  }
+
+  async updateAssetMetadata(
+    mediaAssetId: string,
+    metadata: MediaClipMetadata,
+  ): Promise<MediaAsset> {
+    const client = requireClient()
+    const { data, error } = await client
+      .from('media_assets')
+      .update({ metadata })
+      .eq('id', mediaAssetId)
+      .select('*')
+      .single()
+
+    if (error || !data) {
+      throw new Error(
+        error?.message?.includes('metadata')
+          ? 'Media metadata is not available yet. Apply the latest database migration.'
+          : error?.message
+            ? `Failed to save metadata: ${error.message}`
+            : 'Failed to save metadata',
+      )
+    }
+
+    return mapAsset(data as MediaAssetRow)
   }
 
   async uploadVideo(activityId: string | null, file: File): Promise<MediaAsset> {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import audioPreviewImage from '@/assets/media/audio-preview.png'
 import { services } from '@/app/container'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
@@ -222,7 +223,10 @@ function clear(): void {
       :src="previewUrl"
       alt=""
     />
-    <audio v-else-if="previewUrl && isAudio" class="author-audio" :src="previewUrl" controls />
+    <div v-else-if="previewUrl && isAudio" class="author-audio-wrap">
+      <img class="author-audio-art" :src="audioPreviewImage" alt="" />
+      <audio class="author-audio" :src="previewUrl" controls />
+    </div>
     <ProcessVideoStage
       v-else-if="previewUrl && instructionText?.trim()"
       :src="previewUrl"

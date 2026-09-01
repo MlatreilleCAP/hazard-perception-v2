@@ -6,6 +6,43 @@ export interface MediaRef {
   media_asset_id: string
 }
 
+export const MEDIA_CLIP_META_FIELDS = [
+  { key: 'timeOfDay', label: 'Time of Day' },
+  { key: 'maneuver', label: 'Maneuver' },
+  { key: 'roadway', label: 'Roadway' },
+  { key: 'trafficDensity', label: 'Traffic Density' },
+  { key: 'roadConditions', label: 'Road Conditions' },
+] as const
+
+export type MediaClipMetaKey = (typeof MEDIA_CLIP_META_FIELDS)[number]['key']
+
+export type MediaClipMetadata = Record<MediaClipMetaKey, string>
+
+export function emptyMediaClipMetadata(): MediaClipMetadata {
+  return {
+    timeOfDay: '',
+    maneuver: '',
+    roadway: '',
+    trafficDensity: '',
+    roadConditions: '',
+  }
+}
+
+export function parseMediaClipMetadata(value: unknown): MediaClipMetadata {
+  const next = emptyMediaClipMetadata()
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return next
+  const record = value as Record<string, unknown>
+  for (const field of MEDIA_CLIP_META_FIELDS) {
+    const raw = record[field.key]
+    next[field.key] = typeof raw === 'string' ? raw : ''
+  }
+  return next
+}
+
+export function mediaClipMetadataComplete(meta: MediaClipMetadata): boolean {
+  return MEDIA_CLIP_META_FIELDS.every((field) => meta[field.key].trim().length > 0)
+}
+
 export interface MediaAsset {
   id: string
   activityId: string | null
@@ -18,6 +55,7 @@ export interface MediaAsset {
   heightPx: number | null
   /** Original client filename at upload time (for library labels). */
   originalFilename: string | null
+  metadata: MediaClipMetadata
   createdBy: string | null
   createdAt: string
 }

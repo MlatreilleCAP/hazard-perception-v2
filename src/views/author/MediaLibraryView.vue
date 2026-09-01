@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import audioPreviewImage from '@/assets/media/audio-preview.png'
 import { services } from '@/app/container'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import {
+  emptyMediaClipMetadata,
   formatMediaSize,
   mediaAssetDisplayName,
+  mediaClipMetadataComplete,
+  MEDIA_CLIP_META_FIELDS,
   type MediaAsset,
+  type MediaClipMetadata,
 } from '@/types/media'
 
 const { canCreate, canEdit, isAdmin } = useStudioAccess()
@@ -17,6 +22,10 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const deletingId = ref<string | null>(null)
 const uploading = ref(false)
+const savingMeta = ref(false)
+const metaAttempted = ref(false)
+const metaDraft = ref<MediaClipMetadata>(emptyMediaClipMetadata())
+const pendingMetaIds = ref<string[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
 const LIBRARY_ACCEPT =
   'video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp4,audio/wav,audio/ogg,image/jpeg,image/png,image/webp,image/gif,.mp4,.webm,.mov,.mp3,.m4a,.wav,.ogg,.jpg,.jpeg,.png,.webp,.gif'
@@ -33,10 +42,12 @@ const filtered = computed(() => {
     if (!query) return true
     const name = mediaAssetDisplayName(asset).toLowerCase()
     const kind = kindLabel(asset.mimeType).toLowerCase()
+    const meta = MEDIA_CLIP_META_FIELDS.map((field) => asset.metadata[field.key].toLowerCase())
     return (
       name.includes(query) ||
       kind.includes(query) ||
-      asset.mimeType.toLowerCase().includes(query)
+      asset.mimeType.toLowerCase().includes(query) ||
+      meta.some((value) => value.includes(query))
     )
   })
 })
@@ -46,16 +57,11 @@ const selected = computed(
 )
 const previewDimensions = ref<{ width: number; height: number } | null>(null)
 
-const SAMPLE_META = [
-  { label: 'Time of Day', value: 'Daytime' },
-  { label: 'Metadata Title', value: 'Metadata example' },
-  { label: 'Metadata Title', value: 'Metadata example' },
-  { label: 'Metadata Title', value: 'Metadata example' },
-  { label: 'Metadata Title', value: 'Metadata example' },
-  { label: 'Metadata Title', value: 'Metadata example' },
-] as const
+const editingMeta = computed(
+  () => Boolean(selected.value && pendingMetaIds.value.includes(selected.value.id)),
+)
 
-const selectedMeta = computed(() => (selected.value ? SAMPLE_META : []))
+const metaComplete = computed(() => mediaClipMetadataComplete(metaDraft.value))
 
 function canDelete(asset: MediaAsset): boolean {
   return isAdmin.value || canEdit(asset.createdBy)
@@ -87,6 +93,7 @@ function formatDate(iso: string): string {
 }
 
 function thumbSrc(asset: MediaAsset): string | null {
+  if (isAudio(asset)) return audioPreviewImage
   if (isVideo(asset)) return posterUrls.value[asset.id] ?? null
   return previewUrls.value[asset.id] ?? null
 }
@@ -246,6 +253,8 @@ async function refresh(): Promise<void> {
   loading.value = true
   error.value = null
   selectedId.value = null
+  pendingMetaIds.value = []
+  metaAttempted.value = false
   previewGeneration += 1
   previewUrls.value = {}
   posterUrls.value = {}
@@ -266,7 +275,11 @@ onMounted(() => {
 watch(
   filtered,
   (list) => {
-    if (selectedId.value && !list.some((asset) => asset.id === selectedId.value)) {
+    if (
+      selectedId.value &&
+      !list.some((asset) => asset.id === selectedId.value) &&
+      !pendingMetaIds.value.includes(selectedId.value)
+    ) {
       selectedId.value = null
     }
     void loadPreviewUrls(list)
@@ -275,11 +288,20 @@ watch(
 )
 
 function openPreview(asset: MediaAsset): void {
-  selectedId.value = selectedId.value === asset.id ? null : asset.id
+  if (editingMeta.value && selectedId.value !== asset.id) return
+  selectedId.value = selectedId.value === asset.id && !editingMeta.value ? null : asset.id
 }
 
-watch(selectedId, () => {
+function closePreview(): void {
+  selectedId.value = null
+}
+
+watch(selectedId, (id) => {
   previewDimensions.value = null
+  metaAttempted.value = false
+  if (id && pendingMetaIds.value.includes(id)) {
+    metaDraft.value = emptyMediaClipMetadata()
+  }
 })
 
 function recordPreviewSize(width: number, height: number): void {
@@ -336,7 +358,13 @@ async function onFiles(event: Event): Promise<void> {
   }
   if (uploaded.length > 0) {
     assets.value = [...uploaded, ...assets.value]
-    selectedId.value = uploaded[0].id
+    const newIds = uploaded.map((asset) => asset.id)
+    pendingMetaIds.value = [...pendingMetaIds.value, ...newIds]
+    if (!editingMeta.value) {
+      selectedId.value = newIds[0]
+      metaDraft.value = emptyMediaClipMetadata()
+      metaAttempted.value = false
+    }
   }
   if (failures.length > 0) {
     error.value = failures.join(' ')
@@ -363,10 +391,43 @@ async function remove(asset: MediaAsset): Promise<void> {
     previewUrls.value = restUrls
     posterUrls.value = restPosters
     if (selectedId.value === asset.id) selectedId.value = null
+    pendingMetaIds.value = pendingMetaIds.value.filter((id) => id !== asset.id)
   } catch (cause) {
     window.alert(cause instanceof Error ? cause.message : 'Failed to delete media')
   } finally {
     deletingId.value = null
+  }
+}
+
+async function saveMetadata(): Promise<void> {
+  const asset = selected.value
+  if (!asset || !editingMeta.value || savingMeta.value) return
+  metaAttempted.value = true
+  if (!mediaClipMetadataComplete(metaDraft.value)) return
+
+  savingMeta.value = true
+  error.value = null
+  try {
+    const saved = await services.media.updateAssetMetadata(asset.id, {
+      timeOfDay: metaDraft.value.timeOfDay.trim(),
+      maneuver: metaDraft.value.maneuver.trim(),
+      roadway: metaDraft.value.roadway.trim(),
+      trafficDensity: metaDraft.value.trafficDensity.trim(),
+      roadConditions: metaDraft.value.roadConditions.trim(),
+    })
+    assets.value = assets.value.map((item) => (item.id === saved.id ? saved : item))
+    const remaining = pendingMetaIds.value.filter((id) => id !== saved.id)
+    pendingMetaIds.value = remaining
+    const nextId = remaining[0] ?? null
+    selectedId.value = nextId
+    if (nextId) {
+      metaDraft.value = emptyMediaClipMetadata()
+      metaAttempted.value = false
+    }
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Failed to save metadata'
+  } finally {
+    savingMeta.value = false
   }
 }
 </script>
@@ -448,9 +509,31 @@ async function remove(asset: MediaAsset): Promise<void> {
               }}
             </p>
           </div>
-          <button type="button" class="media-preview-close" @click="selectedId = null">
-            Close
-          </button>
+          <div class="media-preview-stage-actions">
+            <AuthorPillButton
+              v-if="editingMeta"
+              variant="white"
+              :disabled="savingMeta"
+              @click="saveMetadata"
+            >
+              {{ savingMeta ? 'Saving…' : 'Save' }}
+            </AuthorPillButton>
+            <button
+              type="button"
+              class="media-preview-dismiss"
+              aria-label="Close preview"
+              @click="closePreview"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true">
+                <path
+                  d="M4 4l8 8M12 4l-8 8"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
         <div class="media-preview-body">
           <div class="media-preview-frame">
@@ -471,19 +554,58 @@ async function remove(asset: MediaAsset): Promise<void> {
               playsinline
               @loadedmetadata="fitPreviewVideo"
             />
-            <audio
+            <div
               v-else-if="isAudio(selected)"
-              class="media-preview-audio"
-              :src="previewUrls[selected.id]"
-              controls
-            />
+              class="media-preview-audio-wrap"
+            >
+              <img
+                class="media-preview-large media-preview-audio-art"
+                :src="audioPreviewImage"
+                alt=""
+              />
+              <audio
+                class="media-preview-audio"
+                :src="previewUrls[selected.id]"
+                controls
+              />
+            </div>
           </div>
           <div class="media-meta-panel">
             <h3 class="media-meta-heading">Metadata</h3>
+            <p v-if="editingMeta" class="media-meta-hint">
+              Fill every field before saving.
+            </p>
+            <p v-if="editingMeta && metaAttempted && !metaComplete" class="author-error">
+              All metadata fields are required.
+            </p>
             <dl class="media-meta-list">
-              <div v-for="(item, index) in selectedMeta" :key="`${item.label}-${index}`" class="media-meta-card">
-                <dt class="media-meta-label">{{ item.label }}</dt>
-                <dd class="media-meta-value">{{ item.value }}</dd>
+              <div
+                v-for="field in MEDIA_CLIP_META_FIELDS"
+                :key="field.key"
+                class="media-meta-card"
+                :class="{
+                  'is-invalid':
+                    editingMeta && metaAttempted && !metaDraft[field.key].trim(),
+                }"
+              >
+                <dt class="media-meta-label">
+                  <label :for="`media-meta-${field.key}`">{{ field.label }}</label>
+                </dt>
+                <dd class="media-meta-value">
+                  <input
+                    v-if="editingMeta"
+                    :id="`media-meta-${field.key}`"
+                    v-model="metaDraft[field.key]"
+                    class="media-meta-input"
+                    type="text"
+                    required
+                    :placeholder="field.label"
+                    :aria-invalid="metaAttempted && !metaDraft[field.key].trim()"
+                  />
+                  <span v-else>{{
+                    selected.metadata[field.key].trim() || '—'
+                  }}</span>
+                </dd>
               </div>
             </dl>
           </div>
@@ -524,7 +646,10 @@ async function remove(asset: MediaAsset): Promise<void> {
             v-for="asset in filtered"
             :key="asset.id"
             class="media-library-card"
-            :class="{ 'is-selected': selectedId === asset.id }"
+            :class="{
+              'is-selected': selectedId === asset.id,
+              'is-locked': editingMeta && selectedId !== asset.id,
+            }"
           >
             <div
               class="media-library-thumb"
@@ -547,9 +672,6 @@ async function remove(asset: MediaAsset): Promise<void> {
                 playsinline
                 preload="auto"
               />
-              <div v-else-if="isAudio(asset)" class="media-library-audio-thumb">
-                <span>Audio</span>
-              </div>
               <div v-else class="media-library-audio-thumb">
                 <span>{{ previewUrls[asset.id] ? kindLabel(asset.mimeType) : '…' }}</span>
               </div>
@@ -567,7 +689,12 @@ async function remove(asset: MediaAsset): Promise<void> {
                 {{ formatDate(asset.createdAt) }}
               </p>
               <div class="media-library-card-actions">
-                <button type="button" class="ghost-mini" @click="openPreview(asset)">
+                <button
+                  type="button"
+                  class="ghost-mini"
+                  :disabled="editingMeta"
+                  @click="openPreview(asset)"
+                >
                   {{ selectedId === asset.id ? 'Hide' : 'Preview' }}
                 </button>
                 <button

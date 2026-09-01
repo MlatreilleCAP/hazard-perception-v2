@@ -49,6 +49,7 @@ export interface MediaAssetRow {
   width_px: number | null
   height_px: number | null
   original_filename: string | null
+  metadata: Record<string, unknown> | null
   created_by: string | null
   created_at: string
 }
