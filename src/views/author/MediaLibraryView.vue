@@ -29,9 +29,8 @@ const error = ref<string | null>(null)
 const deletingId = ref<string | null>(null)
 const uploading = ref(false)
 const savingMeta = ref(false)
-const metaAttempted = ref(false)
 const metaDraft = ref<MediaClipMetadata>(emptyMediaClipMetadata())
-const pendingMetaIds = ref<string[]>([])
+const metaBaseline = ref('')
 const metaMenuOpen = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const LIBRARY_ACCEPT =
@@ -70,17 +69,7 @@ const selected = computed(
 )
 const previewDimensions = ref<{ width: number; height: number } | null>(null)
 
-const editingMeta = computed(
-  () => Boolean(selected.value && pendingMetaIds.value.includes(selected.value.id)),
-)
-
-const previewMetaRows = computed(() =>
-  selected.value ? mediaClipMetadataPreviewRows(selected.value.metadata) : [],
-)
-
-const selectedHasMetadata = computed(() =>
-  selected.value ? mediaClipMetadataHasContent(selected.value.metadata) : false,
-)
+const showingMetaFields = computed(() => metaDraft.value.rows.length > 0)
 
 const canEditSelectedMeta = computed(() => {
   const asset = selected.value
@@ -89,6 +78,41 @@ const canEditSelectedMeta = computed(() => {
 })
 
 const draftKindLabel = computed(() => mediaLibraryKindLabel(metaDraft.value.libraryKind))
+
+const metaDirty = computed(
+  () => showingMetaFields.value && snapshotMeta(metaDraft.value) !== metaBaseline.value,
+)
+
+function snapshotMeta(meta: MediaClipMetadata): string {
+  return JSON.stringify({
+    libraryKind: meta.libraryKind.trim(),
+    rows: meta.rows.map((row) => ({
+      name: row.name.trim(),
+      text: row.text.trim(),
+    })),
+  })
+}
+
+function draftFromAsset(asset: MediaAsset): MediaClipMetadata {
+  if (!mediaClipMetadataHasContent(asset.metadata)) {
+    return emptyMediaClipMetadata()
+  }
+  const rows = mediaClipMetadataPreviewRows(asset.metadata)
+  return parseMediaClipMetadata({
+    libraryKind: asset.metadata.libraryKind,
+    rows: rows.length > 0 ? rows : mediaLibraryKindRows(),
+  })
+}
+
+function loadMetaDraft(asset: MediaAsset | null): void {
+  if (!asset) {
+    metaDraft.value = emptyMediaClipMetadata()
+    metaBaseline.value = snapshotMeta(metaDraft.value)
+    return
+  }
+  metaDraft.value = draftFromAsset(asset)
+  metaBaseline.value = snapshotMeta(metaDraft.value)
+}
 
 function canDelete(asset: MediaAsset): boolean {
   return isAdmin.value || canEdit(asset.createdBy)
@@ -280,8 +304,8 @@ async function refresh(): Promise<void> {
   loading.value = true
   error.value = null
   selectedId.value = null
-  pendingMetaIds.value = []
-  metaAttempted.value = false
+  metaMenuOpen.value = false
+  loadMetaDraft(null)
   previewGeneration += 1
   previewUrls.value = {}
   posterUrls.value = {}
@@ -305,7 +329,7 @@ watch(
     if (
       selectedId.value &&
       !list.some((asset) => asset.id === selectedId.value) &&
-      !pendingMetaIds.value.includes(selectedId.value)
+      !metaDirty.value
     ) {
       selectedId.value = null
     }
@@ -315,40 +339,29 @@ watch(
 )
 
 function openPreview(asset: MediaAsset): void {
-  if (editingMeta.value && selectedId.value !== asset.id) return
-  selectedId.value = selectedId.value === asset.id && !editingMeta.value ? null : asset.id
+  if (metaDirty.value && selectedId.value !== asset.id) return
+  selectedId.value = selectedId.value === asset.id && !metaDirty.value ? null : asset.id
 }
 
 function closePreview(): void {
-  if (selectedId.value) {
-    pendingMetaIds.value = pendingMetaIds.value.filter((id) => id !== selectedId.value)
-  }
   metaMenuOpen.value = false
+  loadMetaDraft(null)
   selectedId.value = null
 }
 
 function addMetadata(kindId: MediaLibraryMetaKindId): void {
-  const asset = selected.value
-  if (!asset || !canEditSelectedMeta.value) return
+  if (!selected.value || !canEditSelectedMeta.value) return
   metaDraft.value = parseMediaClipMetadata({
     libraryKind: kindId,
     rows: mediaLibraryKindRows(),
   })
-  pendingMetaIds.value = [asset.id]
   metaMenuOpen.value = false
-  metaAttempted.value = false
 }
 
 watch(selectedId, (id) => {
   previewDimensions.value = null
-  metaAttempted.value = false
   metaMenuOpen.value = false
-  if (id && pendingMetaIds.value.includes(id)) {
-    metaDraft.value = parseMediaClipMetadata({
-      libraryKind: metaDraft.value.libraryKind,
-      rows: mediaLibraryKindRows(),
-    })
-  }
+  loadMetaDraft(assets.value.find((asset) => asset.id === id) ?? null)
 })
 
 function recordPreviewSize(width: number, height: number): void {
@@ -405,7 +418,7 @@ async function onFiles(event: Event): Promise<void> {
   }
   if (uploaded.length > 0) {
     assets.value = [...uploaded, ...assets.value]
-    if (!editingMeta.value) {
+    if (!metaDirty.value) {
       selectedId.value = uploaded[0].id
     }
   }
@@ -433,8 +446,10 @@ async function remove(asset: MediaAsset): Promise<void> {
     const { [asset.id]: _poster, ...restPosters } = posterUrls.value
     previewUrls.value = restUrls
     posterUrls.value = restPosters
-    if (selectedId.value === asset.id) selectedId.value = null
-    pendingMetaIds.value = pendingMetaIds.value.filter((id) => id !== asset.id)
+    if (selectedId.value === asset.id) {
+      loadMetaDraft(null)
+      selectedId.value = null
+    }
   } catch (cause) {
     window.alert(cause instanceof Error ? cause.message : 'Failed to delete media')
   } finally {
@@ -444,8 +459,7 @@ async function remove(asset: MediaAsset): Promise<void> {
 
 async function saveMetadata(): Promise<void> {
   const asset = selected.value
-  if (!asset || !editingMeta.value || savingMeta.value) return
-  metaAttempted.value = true
+  if (!asset || !canEditSelectedMeta.value || !metaDirty.value || savingMeta.value) return
 
   savingMeta.value = true
   error.value = null
@@ -459,8 +473,8 @@ async function saveMetadata(): Promise<void> {
     })
     const saved = await services.media.updateAssetMetadata(asset.id, savedMeta)
     assets.value = assets.value.map((item) => (item.id === saved.id ? saved : item))
-    pendingMetaIds.value = pendingMetaIds.value.filter((id) => id !== saved.id)
-    metaDraft.value = emptyMediaClipMetadata()
+    metaDraft.value = draftFromAsset(saved)
+    metaBaseline.value = snapshotMeta(metaDraft.value)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Failed to save metadata'
   } finally {
@@ -548,9 +562,9 @@ async function saveMetadata(): Promise<void> {
           </div>
           <div class="media-preview-stage-actions">
             <AuthorPillButton
-              v-if="editingMeta"
+              v-if="showingMetaFields && canEditSelectedMeta"
               variant="white"
-              :disabled="savingMeta"
+              :disabled="savingMeta || !metaDirty"
               @click="saveMetadata"
             >
               {{ savingMeta ? 'Saving…' : 'Save' }}
@@ -610,19 +624,13 @@ async function saveMetadata(): Promise<void> {
           <div class="media-meta-panel">
             <div class="media-meta-heading-row">
               <h3 class="media-meta-heading">Metadata</h3>
-              <p v-if="editingMeta && draftKindLabel" class="media-meta-kind">{{ draftKindLabel }}</p>
-              <p
-                v-else-if="selected.metadata.libraryKind"
-                class="media-meta-kind"
-              >
-                {{ mediaLibraryKindLabel(selected.metadata.libraryKind) }}
-              </p>
+              <p v-if="draftKindLabel" class="media-meta-kind">{{ draftKindLabel }}</p>
             </div>
-            <template v-if="editingMeta">
+            <template v-if="showingMetaFields">
               <dl class="media-meta-list">
                 <div
                   v-for="(row, index) in metaDraft.rows"
-                  :key="index"
+                  :key="`${row.name}-${index}`"
                   class="media-meta-card"
                 >
                   <dt class="media-meta-label">{{ row.name }}</dt>
@@ -632,20 +640,9 @@ async function saveMetadata(): Promise<void> {
                       class="media-meta-input"
                       type="text"
                       :aria-label="row.name"
+                      :readonly="!canEditSelectedMeta"
                     />
                   </dd>
-                </div>
-              </dl>
-            </template>
-            <template v-else-if="selectedHasMetadata">
-              <dl class="media-meta-list">
-                <div
-                  v-for="(row, index) in previewMetaRows"
-                  :key="`${row.name}-${index}`"
-                  class="media-meta-card"
-                >
-                  <dt class="media-meta-label">{{ row.name }}</dt>
-                  <dd class="media-meta-value">{{ row.text }}</dd>
                 </div>
               </dl>
             </template>
@@ -718,33 +715,44 @@ async function saveMetadata(): Promise<void> {
             class="media-library-card"
             :class="{
               'is-selected': selectedId === asset.id,
-              'is-locked': editingMeta && selectedId !== asset.id,
+              'is-locked': metaDirty && selectedId !== asset.id,
             }"
           >
-            <div
-              class="media-library-thumb"
-              role="button"
-              tabindex="0"
-              :aria-label="`Preview ${mediaAssetDisplayName(asset)}`"
-              @click="openPreview(asset)"
-              @keydown.enter.prevent="openPreview(asset)"
-              @keydown.space.prevent="openPreview(asset)"
-            >
-              <img
-                v-if="thumbSrc(asset)"
-                :src="thumbSrc(asset)!"
-                :alt="mediaAssetDisplayName(asset)"
-              />
-              <video
-                v-else-if="isVideo(asset) && previewUrls[asset.id]"
-                :src="`${previewUrls[asset.id]}#t=0.1`"
-                muted
-                playsinline
-                preload="auto"
-              />
-              <div v-else class="media-library-audio-thumb">
-                <span>{{ previewUrls[asset.id] ? kindLabel(asset.mimeType) : '…' }}</span>
+            <div class="media-library-thumb-wrap">
+              <div
+                class="media-library-thumb"
+                role="button"
+                tabindex="0"
+                :aria-label="`Preview ${mediaAssetDisplayName(asset)}`"
+                @click="openPreview(asset)"
+                @keydown.enter.prevent="openPreview(asset)"
+                @keydown.space.prevent="openPreview(asset)"
+              >
+                <img
+                  v-if="thumbSrc(asset)"
+                  :src="thumbSrc(asset)!"
+                  :alt="mediaAssetDisplayName(asset)"
+                />
+                <video
+                  v-else-if="isVideo(asset) && previewUrls[asset.id]"
+                  :src="`${previewUrls[asset.id]}#t=0.1`"
+                  muted
+                  playsinline
+                  preload="auto"
+                />
+                <div v-else class="media-library-audio-thumb">
+                  <span>{{ previewUrls[asset.id] ? kindLabel(asset.mimeType) : '…' }}</span>
+                </div>
               </div>
+              <span class="media-library-meta-pill">
+                <template v-if="mediaClipMetadataHasContent(asset.metadata)">
+                  Metadata added
+                </template>
+                <template v-else>
+                  No metadata
+                  <span class="media-library-meta-pill-x" aria-hidden="true">×</span>
+                </template>
+              </span>
             </div>
 
             <div class="media-library-card-body">
@@ -761,8 +769,8 @@ async function saveMetadata(): Promise<void> {
               <div class="media-library-card-actions">
                 <button
                   type="button"
-                  class="ghost-mini"
-                  :disabled="editingMeta"
+                  class="media-library-action"
+                  :disabled="metaDirty && selectedId !== asset.id"
                   @click="openPreview(asset)"
                 >
                   {{ selectedId === asset.id ? 'Hide' : 'Preview' }}
@@ -770,8 +778,7 @@ async function saveMetadata(): Promise<void> {
                 <button
                   v-if="canDelete(asset)"
                   type="button"
-                  class="ghost-mini"
-                  style="color: #dc2626"
+                  class="media-library-action media-library-delete"
                   :disabled="deletingId === asset.id"
                   @click="remove(asset)"
                 >
