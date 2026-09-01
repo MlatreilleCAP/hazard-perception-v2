@@ -37,6 +37,7 @@ export type MediaClipMetaRow = {
 
 export type MediaClipMetadata = Record<MediaClipMetaKey, string> & {
   rows: MediaClipMetaRow[]
+  libraryKind: string
 }
 
 function normalizeMetaAlias(value: string): string {
@@ -60,6 +61,7 @@ export function emptyMediaClipMetadata(): MediaClipMetadata {
     coreCompetency: '',
     hazardExplanation: '',
     rows: [],
+    libraryKind: '',
   }
 }
 
@@ -92,6 +94,12 @@ export function parseMediaClipMetadata(value: unknown): MediaClipMetadata {
   const lookup = new Map<string, string>()
 
   next.rows = readMetaRows(record.rows)
+  next.libraryKind =
+    typeof record.libraryKind === 'string'
+      ? record.libraryKind
+      : typeof record.library_kind === 'string'
+        ? record.library_kind
+        : ''
   for (const [rawKey, rawValue] of Object.entries(record)) {
     if (rawKey === 'rows' || typeof rawValue !== 'string') continue
     lookup.set(normalizeMetaAlias(rawKey), rawValue)
@@ -115,11 +123,36 @@ export function parseMediaClipMetadata(value: unknown): MediaClipMetadata {
   return next
 }
 
+export const MEDIA_LIBRARY_META_KINDS = [
+  { id: 'audio-file', label: 'Audio file' },
+  { id: 'image-file', label: 'Image File' },
+  { id: 'observe-challenge', label: 'Observe Challenge' },
+  { id: 'coaching', label: 'Coaching' },
+  { id: 'lesson', label: 'Lesson' },
+] as const
+
+export type MediaLibraryMetaKindId = (typeof MEDIA_LIBRARY_META_KINDS)[number]['id']
+
+export const MEDIA_LIBRARY_KIND_FIELDS = [
+  { key: 'country', label: 'Country' },
+  { key: 'coreCompetency', label: 'Core Competency' },
+  { key: 'vehicleType', label: 'Vehicle type' },
+] as const
+
+export function mediaLibraryKindLabel(kind: string): string {
+  return MEDIA_LIBRARY_META_KINDS.find((item) => item.id === kind)?.label ?? ''
+}
+
+export function mediaLibraryKindRows(): MediaClipMetaRow[] {
+  return MEDIA_LIBRARY_KIND_FIELDS.map((field) => ({ name: field.label, text: '' }))
+}
+
 export const DEFAULT_MEDIA_META_NAME = 'metadata'
 export const DEFAULT_MEDIA_META_TEXT = 'Empty'
 
 export function mediaClipMetadataHasContent(meta: MediaClipMetadata): boolean {
   return (
+    Boolean(meta.libraryKind.trim()) ||
     meta.rows.some((row) => {
       const name = row.name.trim()
       const text = row.text.trim()
@@ -141,11 +174,15 @@ export function mediaClipMetadataPreviewRows(
   const fromSheet = (meta?.rows ?? []).filter((row) => row.name.trim() || row.text.trim())
   if (fromSheet.length > 0) {
     return fromSheet.map((row) => ({
-      name: row.name.trim() || DEFAULT_MEDIA_META_NAME,
-      text: row.text.trim() || DEFAULT_MEDIA_META_TEXT,
+      name: row.name.trim(),
+      text: row.text.trim(),
     }))
   }
-  return [{ name: DEFAULT_MEDIA_META_NAME, text: DEFAULT_MEDIA_META_TEXT }]
+  if (!meta) return []
+  return MEDIA_LIBRARY_KIND_FIELDS.flatMap((field) => {
+    const text = meta[field.key].trim()
+    return text ? [{ name: field.label, text }] : []
+  })
 }
 
 export interface MediaAsset {

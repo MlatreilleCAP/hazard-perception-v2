@@ -870,11 +870,32 @@ fieldset.author-stack {
   color: var(--editor-ink);
 }
 
-.media-meta-hint {
+.media-meta-heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+}
+
+.media-meta-kind {
   margin: 0;
   font-family: var(--font-raleway);
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--editor-muted);
+}
+
+.media-meta-empty {
+  margin: 0;
+  font-family: var(--font-raleway);
+  font-size: 14px;
+  color: var(--editor-muted);
+}
+
+.media-meta-kinds {
+  left: 0;
+  right: auto;
+  min-width: 180px;
 }
 
 .media-meta-list {
