@@ -5,10 +5,13 @@ import { services } from '@/app/container'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import {
+  DEFAULT_MEDIA_META_NAME,
+  DEFAULT_MEDIA_META_TEXT,
   emptyMediaClipMetadata,
   formatMediaSize,
   mediaAssetDisplayName,
-  mediaClipMetadataComplete,
+  mediaClipMetadataPreviewRows,
+  parseMediaClipMetadata,
   MEDIA_CLIP_META_FIELDS,
   type MediaAsset,
   type MediaClipMetadata,
@@ -42,7 +45,13 @@ const filtered = computed(() => {
     if (!query) return true
     const name = mediaAssetDisplayName(asset).toLowerCase()
     const kind = kindLabel(asset.mimeType).toLowerCase()
-    const meta = MEDIA_CLIP_META_FIELDS.map((field) => asset.metadata[field.key].toLowerCase())
+    const meta = [
+      ...MEDIA_CLIP_META_FIELDS.map((field) => asset.metadata[field.key].toLowerCase()),
+      ...(asset.metadata.rows ?? []).flatMap((row) => [
+        row.name.toLowerCase(),
+        row.text.toLowerCase(),
+      ]),
+    ]
     return (
       name.includes(query) ||
       kind.includes(query) ||
@@ -61,7 +70,15 @@ const editingMeta = computed(
   () => Boolean(selected.value && pendingMetaIds.value.includes(selected.value.id)),
 )
 
-const metaComplete = computed(() => mediaClipMetadataComplete(metaDraft.value))
+const previewMetaRows = computed(() =>
+  selected.value ? mediaClipMetadataPreviewRows(selected.value.metadata) : [],
+)
+
+function defaultMetaDraft(): MediaClipMetadata {
+  return parseMediaClipMetadata({
+    rows: [{ name: DEFAULT_MEDIA_META_NAME, text: '' }],
+  })
+}
 
 function canDelete(asset: MediaAsset): boolean {
   return isAdmin.value || canEdit(asset.createdBy)
@@ -300,7 +317,7 @@ watch(selectedId, (id) => {
   previewDimensions.value = null
   metaAttempted.value = false
   if (id && pendingMetaIds.value.includes(id)) {
-    metaDraft.value = emptyMediaClipMetadata()
+    metaDraft.value = defaultMetaDraft()
   }
 })
 
@@ -362,7 +379,7 @@ async function onFiles(event: Event): Promise<void> {
     pendingMetaIds.value = [...pendingMetaIds.value, ...newIds]
     if (!editingMeta.value) {
       selectedId.value = newIds[0]
-      metaDraft.value = emptyMediaClipMetadata()
+      metaDraft.value = defaultMetaDraft()
       metaAttempted.value = false
     }
   }
@@ -403,25 +420,24 @@ async function saveMetadata(): Promise<void> {
   const asset = selected.value
   if (!asset || !editingMeta.value || savingMeta.value) return
   metaAttempted.value = true
-  if (!mediaClipMetadataComplete(metaDraft.value)) return
 
   savingMeta.value = true
   error.value = null
   try {
-    const saved = await services.media.updateAssetMetadata(asset.id, {
-      timeOfDay: metaDraft.value.timeOfDay.trim(),
-      maneuver: metaDraft.value.maneuver.trim(),
-      roadway: metaDraft.value.roadway.trim(),
-      trafficDensity: metaDraft.value.trafficDensity.trim(),
-      roadConditions: metaDraft.value.roadConditions.trim(),
+    const savedMeta = parseMediaClipMetadata({
+      rows: metaDraft.value.rows.map((row) => ({
+        name: row.name.trim() || DEFAULT_MEDIA_META_NAME,
+        text: row.text.trim() || DEFAULT_MEDIA_META_TEXT,
+      })),
     })
+    const saved = await services.media.updateAssetMetadata(asset.id, savedMeta)
     assets.value = assets.value.map((item) => (item.id === saved.id ? saved : item))
     const remaining = pendingMetaIds.value.filter((id) => id !== saved.id)
     pendingMetaIds.value = remaining
     const nextId = remaining[0] ?? null
     selectedId.value = nextId
     if (nextId) {
-      metaDraft.value = emptyMediaClipMetadata()
+      metaDraft.value = defaultMetaDraft()
       metaAttempted.value = false
     }
   } catch (cause) {
@@ -573,40 +589,43 @@ async function saveMetadata(): Promise<void> {
           <div class="media-meta-panel">
             <h3 class="media-meta-heading">Metadata</h3>
             <p v-if="editingMeta" class="media-meta-hint">
-              Fill every field before saving.
-            </p>
-            <p v-if="editingMeta && metaAttempted && !metaComplete" class="author-error">
-              All metadata fields are required.
+              Defaults to metadata / Empty until you type values or import a zip.
             </p>
             <dl class="media-meta-list">
-              <div
-                v-for="field in MEDIA_CLIP_META_FIELDS"
-                :key="field.key"
-                class="media-meta-card"
-                :class="{
-                  'is-invalid':
-                    editingMeta && metaAttempted && !metaDraft[field.key].trim(),
-                }"
-              >
-                <dt class="media-meta-label">
-                  <label :for="`media-meta-${field.key}`">{{ field.label }}</label>
-                </dt>
-                <dd class="media-meta-value">
-                  <input
-                    v-if="editingMeta"
-                    :id="`media-meta-${field.key}`"
-                    v-model="metaDraft[field.key]"
-                    class="media-meta-input"
-                    type="text"
-                    required
-                    :placeholder="field.label"
-                    :aria-invalid="metaAttempted && !metaDraft[field.key].trim()"
-                  />
-                  <span v-else>{{
-                    selected.metadata[field.key].trim() || '—'
-                  }}</span>
-                </dd>
-              </div>
+              <template v-if="editingMeta">
+                <div
+                  v-for="(row, index) in metaDraft.rows"
+                  :key="index"
+                  class="media-meta-card"
+                >
+                  <dt class="media-meta-label">
+                    <input
+                      v-model="row.name"
+                      class="media-meta-input"
+                      type="text"
+                      :placeholder="DEFAULT_MEDIA_META_NAME"
+                    />
+                  </dt>
+                  <dd class="media-meta-value">
+                    <input
+                      v-model="row.text"
+                      class="media-meta-input"
+                      type="text"
+                      placeholder="Empty"
+                    />
+                  </dd>
+                </div>
+              </template>
+              <template v-else>
+                <div
+                  v-for="(row, index) in previewMetaRows"
+                  :key="`${row.name}-${index}`"
+                  class="media-meta-card"
+                >
+                  <dt class="media-meta-label">{{ row.name }}</dt>
+                  <dd class="media-meta-value">{{ row.text }}</dd>
+                </div>
+              </template>
             </dl>
           </div>
         </div>

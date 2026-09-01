@@ -164,20 +164,32 @@ export class MediaService {
     return mapAsset(data as MediaAssetRow)
   }
 
-  async uploadVideo(activityId: string | null, file: File): Promise<MediaAsset> {
-    return this.uploadMedia(activityId, file, 'video/mp4')
+  async uploadVideo(
+    activityId: string | null,
+    file: File,
+    metadata?: MediaClipMetadata,
+  ): Promise<MediaAsset> {
+    return this.uploadMedia(activityId, file, 'video/mp4', metadata)
   }
 
-  async uploadAudio(activityId: string | null, file: File): Promise<MediaAsset> {
-    return this.uploadMedia(activityId, file, 'audio/mpeg')
+  async uploadAudio(
+    activityId: string | null,
+    file: File,
+    metadata?: MediaClipMetadata,
+  ): Promise<MediaAsset> {
+    return this.uploadMedia(activityId, file, 'audio/mpeg', metadata)
   }
 
-  async uploadImage(activityId: string | null, file: File): Promise<MediaAsset> {
+  async uploadImage(
+    activityId: string | null,
+    file: File,
+    metadata?: MediaClipMetadata,
+  ): Promise<MediaAsset> {
     const sizeError = imageUploadSizeError(file.size)
     if (sizeError) {
       throw new Error(sizeError)
     }
-    return this.uploadMedia(activityId, file, 'image/jpeg')
+    return this.uploadMedia(activityId, file, 'image/jpeg', metadata)
   }
 
   async uploadLibraryFile(file: File): Promise<MediaAsset> {
@@ -214,6 +226,7 @@ export class MediaService {
     activityId: string | null,
     file: File,
     fallbackMime: string,
+    metadata?: MediaClipMetadata,
   ): Promise<MediaAsset> {
     const sizeError = videoUploadSizeError(file.size)
     if (sizeError) {
@@ -241,6 +254,7 @@ export class MediaService {
     const probe = await readMediaProbe(file)
     const originalFilename = sanitizeOriginalFilename(file.name)
 
+    const parsedMetadata = metadata ? parseMediaClipMetadata(metadata) : null
     const row = {
       id,
       activity_id: activityId,
@@ -257,9 +271,19 @@ export class MediaService {
       width_px: probe.widthPx,
       height_px: probe.heightPx,
     }
-    let { error: insertError } = await client.from('media_assets').insert(withDimensions)
+    const withMetadata = parsedMetadata
+      ? { ...withDimensions, metadata: parsedMetadata }
+      : withDimensions
+    let { error: insertError } = await client.from('media_assets').insert(withMetadata)
+    if (insertError && /metadata/.test(insertError.message)) {
+      ;({ error: insertError } = await client.from('media_assets').insert(withDimensions))
+    }
     if (insertError && /width_px|height_px/.test(insertError.message)) {
-      ;({ error: insertError } = await client.from('media_assets').insert(row))
+      const fallback = parsedMetadata ? { ...row, metadata: parsedMetadata } : row
+      ;({ error: insertError } = await client.from('media_assets').insert(fallback))
+      if (insertError && /metadata/.test(insertError.message)) {
+        ;({ error: insertError } = await client.from('media_assets').insert(row))
+      }
     }
     if (insertError) {
       throw new Error(`Failed to register media asset: ${insertError.message}`)
@@ -279,6 +303,10 @@ export class MediaService {
         )
       }
       throw new Error(`Failed to upload media: ${uploadError.message}`)
+    }
+
+    if (parsedMetadata) {
+      return await this.updateAssetMetadata(id, parsedMetadata)
     }
 
     return this.getAsset(id)

@@ -5,7 +5,6 @@ import {
   COPY_FIELDS,
   COPY_SECTIONS,
   LESSON_KEYS,
-  QUESTION_KIND_VALUES,
   QUESTION_SECTIONS,
   REQUIRED_VIDEO_SLOTS,
   SLOT_FOLDER_LABELS,
@@ -16,6 +15,7 @@ import {
   isMediaName,
   isVideoName,
   isWorkbookName,
+  matchMediaSlot,
   matchMediaSlotFromPath,
   shouldIgnoreZipPath,
   videoMimeForName,
@@ -24,6 +24,10 @@ import {
   type VideoSlotId,
 } from '@/lib/inroadsMvp/packageSpec'
 import type { ProcessQuestionKind } from '@/types/questions'
+import {
+  parseMediaClipMetadata,
+  type MediaClipMetadata,
+} from '@/types/media'
 
 export type ImportedVideoFile = {
   slot: VideoSlotId
@@ -57,6 +61,7 @@ export type ParsedImportPackage = {
   lesson: ImportedLessonFields
   copy: ImportedCopy
   questions: ImportedQuestionRow[]
+  mediaMetadata: Partial<Record<VideoSlotId, MediaClipMetadata>>
   videos: Partial<Record<VideoSlotId, ImportedVideoFile>>
   warnings: string[]
   unusedFiles: string[]
@@ -67,6 +72,14 @@ function cellString(value: unknown): string {
   if (typeof value === 'string') return value.trim()
   if (typeof value === 'number' && Number.isFinite(value)) return String(value)
   if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    if (typeof record.text === 'string') return record.text.trim()
+    if (Array.isArray(record.richText)) {
+      return record.richText.map((part) => cellString(part)).join('').trim()
+    }
+    if (record.v != null && record.v !== record) return cellString(record.v)
+  }
   return String(value).trim()
 }
 
@@ -100,6 +113,32 @@ function sheetRows(sheet: XLSX.WorkSheet | null): unknown[][] {
     raw: false,
     blankrows: false,
   }) as unknown[][]
+}
+
+function sheetRecords(sheet: XLSX.WorkSheet | null): Array<Record<string, string>> {
+  if (!sheet) return []
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    defval: '',
+    raw: false,
+    blankrows: false,
+  })
+  return rows.map((row) => {
+    const record: Record<string, string> = {}
+    for (const [key, value] of Object.entries(row)) {
+      const header = normalizeHeader(key)
+      if (!header) continue
+      record[header] = cellString(value)
+    }
+    return record
+  })
+}
+
+function parseQuestionKind(raw: string): ProcessQuestionKind | null {
+  const value = normalizeHeader(raw)
+  if (!value) return null
+  if (value === 'severity' || value.includes('severity')) return 'severity'
+  if (value === 'theory' || value.includes('theory')) return 'theory'
+  return null
 }
 
 function bytesToVideoFile(path: string, bytes: Uint8Array): File {
@@ -150,31 +189,28 @@ function parseLessonSheet(
 }
 
 function parseCopySheet(workbook: XLSX.WorkBook, warnings: string[]): ImportedCopy {
-  const sheet = findSheet(workbook, SHEET_NAMES.copy)
+  const sheet =
+    findSheet(workbook, SHEET_NAMES.copy) ?? findSheet(workbook, SHEET_NAMES.copyLegacy)
   if (!sheet) {
     warnings.push(`Missing "${SHEET_NAMES.copy}" sheet.`)
     return {}
   }
 
-  const rows = sheetRows(sheet)
-  const header = rows[0] ?? []
-  const sectionIdx = header.findIndex((cell) => normalizeHeader(cell) === 'section')
-  const fieldIdx = header.findIndex((cell) => normalizeHeader(cell) === 'field')
-  const textIdx = header.findIndex((cell) => normalizeHeader(cell) === 'text')
-  if (sectionIdx < 0 || fieldIdx < 0 || textIdx < 0) {
-    warnings.push('Copy sheet needs section, field, and text columns.')
-    return {}
-  }
-
+  const records = sheetRecords(sheet)
   const copy: ImportedCopy = {}
   const knownSections = new Set<string>(COPY_SECTIONS)
   const knownFields = new Set<string>(COPY_FIELDS)
 
-  for (const row of rows.slice(1)) {
-    let section = normalizeHeader(row[sectionIdx])
+  if (records.length === 0) {
+    warnings.push('Instructions sheet needs section, field, and text columns.')
+    return {}
+  }
+
+  for (const record of records) {
+    let section = normalizeHeader(record.section)
     if (section === 'see') section = 'observe'
-    const field = normalizeHeader(row[fieldIdx])
-    const text = cellString(row[textIdx])
+    const field = normalizeHeader(record.field)
+    const text = record.text ?? record.value ?? ''
     if (!section && !field && !text) continue
     if (!knownSections.has(section)) {
       warnings.push(`Unknown Copy section "${section || '(empty)'}".`)
@@ -184,9 +220,10 @@ function parseCopySheet(workbook: XLSX.WorkBook, warnings: string[]): ImportedCo
       warnings.push(`Unknown Copy field "${field || '(empty)'}" for ${section}.`)
       continue
     }
+    const previous = copy[section as CopySection]?.[field as CopyField] ?? ''
     copy[section as CopySection] = {
       ...copy[section as CopySection],
-      [field as CopyField]: text,
+      [field as CopyField]: text || previous,
     }
   }
 
@@ -203,46 +240,44 @@ function parseQuestionsSheet(
     return []
   }
 
-  const rows = sheetRows(sheet)
-  const header = (rows[0] ?? []).map((cell) => normalizeHeader(cell))
-  const col = (name: string) => header.indexOf(name)
-
-  const sectionCol = col('section')
-  const segmentCol = col('segment')
-  const kindCol = col('kind')
-  const textCol = col('question_text')
-  if (sectionCol < 0 || kindCol < 0 || textCol < 0) {
-    warnings.push('Questions sheet needs section, kind, and question_text columns.')
-    return []
-  }
-
+  const records = sheetRecords(sheet)
   const questions: ImportedQuestionRow[] = []
-  rows.slice(1).forEach((row, index) => {
+  records.forEach((record, index) => {
     const line = index + 2
-    const sectionRaw = normalizeHeader(row[sectionCol])
-    const kindRaw = normalizeHeader(row[kindCol])
-    const questionText = cellString(row[textCol])
-    const segmentRaw = segmentCol >= 0 ? cellString(row[segmentCol]) : ''
-    if (!sectionRaw && !kindRaw && !questionText && !segmentRaw) return
+    let section = normalizeHeader(record.section)
+    if (section === 'see') section = 'observe'
+    const questionText = record.question_text || record.question || ''
+    const kind = parseQuestionKind(record.kind)
+    const segmentRaw = record.segment ?? ''
+    if (!section && !record.kind && !questionText && !segmentRaw) return
 
-    if (!QUESTION_SECTIONS.includes(sectionRaw as (typeof QUESTION_SECTIONS)[number])) {
-        warnings.push(`Questions row ${line}: section must be observe, process, or anticipate.`)
+    if (!QUESTION_SECTIONS.includes(section as (typeof QUESTION_SECTIONS)[number])) {
+      warnings.push(`Questions row ${line}: section must be observe, process, or anticipate.`)
       return
     }
-    if (!QUESTION_KIND_VALUES.includes(kindRaw as (typeof QUESTION_KIND_VALUES)[number])) {
+
+    const inferredKind: ProcessQuestionKind | null =
+      kind ??
+      (['low', 'medium', 'high'].includes(normalizeHeader(record.a_text ?? '')) &&
+      ['low', 'medium', 'high'].includes(normalizeHeader(record.b_text ?? ''))
+        ? 'severity'
+        : questionText
+          ? 'theory'
+          : null)
+    if (!inferredKind) {
       warnings.push(`Questions row ${line}: kind must be severity or theory.`)
       return
     }
 
     const segmentNum = Number.parseInt(segmentRaw, 10)
-    const segment = segmentNum === 2 ? 2 : 1
+    const segment: 1 | 2 = segmentNum === 2 ? 2 : 1
     if (segmentRaw && segmentNum !== 1 && segmentNum !== 2) {
       warnings.push(`Questions row ${line}: segment must be 1 or 2.`)
       return
     }
 
     const answers = ANSWER_COLUMNS.map((letter) => ({
-      text: cellString(row[col(`${letter}_text`)]),
+      text: record[`${letter}_text`] || record[letter] || '',
     })).filter((answer) => answer.text.length > 0)
 
     if (answers.length < 2) {
@@ -251,7 +286,7 @@ function parseQuestionsSheet(
     }
 
     const lastLetter = ANSWER_COLUMNS[answers.length - 1]?.toUpperCase() ?? 'F'
-    const correctRaw = cellString(row[col('correct')]).toUpperCase()
+    const correctRaw = (record.correct || record.answer || 'A').toUpperCase()
     const correctIndex = ANSWER_COLUMNS.indexOf(
       correctRaw.toLowerCase() as (typeof ANSWER_COLUMNS)[number],
     )
@@ -261,13 +296,13 @@ function parseQuestionsSheet(
     }
 
     questions.push({
-      section: sectionRaw as 'observe' | 'process' | 'anticipate',
+      section: section as 'observe' | 'process' | 'anticipate',
       segment,
-      kind: kindRaw as ProcessQuestionKind,
+      kind: inferredKind,
       questionText,
-      explanation: cellString(row[col('explanation')]),
-      showExplanation: parseBoolean(cellString(row[col('show_explanation')])),
-      showCorrectIncorrect: parseBoolean(cellString(row[col('show_correct_incorrect')])),
+      explanation: record.explanation ?? '',
+      showExplanation: parseBoolean(record.show_explanation ?? ''),
+      showCorrectIncorrect: parseBoolean(record.show_correct_incorrect ?? ''),
       correctIndex,
       answers,
     })
@@ -276,15 +311,59 @@ function parseQuestionsSheet(
   return questions
 }
 
+function parseMetadataSheet(
+  workbook: XLSX.WorkBook,
+  warnings: string[],
+): Partial<Record<VideoSlotId, MediaClipMetadata>> {
+  const sheet = findSheet(workbook, SHEET_NAMES.metadata)
+  if (!sheet) {
+    warnings.push(`Missing "${SHEET_NAMES.metadata}" sheet.`)
+    return {}
+  }
+
+  const records = sheetRecords(sheet)
+  const raw: Partial<Record<VideoSlotId, Array<{ name: string; text: string }>>> = {}
+  for (const record of records) {
+    const folder =
+      record.video_folder || record.folder || record.video || record.clip || ''
+    const name =
+      record.metadata_name || record.name || record.field || record.metadata || ''
+    const text = record.metadata_text || record.text || record.value || ''
+    if (!folder && !name && !text) continue
+    const slot = matchMediaSlot(folder)
+    if (!slot) {
+      warnings.push(`Metadata folder "${folder || '(empty)'}" does not match a media folder.`)
+      continue
+    }
+    if (!name) {
+      warnings.push(`Metadata row for ${folder} is missing Metadata Name.`)
+      continue
+    }
+    raw[slot] = [...(raw[slot] ?? []), { name, text }]
+  }
+
+  const mediaMetadata: Partial<Record<VideoSlotId, MediaClipMetadata>> = {}
+  for (const [slot, sheetRowsForSlot] of Object.entries(raw) as Array<
+    [VideoSlotId, Array<{ name: string; text: string }>]
+  >) {
+    mediaMetadata[slot] = parseMediaClipMetadata({ rows: sheetRowsForSlot })
+  }
+  if (Object.keys(mediaMetadata).length === 0 && records.length > 0) {
+    warnings.push('Metadata sheet has rows, but none matched a media folder.')
+  }
+  return mediaMetadata
+}
+
 export function parseWorkbookBytes(
   bytes: Uint8Array,
   warnings: string[],
-): Pick<ParsedImportPackage, 'lesson' | 'copy' | 'questions'> {
+): Pick<ParsedImportPackage, 'lesson' | 'copy' | 'questions' | 'mediaMetadata'> {
   const workbook = XLSX.read(bytes, { type: 'array' })
   return {
     lesson: parseLessonSheet(workbook, warnings),
     copy: parseCopySheet(workbook, warnings),
     questions: parseQuestionsSheet(workbook, warnings),
+    mediaMetadata: parseMetadataSheet(workbook, warnings),
   }
 }
 
@@ -302,7 +381,12 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
     if (shouldIgnoreZipPath(path)) continue
 
     if (isWorkbookName(path)) {
-      if (workbookBytes) {
+      const name = basename(path).toLowerCase()
+      const isCanonical = name === 'lesson.xlsx' || name === 'lesson.xls'
+      const haveCanonical = workbookPath
+        ? /lesson\.xlsx?$/i.test(basename(workbookPath))
+        : false
+      if (workbookBytes && (haveCanonical || !isCanonical)) {
         warnings.push(`Ignoring extra workbook ${path} (already using ${workbookPath}).`)
         unusedFiles.push(path)
         continue

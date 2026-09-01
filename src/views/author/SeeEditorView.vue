@@ -313,7 +313,7 @@ async function remove(): Promise<void> {
           v-model="instructionText"
           label="Instruction text"
           multiline
-          :rows="3"
+          :rows="1"
         />
       </section>
 

@@ -294,9 +294,9 @@ body:has(.player-page) {
   margin: 0;
   width: 100%;
   font-family: var(--font-poppins, inherit);
-  font-size: calc(16px * 0.95 * 0.97);
+  font-size: calc(16px * 0.95 * 0.97 * 0.95);
   font-weight: 400;
-  line-height: calc(16px * 0.95 * 0.97 * 1.5 - 1px);
+  line-height: calc(16px * 0.95 * 0.97 * 0.95 * 1.5 - 1px);
   color: var(--process-charcoal, #403b3b);
   overflow-wrap: anywhere;
 }

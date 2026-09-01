@@ -52,6 +52,13 @@ watch(
   },
 )
 
+watch(
+  () => props.modelValue.questions.map((question) => question.id).join(','),
+  () => {
+    questions.value = props.modelValue.questions.map((question) => cloneJson(question))
+  },
+)
+
 function commit(next: ProcessSurveyQuestion[]): void {
   const normalized = next.map((question) => ({
     ...question,

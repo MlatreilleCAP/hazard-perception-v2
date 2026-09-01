@@ -72,15 +72,13 @@ function copyRows(content: ImportWorkbookContent): string[][] {
     ['section', 'field', 'text'],
     ['observe', 'instruction', content.observe.instruction],
     ['observe', 'instruction_pill', content.observe.instructionPill],
+    ['observe', 'second_instruction', content.observe.secondInstruction],
     ['observe', 'maneuver', content.observe.maneuver],
     ['observe', 'roadway', content.observe.roadway],
     ['observe', 'traffic_density', content.observe.trafficDensity],
     ['observe', 'time_of_day', content.observe.timeOfDay],
     ['observe', 'road_conditions', content.observe.roadConditions],
-    ['observe', 'hazard_name', content.observe.hazardName],
-    ['observe', 'core_competency', content.observe.coreCompetency],
     ['observe', 'hazard_explanation', content.observe.hazardExplanation],
-    ['observe', 'second_instruction', content.observe.secondInstruction],
     ['observe', 'second_instruction_pill', content.observe.secondInstructionPill],
     ['process', 'instruction', content.process.instruction],
     ['process', 'instruction_pill', content.process.instructionPill],
@@ -93,6 +91,55 @@ function copyRows(content: ImportWorkbookContent): string[][] {
     ['anticipate', 'second_instruction_pill', content.anticipate.secondInstructionPill],
     ['anticipate', 'second_score_threshold', content.anticipate.secondScoreThreshold],
   ]
+}
+
+const CLIP_META_NAMES: Array<[string, (content: ImportWorkbookContent) => string]> = [
+  ['maneuver', (content) => content.observe.maneuver],
+  ['roadway', (content) => content.observe.roadway],
+  ['traffic_density', (content) => content.observe.trafficDensity],
+  ['time_of_day', (content) => content.observe.timeOfDay],
+  ['Country', () => 'Canada'],
+  ['Vehicle Type', () => 'Passenger Vehicle'],
+]
+
+const HAZARD_SCENARIO_META_NAMES: Array<
+  [string, (content: ImportWorkbookContent) => string]
+> = [
+  ['Lever', () => 'SPC_001'],
+  ['Country', () => 'Canada'],
+  ['Vehicle Type', () => 'Passenger Vehicle'],
+  ['core_competency', (content) => content.observe.coreCompetency],
+]
+
+const COUNTRY_VEHICLE_META_NAMES: Array<
+  [string, (content: ImportWorkbookContent) => string]
+> = [
+  ['Country', () => 'Canada'],
+  ['Vehicle Type', () => 'Passenger Vehicle'],
+]
+
+const METADATA_TEMPLATE_FOLDERS: Array<{
+  folder: string
+  names?: Array<[string, (content: ImportWorkbookContent) => string]>
+}> = [
+  { folder: 'Observe Hazard Scenario', names: HAZARD_SCENARIO_META_NAMES },
+  { folder: 'Observe Coaching Video', names: COUNTRY_VEHICLE_META_NAMES },
+  { folder: 'Process Lesson Video' },
+  { folder: 'Process Coaching Video' },
+  { folder: 'Anticipate Lesson Video' },
+  { folder: 'Anticipate Coaching Video' },
+  { folder: 'Observe Explanation Image' },
+  { folder: 'Hazard Summary Audio' },
+]
+
+function metadataRows(content: ImportWorkbookContent): string[][] {
+  const rows: string[][] = [['Video Folder', 'Metadata Name', 'Metadata text']]
+  for (const item of METADATA_TEMPLATE_FOLDERS) {
+    for (const [name, value] of item.names ?? CLIP_META_NAMES) {
+      rows.push([item.folder, name, value(content)])
+    }
+  }
+  return rows
 }
 
 function questionRow(
@@ -407,6 +454,19 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
     }
   }
   await protectSheet(questions, true)
+
+  const metadata = workbook.addWorksheet(SHEET_NAMES.metadata)
+  metadataRows(content).forEach((row) => metadata.addRow(row))
+  metadata.getRow(1).font = { bold: true }
+  metadata.getColumn(1).width = 28
+  metadata.getColumn(2).width = 22
+  metadata.getColumn(3).width = 48
+  metadata.eachRow((row, rowNumber) => {
+    row.eachCell((cell, colNumber) => {
+      lockCell(cell, rowNumber === 1 || colNumber === 1)
+    })
+  })
+  await protectSheet(metadata, true)
 
   const buffer = await workbook.xlsx.writeBuffer()
   return new Uint8Array(buffer)

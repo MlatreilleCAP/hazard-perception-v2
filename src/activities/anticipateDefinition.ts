@@ -1,5 +1,6 @@
 import type { ActivityDefinition } from '@/types/activity'
 import { cloneJson } from '@/app/clone'
+import { ensureContentNode } from '@/activities/ensureContentNode'
 import {
   ANTICIPATE_NODE_TYPE,
   DEFAULT_ANTICIPATE_INSTRUCTION,
@@ -12,7 +13,14 @@ import {
 } from '@/types/anticipate'
 
 export function findAnticipateNode(definition: ActivityDefinition) {
-  return definition.nodes.find((node) => node.type === ANTICIPATE_NODE_TYPE) ?? null
+  return (
+    definition.nodes.find((node) => node.type === ANTICIPATE_NODE_TYPE) ??
+    definition.nodes.find((node) => {
+      const config = node.config as Record<string, unknown> | undefined
+      return Boolean(config && typeof config.anticipate === 'object')
+    }) ??
+    null
+  )
 }
 
 function rawAnticipateConfig(config: Record<string, unknown> | undefined): unknown {
@@ -64,10 +72,12 @@ export function writeAnticipateDefinition(
   anticipate: AnticipateDefinition,
 ): ActivityDefinition {
   const next = cloneJson(definition)
-  const node = next.nodes.find((item) => item.type === ANTICIPATE_NODE_TYPE)
-  if (!node) {
-    throw new Error('Anticipate activity is missing the anticipate.scenario node')
-  }
+  const node = ensureContentNode(next, {
+    type: ANTICIPATE_NODE_TYPE,
+    name: 'Anticipate',
+    existing: findAnticipateNode(next),
+    defaultConfig: { anticipate: createDefaultAnticipateDefinition() },
+  })
   node.config = { anticipate: cloneAnticipateDefinition(anticipate) }
   next.scoring = {
     ...next.scoring,

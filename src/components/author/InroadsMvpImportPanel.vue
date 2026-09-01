@@ -168,6 +168,11 @@ async function runImport(file: File): Promise<void> {
             ? `: ${report.uploadedSlots.map((slot) => SLOT_FOLDER_LABELS[slot]).join(', ')}`
             : ''
         }}.
+        <template v-if="report.metadataSaved">
+          Saved metadata on {{ report.metadataSaved }} file{{
+            report.metadataSaved === 1 ? '' : 's'
+          }}.
+        </template>
       </p>
       <p v-if="report.libraryOnlySlots.length" class="author-muted">
         Coaching clips in the library (not attached to hazards yet):

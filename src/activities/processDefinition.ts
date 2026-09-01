@@ -1,5 +1,6 @@
 import type { ActivityDefinition } from '@/types/activity'
 import { cloneJson } from '@/app/clone'
+import { ensureContentNode } from '@/activities/ensureContentNode'
 import {
   DEFAULT_PROCESS_INSTRUCTION,
   DEFAULT_PROCESS_INSTRUCTION_PILL,
@@ -12,7 +13,14 @@ import {
 } from '@/types/process'
 
 export function findProcessNode(definition: ActivityDefinition) {
-  return definition.nodes.find((node) => node.type === PROCESS_NODE_TYPE) ?? null
+  return (
+    definition.nodes.find((node) => node.type === PROCESS_NODE_TYPE) ??
+    definition.nodes.find((node) => {
+      const config = node.config as Record<string, unknown> | undefined
+      return Boolean(config && typeof config.process === 'object')
+    }) ??
+    null
+  )
 }
 
 function rawProcessConfig(config: Record<string, unknown> | undefined): unknown {
@@ -64,10 +72,12 @@ export function writeProcessDefinition(
   process: ProcessDefinition,
 ): ActivityDefinition {
   const next = cloneJson(definition)
-  const node = next.nodes.find((item) => item.type === PROCESS_NODE_TYPE)
-  if (!node) {
-    throw new Error('Process activity is missing the process.comprehension node')
-  }
+  const node = ensureContentNode(next, {
+    type: PROCESS_NODE_TYPE,
+    name: 'Process',
+    existing: findProcessNode(next),
+    defaultConfig: { process: createDefaultProcessDefinition() },
+  })
   node.config = { process: cloneProcessDefinition(process) }
   next.scoring = {
     ...next.scoring,

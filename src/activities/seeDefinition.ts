@@ -1,5 +1,6 @@
 import type { ActivityDefinition } from '@/types/activity'
 import { cloneJson } from '@/app/clone'
+import { ensureContentNode } from '@/activities/ensureContentNode'
 import {
   SEE_NODE_TYPE,
   cloneSeeDefinition,
@@ -10,7 +11,14 @@ import {
 } from '@/types/see'
 
 export function findSeeNode(definition: ActivityDefinition) {
-  return definition.nodes.find((node) => node.type === SEE_NODE_TYPE) ?? null
+  return (
+    definition.nodes.find((node) => node.type === SEE_NODE_TYPE) ??
+    definition.nodes.find((node) => {
+      const config = node.config as Record<string, unknown> | undefined
+      return Boolean(config && typeof config.see === 'object')
+    }) ??
+    null
+  )
 }
 
 function rawSeeConfig(config: Record<string, unknown> | undefined): unknown {
@@ -38,11 +46,13 @@ export function writeSeeDefinition(
   see: SeeDefinition,
 ): ActivityDefinition {
   const next = cloneJson(definition)
-  const node = next.nodes.find((item) => item.type === SEE_NODE_TYPE)
-  if (!node) {
-    throw new Error('See activity is missing the see.hazard node')
-  }
   const normalized = normalizeSeeDefinition(see)
+  const node = ensureContentNode(next, {
+    type: SEE_NODE_TYPE,
+    name: 'Observe',
+    existing: findSeeNode(next),
+    defaultConfig: { see: createDefaultSeeDefinition() },
+  })
   node.config = { see: cloneSeeDefinition(normalized) }
   next.scoring = {
     ...next.scoring,

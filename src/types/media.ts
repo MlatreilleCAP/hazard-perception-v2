@@ -7,16 +7,44 @@ export interface MediaRef {
 }
 
 export const MEDIA_CLIP_META_FIELDS = [
-  { key: 'timeOfDay', label: 'Time of Day' },
-  { key: 'maneuver', label: 'Maneuver' },
-  { key: 'roadway', label: 'Roadway' },
-  { key: 'trafficDensity', label: 'Traffic Density' },
-  { key: 'roadConditions', label: 'Road Conditions' },
+  { key: 'timeOfDay', label: 'Time of Day', aliases: ['time_of_day'] },
+  { key: 'maneuver', label: 'Maneuver', aliases: ['maneuver'] },
+  { key: 'roadway', label: 'Roadway', aliases: ['roadway'] },
+  { key: 'trafficDensity', label: 'Traffic Density', aliases: ['traffic_density'] },
+  { key: 'roadConditions', label: 'Road Conditions', aliases: ['road_conditions'] },
+  { key: 'country', label: 'Country', aliases: ['country'] },
+  { key: 'vehicleType', label: 'Vehicle Type', aliases: ['vehicle_type'] },
+  { key: 'lever', label: 'Lever', aliases: ['lever'] },
+  { key: 'hazardName', label: 'Hazard Name', aliases: ['hazard_name'] },
+  { key: 'coreCompetency', label: 'Core Competency', aliases: ['core_competency'] },
+  { key: 'hazardExplanation', label: 'Hazard Explanation', aliases: ['hazard_explanation'] },
+] as const
+
+export const MEDIA_CLIP_REQUIRED_KEYS = [
+  'timeOfDay',
+  'maneuver',
+  'roadway',
+  'trafficDensity',
+  'roadConditions',
 ] as const
 
 export type MediaClipMetaKey = (typeof MEDIA_CLIP_META_FIELDS)[number]['key']
 
-export type MediaClipMetadata = Record<MediaClipMetaKey, string>
+export type MediaClipMetaRow = {
+  name: string
+  text: string
+}
+
+export type MediaClipMetadata = Record<MediaClipMetaKey, string> & {
+  rows: MediaClipMetaRow[]
+}
+
+function normalizeMetaAlias(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+}
 
 export function emptyMediaClipMetadata(): MediaClipMetadata {
   return {
@@ -25,22 +53,99 @@ export function emptyMediaClipMetadata(): MediaClipMetadata {
     roadway: '',
     trafficDensity: '',
     roadConditions: '',
+    country: '',
+    vehicleType: '',
+    lever: '',
+    hazardName: '',
+    coreCompetency: '',
+    hazardExplanation: '',
+    rows: [],
   }
+}
+
+function readMetaRows(value: unknown): MediaClipMetaRow[] {
+  if (!Array.isArray(value)) return []
+  const rows: MediaClipMetaRow[] = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+    const record = item as Record<string, unknown>
+    const name = typeof record.name === 'string' ? record.name : ''
+    const text = typeof record.text === 'string' ? record.text : ''
+    if (!name.trim() && !text.trim()) continue
+    rows.push({ name, text })
+  }
+  return rows
 }
 
 export function parseMediaClipMetadata(value: unknown): MediaClipMetadata {
   const next = emptyMediaClipMetadata()
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return next
-  const record = value as Record<string, unknown>
+  let parsed: unknown = value
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed) as unknown
+    } catch {
+      return next
+    }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return next
+  const record = parsed as Record<string, unknown>
+  const lookup = new Map<string, string>()
+
+  next.rows = readMetaRows(record.rows)
+  for (const [rawKey, rawValue] of Object.entries(record)) {
+    if (rawKey === 'rows' || typeof rawValue !== 'string') continue
+    lookup.set(normalizeMetaAlias(rawKey), rawValue)
+    if (next.rows.length === 0 && rawValue.trim()) {
+      const known = MEDIA_CLIP_META_FIELDS.find(
+        (field) =>
+          field.key === rawKey ||
+          field.aliases.some((alias) => normalizeMetaAlias(alias) === normalizeMetaAlias(rawKey)),
+      )
+      next.rows.push({ name: known?.label ?? rawKey, text: rawValue })
+    }
+  }
+  for (const row of next.rows) {
+    if (row.text.trim()) lookup.set(normalizeMetaAlias(row.name), row.text)
+  }
   for (const field of MEDIA_CLIP_META_FIELDS) {
-    const raw = record[field.key]
-    next[field.key] = typeof raw === 'string' ? raw : ''
+    const aliases = [field.key, ...field.aliases].map(normalizeMetaAlias)
+    const match = aliases.map((alias) => lookup.get(alias)).find((text) => text != null)
+    if (match != null) next[field.key] = match
   }
   return next
 }
 
-export function mediaClipMetadataComplete(meta: MediaClipMetadata): boolean {
-  return MEDIA_CLIP_META_FIELDS.every((field) => meta[field.key].trim().length > 0)
+export const DEFAULT_MEDIA_META_NAME = 'metadata'
+export const DEFAULT_MEDIA_META_TEXT = 'Empty'
+
+export function mediaClipMetadataHasContent(meta: MediaClipMetadata): boolean {
+  return (
+    meta.rows.some((row) => {
+      const name = row.name.trim()
+      const text = row.text.trim()
+      if (!name && !text) return false
+      if (
+        name.toLowerCase() === DEFAULT_MEDIA_META_NAME &&
+        (!text || text.toLowerCase() === DEFAULT_MEDIA_META_TEXT.toLowerCase())
+      ) {
+        return false
+      }
+      return true
+    }) || MEDIA_CLIP_META_FIELDS.some((field) => meta[field.key].trim().length > 0)
+  )
+}
+
+export function mediaClipMetadataPreviewRows(
+  meta: MediaClipMetadata | null | undefined,
+): MediaClipMetaRow[] {
+  const fromSheet = (meta?.rows ?? []).filter((row) => row.name.trim() || row.text.trim())
+  if (fromSheet.length > 0) {
+    return fromSheet.map((row) => ({
+      name: row.name.trim() || DEFAULT_MEDIA_META_NAME,
+      text: row.text.trim() || DEFAULT_MEDIA_META_TEXT,
+    }))
+  }
+  return [{ name: DEFAULT_MEDIA_META_NAME, text: DEFAULT_MEDIA_META_TEXT }]
 }
 
 export interface MediaAsset {

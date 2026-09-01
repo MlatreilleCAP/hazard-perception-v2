@@ -18,7 +18,8 @@ import {
   createEmptyAnticipateSegment,
   type AnticipateDefinition,
 } from '@/types/anticipate'
-import type { MediaRef } from '@/types/media'
+import type { MediaClipMetadata, MediaRef } from '@/types/media'
+import { mediaClipMetadataHasContent } from '@/types/media'
 import {
   buildPersistableProcessDefinition,
   createEmptyProcessSegment,
@@ -83,15 +84,17 @@ export type ImportProgressFn = (message: string) => void
 export type ImportPackageReport = {
   uploadedSlots: VideoSlotId[]
   libraryOnlySlots: VideoSlotId[]
+  metadataSaved: number
   warnings: string[]
   unusedFiles: string[]
 }
 
 function toQuestion(row: ImportedQuestionRow): ProcessSurveyQuestion {
-  const answers = answersWithFixedPoints(
-    row.answers.map((answer) => createAnswerOption(answer.text, 0)),
-    row.correctIndex,
-  )
+  const answerOptions = row.answers.map((answer) => createAnswerOption(answer.text, 0))
+  if (row.kind === 'theory') {
+    while (answerOptions.length < 3) answerOptions.push(createAnswerOption('', 0))
+  }
+  const answers = answersWithFixedPoints(answerOptions, row.correctIndex)
   return {
     id: crypto.randomUUID(),
     kind: row.kind,
@@ -108,11 +111,12 @@ function bankFor(
   rows: ImportedQuestionRow[],
   section: 'observe' | 'process' | 'anticipate',
   segment: 1 | 2,
+  fallback: ProcessQuestionBank = emptyQuestionBank(),
 ): ProcessQuestionBank {
   const questions = rows
     .filter((row) => row.section === section && row.segment === segment)
     .map(toQuestion)
-  return questions.length > 0 ? { version: 2, questions } : emptyQuestionBank()
+  return questions.length > 0 ? { version: 2, questions } : fallback
 }
 
 async function uploadSlot(
@@ -120,13 +124,14 @@ async function uploadSlot(
   slot: VideoSlotId,
   file: File,
   onProgress: ImportProgressFn | undefined,
+  metadata?: MediaClipMetadata,
 ): Promise<{ media: MediaRef; durationMs: number }> {
   onProgress?.(`Uploading ${slot}…`)
   const asset = IMAGE_SLOT_IDS.includes(slot)
-    ? await services.media.uploadImage(activityId, file)
+    ? await services.media.uploadImage(activityId, file, metadata)
     : AUDIO_SLOT_IDS.includes(slot)
-      ? await services.media.uploadAudio(activityId, file)
-      : await services.media.uploadVideo(activityId, file)
+      ? await services.media.uploadAudio(activityId, file, metadata)
+      : await services.media.uploadVideo(activityId, file, metadata)
   return {
     media: { media_asset_id: asset.id },
     durationMs: asset.durationMs && asset.durationMs > 0 ? asset.durationMs : 0,
@@ -144,14 +149,22 @@ function patchProcess(
     ...(current.segments[0] ?? createEmptyProcessSegment()),
     media: uploaded['process-1']?.media ?? current.segments[0]?.media ?? null,
     durationMs: uploaded['process-1']?.durationMs ?? current.segments[0]?.durationMs ?? 0,
-    questions: bankFor(payload.questions, 'process', 1),
+    questions: bankFor(
+      payload.questions,
+      'process',
+      1,
+      current.segments[0]?.questions ?? emptyQuestionBank(),
+    ),
   }
   const working: ProcessDefinition = {
     ...current,
-    instructionText: copy.instruction ?? current.instructionText,
-    instructionPill: copy.instruction_pill || current.instructionPill,
-    secondInstructionText: copy.second_instruction ?? current.secondInstructionText,
-    secondInstructionPill: copy.second_instruction_pill || current.secondInstructionPill,
+    instructionText: firstFilled(copy.instruction, current.instructionText),
+    instructionPill: firstFilled(copy.instruction_pill, current.instructionPill),
+    secondInstructionText: firstFilled(copy.second_instruction, current.secondInstructionText),
+    secondInstructionPill: firstFilled(
+      copy.second_instruction_pill,
+      current.secondInstructionPill,
+    ),
     secondSegmentScoreThreshold: 100,
     segments: [
       segment1,
@@ -159,7 +172,12 @@ function patchProcess(
         ...(current.segments[1] ?? createEmptyProcessSegment()),
         media: uploaded['process-2']?.media ?? current.segments[1]?.media ?? null,
         durationMs: uploaded['process-2']?.durationMs ?? current.segments[1]?.durationMs ?? 0,
-        questions: bankFor(payload.questions, 'process', 2),
+        questions: bankFor(
+          payload.questions,
+          'process',
+          2,
+          current.segments[1]?.questions ?? emptyQuestionBank(),
+        ),
       },
       {
         ...(current.segments[2] ?? createEmptyProcessSegment()),
@@ -181,23 +199,36 @@ function patchAnticipate(
   const enableThird = Boolean(uploaded['anticipate-3'])
   const working: AnticipateDefinition = {
     ...current,
-    instructionText: copy.instruction ?? current.instructionText,
-    instructionPill: copy.instruction_pill || current.instructionPill,
-    secondInstructionText: copy.second_instruction ?? current.secondInstructionText,
-    secondInstructionPill: copy.second_instruction_pill || current.secondInstructionPill,
+    instructionText: firstFilled(copy.instruction, current.instructionText),
+    instructionPill: firstFilled(copy.instruction_pill, current.instructionPill),
+    secondInstructionText: firstFilled(copy.second_instruction, current.secondInstructionText),
+    secondInstructionPill: firstFilled(
+      copy.second_instruction_pill,
+      current.secondInstructionPill,
+    ),
     secondSegmentScoreThreshold: 100,
     segments: [
       {
         ...(current.segments[0] ?? createEmptyAnticipateSegment()),
         media: uploaded['anticipate-1']?.media ?? current.segments[0]?.media ?? null,
         durationMs: uploaded['anticipate-1']?.durationMs ?? current.segments[0]?.durationMs ?? 0,
-        questions: bankFor(payload.questions, 'anticipate', 1),
+        questions: bankFor(
+          payload.questions,
+          'anticipate',
+          1,
+          current.segments[0]?.questions ?? emptyQuestionBank(),
+        ),
       },
       {
         ...(current.segments[1] ?? createEmptyAnticipateSegment()),
         media: uploaded['anticipate-2']?.media ?? current.segments[1]?.media ?? null,
         durationMs: uploaded['anticipate-2']?.durationMs ?? current.segments[1]?.durationMs ?? 0,
-        questions: bankFor(payload.questions, 'anticipate', 2),
+        questions: bankFor(
+          payload.questions,
+          'anticipate',
+          2,
+          current.segments[1]?.questions ?? emptyQuestionBank(),
+        ),
       },
       {
         ...(current.segments[2] ?? createEmptyAnticipateSegment()),
@@ -210,24 +241,50 @@ function patchAnticipate(
   return buildPersistableAnticipateDefinition(working, true, enableThird)
 }
 
+function firstFilled(...values: Array<string | undefined | null>): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return ''
+}
+
 function patchSee(
   current: SeeDefinition,
   payload: ParsedImportPackage,
   uploaded: Partial<Record<VideoSlotId, { media: MediaRef; durationMs: number }>>,
 ): SeeDefinition {
   const copy = payload.copy.observe ?? {}
+  const meta = payload.mediaMetadata['observe-1']
+  const xlsManeuver = firstFilled(copy.maneuver, meta?.maneuver)
+  const xlsRoadway = firstFilled(copy.roadway, meta?.roadway)
+  const xlsDensity = firstFilled(copy.traffic_density, meta?.trafficDensity)
+  const xlsTimeOfDay = firstFilled(copy.time_of_day, meta?.timeOfDay)
+  const xlsRoadConditions = firstFilled(copy.road_conditions, meta?.roadConditions)
+  const xlsExplanation = firstFilled(copy.hazard_explanation, meta?.hazardExplanation)
   const durationSeconds =
     uploaded['observe-1'] && uploaded['observe-1'].durationMs > 0
       ? uploaded['observe-1'].durationMs / 1000
       : current.duration
-  const observeQuestions = bankFor(payload.questions, 'observe', 1)
+  const observeQuestions = bankFor(
+    payload.questions,
+    'observe',
+    1,
+    current.hazards[0]?.questions ?? emptyQuestionBank(),
+  )
   const hasObserveDetails = Boolean(
     uploaded['observe-coaching'] ||
       uploaded['observe-explanation'] ||
       observeQuestions.questions.length ||
       copy.hazard_name ||
       copy.core_competency ||
-      copy.hazard_explanation ||
+      xlsExplanation ||
+      xlsManeuver ||
+      xlsRoadway ||
+      xlsDensity ||
+      xlsTimeOfDay ||
+      xlsRoadConditions ||
+      meta?.hazardName ||
+      meta?.coreCompetency ||
       copy.second_instruction ||
       copy.second_instruction_pill,
   )
@@ -237,14 +294,19 @@ function patchSee(
     hazards = [
       {
         ...first,
-        name: copy.hazard_name || first.name,
-        hazardType: copy.core_competency || first.hazardType,
-        explanation: copy.hazard_explanation ?? first.explanation,
+        name: meta?.hazardName || copy.hazard_name || first.name,
+        hazardType: meta?.coreCompetency || copy.core_competency || first.hazardType,
+        explanation: xlsExplanation || first.explanation,
         explanationImage: uploaded['observe-explanation']?.media ?? first.explanationImage,
         missedVideo: uploaded['observe-coaching']?.media ?? first.missedVideo,
         instructionText: copy.second_instruction ?? first.instructionText,
         instructionPill: copy.second_instruction_pill || first.instructionPill,
-        questions: observeQuestions.questions.length ? observeQuestions : first.questions,
+        maneuver: xlsManeuver || first.maneuver,
+        roadway: xlsRoadway || first.roadway,
+        trafficDensity: xlsDensity || first.trafficDensity,
+        timeOfDay: xlsTimeOfDay || first.timeOfDay,
+        roadConditions: xlsRoadConditions || first.roadConditions,
+        questions: observeQuestions,
       },
       ...hazards.slice(1),
     ]
@@ -256,11 +318,11 @@ function patchSee(
     instructionText: copy.instruction ?? current.instructionText,
     instructionPill: copy.instruction_pill || current.instructionPill,
     introAudio: uploaded['observe-summary-audio']?.media ?? current.introAudio,
-    maneuver: copy.maneuver ?? current.maneuver,
-    roadway: copy.roadway ?? current.roadway,
-    trafficDensity: copy.traffic_density ?? current.trafficDensity,
-    timeOfDay: copy.time_of_day ?? current.timeOfDay,
-    roadConditions: copy.road_conditions ?? current.roadConditions,
+    maneuver: xlsManeuver || current.maneuver,
+    roadway: xlsRoadway || current.roadway,
+    trafficDensity: xlsDensity || current.trafficDensity,
+    timeOfDay: xlsTimeOfDay || current.timeOfDay,
+    roadConditions: xlsRoadConditions || current.roadConditions,
     hazards,
   }
 }
@@ -276,6 +338,32 @@ function activityIdForSlot(
   if (slot.startsWith('observe')) return seeId
   if (slot.startsWith('process')) return processId
   return anticipateId
+}
+
+function mediaIdForSlot(
+  slot: VideoSlotId,
+  uploaded: Partial<Record<VideoSlotId, { media: MediaRef; durationMs: number }>>,
+  mvpIntro: MediaRef | null,
+  see: SeeDefinition,
+  process: ProcessDefinition,
+  anticipate: AnticipateDefinition,
+): string | null {
+  const uploadedId = uploaded[slot]?.media.media_asset_id
+  if (uploadedId) return uploadedId
+  if (slot === 'intro') return mvpIntro?.media_asset_id ?? null
+  if (slot === 'observe-1') return see.media?.media_asset_id ?? null
+  if (slot === 'observe-summary-audio') return see.introAudio?.media_asset_id ?? null
+  if (slot === 'observe-coaching') return see.hazards[0]?.missedVideo?.media_asset_id ?? null
+  if (slot === 'observe-explanation') {
+    return see.hazards[0]?.explanationImage?.media_asset_id ?? null
+  }
+  if (slot === 'process-1') return process.segments[0]?.media?.media_asset_id ?? null
+  if (slot === 'process-2') return process.segments[1]?.media?.media_asset_id ?? null
+  if (slot === 'process-3') return process.segments[2]?.media?.media_asset_id ?? null
+  if (slot === 'anticipate-1') return anticipate.segments[0]?.media?.media_asset_id ?? null
+  if (slot === 'anticipate-2') return anticipate.segments[1]?.media?.media_asset_id ?? null
+  if (slot === 'anticipate-3') return anticipate.segments[2]?.media?.media_asset_id ?? null
+  return null
 }
 
 export async function importInroadsMvpPackage(
@@ -309,7 +397,13 @@ export async function importInroadsMvpPackage(
       mvp.anticipateActivityId,
     )
     try {
-      uploaded[slot] = await uploadSlot(activityId, slot, file, onProgress)
+      uploaded[slot] = await uploadSlot(
+        activityId,
+        slot,
+        file,
+        onProgress,
+        payload.mediaMetadata[slot],
+      )
       uploadedSlots.push(slot)
       if (LIBRARY_ONLY_SLOTS.includes(slot)) {
         libraryOnlySlots.push(slot)
@@ -326,6 +420,42 @@ export async function importInroadsMvpPackage(
     throw new Error(`Videos were found in the zip but none could be uploaded. ${uploadFailures.join(' ')}`)
   }
   warnings.push(...uploadFailures)
+
+  onProgress?.('Saving media metadata…')
+  const seeCurrent = readSeeDefinition(seeActivity)
+  const processCurrent = readProcessDefinition(processActivity)
+  const anticipateCurrent = readAnticipateDefinition(anticipateActivity)
+  let metadataSaved = 0
+  for (const [slot, meta] of Object.entries(payload.mediaMetadata) as Array<
+    [VideoSlotId, MediaClipMetadata]
+  >) {
+    if (!mediaClipMetadataHasContent(meta)) continue
+    const mediaId = mediaIdForSlot(
+      slot,
+      uploaded,
+      mvp.introMedia,
+      seeCurrent,
+      processCurrent,
+      anticipateCurrent,
+    )
+    if (!mediaId) continue
+    try {
+      await services.media.updateAssetMetadata(mediaId, meta)
+      metadataSaved += 1
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Failed to save metadata'
+      warnings.push(`${slot}: ${message}`)
+    }
+  }
+  const metadataRows = Object.values(payload.mediaMetadata).filter(
+    (meta) => meta && mediaClipMetadataHasContent(meta),
+  ).length
+  if (metadataRows > 0 && metadataSaved === 0) {
+    throw new Error(
+      warnings.find((item) => /metadata/i.test(item)) ||
+        'The Metadata sheet was read, but none of it could be saved onto the media files.',
+    )
+  }
 
   onProgress?.('Saving Observe…')
   const nextSee = writeSeeDefinition(
@@ -375,6 +505,7 @@ export async function importInroadsMvpPackage(
   return {
     uploadedSlots,
     libraryOnlySlots,
+    metadataSaved,
     warnings,
     unusedFiles: payload.unusedFiles,
   }

@@ -41,8 +41,10 @@ export const TEMPLATE_FOLDER_SLOT_IDS: readonly VideoSlotId[] = [
 
 export const SHEET_NAMES = {
   lesson: 'Lesson',
-  copy: 'Copy',
+  copy: 'Instructions',
+  copyLegacy: 'Copy',
   questions: 'Questions',
+  metadata: 'Metadata',
 } as const
 
 export const LESSON_KEYS = ['title', 'description', 'intro_first_visit'] as const
@@ -117,10 +119,10 @@ export const SLOT_FOLDER_LABELS: Record<VideoSlotId, string> = {
   'observe-summary-audio': 'Hazard Summary Audio',
   'observe-coaching': 'Observe Coaching Video',
   'observe-explanation': 'Observe Explanation Image',
-  'process-1': 'Process Lesson',
+  'process-1': 'Process Lesson Video',
   'process-2': 'Process Coaching Video',
   'process-3': 'Process Video 3',
-  'anticipate-1': 'Anticipate Lesson',
+  'anticipate-1': 'Anticipate Lesson Video',
   'anticipate-2': 'Anticipate Coaching Video',
   'anticipate-3': 'Anticipate Video 3',
 }
@@ -137,11 +139,14 @@ export function parentFolderName(path: string): string {
 }
 
 export function shouldIgnoreZipPath(path: string): boolean {
-  return SKIP_PATH_PATTERN.test(path.replace(/\\/g, '/'))
+  const normalized = path.replace(/\\/g, '/')
+  if (SKIP_PATH_PATTERN.test(normalized)) return true
+  return basename(normalized).startsWith('~$')
 }
 
 export function isWorkbookName(filename: string): boolean {
   const name = basename(filename).toLowerCase()
+  if (name.startsWith('~$')) return false
   return WORKBOOK_EXTENSIONS.some((ext) => name.endsWith(ext))
 }
 
@@ -194,18 +199,18 @@ export function matchMediaSlot(label: string): VideoSlotId | null {
   if (/^intro( video)?$/.test(n)) return 'intro'
   if (/^observe explanation( image)?$/.test(n)) return 'observe-explanation'
   if (/^hazard summary audio$/.test(n)) return 'observe-summary-audio'
-  if (/^observe coaching( video)?$/.test(n)) return 'observe-coaching'
+  if (/^observe coaching( video)?( meta)?$/.test(n)) return 'observe-coaching'
   if (/^observe( hazard)?( scenario)?$/.test(n) && n !== 'observe') {
     if (/hazard|scenario/.test(n)) return 'observe-1'
   }
   if (/^observe( video)?( 1)?$/.test(n)) return 'observe-1'
   if (/^process( coaching( video)?| video 2)$/.test(n)) return 'process-2'
   if (/^process video 3$/.test(n)) return 'process-3'
-  if (/^process lesson$/.test(n)) return 'process-1'
+  if (/^process lesson( video)?$/.test(n)) return 'process-1'
   if (/^process( video)?( 1)?$/.test(n)) return 'process-1'
   if (/^anticipate( coaching( video)?| video 2)$/.test(n)) return 'anticipate-2'
   if (/^anticipate video 3$/.test(n)) return 'anticipate-3'
-  if (/^anticipate lesson$/.test(n)) return 'anticipate-1'
+  if (/^anticipate lesson( video)?$/.test(n)) return 'anticipate-1'
   if (/^anticipate( video)?( 1)?$/.test(n)) return 'anticipate-1'
   return null
 }
@@ -239,9 +244,9 @@ Folder names (case-insensitive):
   Hazard Summary Audio/       (MP3, M4A, WAV, or OGG — plays after Observe Start)
   Observe Coaching Video/     (missed-hazard / coaching clip on Observe)
   Observe Explanation Image/  (JPG, PNG, WebP, or GIF)
-  Process Lesson/
+  Process Lesson Video/
   Process Coaching Video/     (Process Video 2)
-  Anticipate Lesson/
+  Anticipate Lesson Video/
   Anticipate Coaching Video/  (Anticipate Video 2)
 
 Required folders: none. Videos in the named folders are optional.
@@ -254,15 +259,23 @@ Lesson: column A = key, column B = value
   intro_first_visit     true or false
 
 Copy: header row, then section | field | text
+  (sheet name Instructions or Copy)
   section: observe | process | anticipate
   field: instruction | instruction_pill | second_instruction |
-         second_instruction_pill | second_score_threshold
-  Observe also uses: hazard_name | core_competency | hazard_explanation |
-         maneuver | roadway | traffic_density | time_of_day | road_conditions
+         second_instruction_pill | second_score_threshold |
+         maneuver | roadway | traffic_density | time_of_day | road_conditions |
+         hazard_explanation
   Observe instruction / instruction_pill = scenario overlay on the hazard clip
-  Observe maneuver / roadway / traffic_density / time_of_day / road_conditions
-         = summary card after Start, before the first video
   Observe second_instruction / second_instruction_pill = coaching clip overlay
+  Observe maneuver / roadway / traffic_density / time_of_day / road_conditions
+         = Observe clip summary (not media-library metadata)
+  Observe hazard_explanation = Observe hazard details text
+
+Metadata: header row, then Video Folder | Metadata Name | Metadata text
+  Video Folder must match a media folder name (e.g. Observe Hazard Scenario).
+  Only rows for that folder are saved on that folder’s file and shown on preview.
+  Files with no Metadata rows show header "metadata" and text "Empty".
+  Observe Hazard Scenario core_competency also fills the Observe hazard type.
   core_competency: Attitude | Speed Management | Space Management |
                    Danger Zones | Scanning | Other Motorists
 
@@ -276,7 +289,7 @@ Questions: one row per Observe, Process, or Anticipate question
   Correct answers are always worth 10 points.
   Observe questions attach to the first Observe hazard.
 
-Lesson intro_first_visit and Copy second_score_threshold rows are hidden and locked.
+Lesson intro_first_visit and Instructions second_score_threshold rows are hidden and locked.
 
 Draw additional tap hazards in the Observe editor after import if needed.
 
