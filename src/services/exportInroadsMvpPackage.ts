@@ -2,14 +2,12 @@ import { readAnticipateDefinition } from '@/activities/anticipateDefinition'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { readProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition } from '@/activities/seeDefinition'
-import { services } from '@/app/container'
 import {
   buildImportFolderZip,
-  defaultImportWorkbookContent,
+  buildSampleImportTemplateZip,
   type ImportWorkbookContent,
 } from '@/lib/inroadsMvp/buildImportTemplate'
 import { loadActivityOrThrow } from '@/services/createInroadsMvp'
-import { isInroadsMvpActivity } from '@/types/inroadsMvp'
 import {
   configuredSurveyQuestions,
   type ProcessQuestionBank,
@@ -91,21 +89,10 @@ async function workbookContentFromParent(parentId: string): Promise<ImportWorkbo
   }
 }
 
-async function findSampleInroadsMvpId(): Promise<string | null> {
-  const summaries = await services.persistence.list('authoring')
-  const items = summaries.filter((item) => isInroadsMvpActivity(item.tags))
-  const published = items.filter((item) => item.published)
-  const titled = (list: typeof items) =>
-    list.find((item) => item.title.trim().toLowerCase() === 'inroads mvp')
-  return titled(published)?.id ?? published[0]?.id ?? titled(items)?.id ?? items[0]?.id ?? null
-}
-
 export async function exportInroadsMvpTemplateZip(parentId: string): Promise<Blob> {
   return buildImportFolderZip(await workbookContentFromParent(parentId))
 }
 
 export async function exportSampleInroadsMvpTemplateZip(): Promise<Blob> {
-  const sampleId = await findSampleInroadsMvpId()
-  if (sampleId) return exportInroadsMvpTemplateZip(sampleId)
-  return buildImportFolderZip(defaultImportWorkbookContent())
+  return buildSampleImportTemplateZip()
 }

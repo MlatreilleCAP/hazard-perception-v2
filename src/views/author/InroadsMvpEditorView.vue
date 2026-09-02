@@ -17,6 +17,7 @@ import ProcessEditorView from '@/views/author/ProcessEditorView.vue'
 import SeeEditorView from '@/views/author/SeeEditorView.vue'
 import { services } from '@/app/container'
 import { duplicateInroadsMvpVersion } from '@/services/createInroadsMvp'
+import { publishInroadsMvpLesson } from '@/services/publishInroadsMvp'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
 import {
@@ -75,6 +76,9 @@ function sectionFromQuery(): InroadsMvpSectionId {
 
 const activeSection = ref<InroadsMvpSectionId>(sectionFromQuery())
 const sectionReload = ref(0)
+const seeEditorRef = ref<{ save: () => Promise<boolean> } | null>(null)
+const processEditorRef = ref<{ save: () => Promise<boolean> } | null>(null)
+const anticipateEditorRef = ref<{ save: () => Promise<boolean> } | null>(null)
 let loadGeneration = 0
 
 const activityId = computed(() => String(route.params.id ?? ''))
@@ -397,21 +401,28 @@ async function openPreview(): Promise<void> {
   })
 }
 
+async function saveActiveSection(): Promise<boolean> {
+  if (activeSection.value === 'see') {
+    return (await seeEditorRef.value?.save()) ?? true
+  }
+  if (activeSection.value === 'process') {
+    return (await processEditorRef.value?.save()) ?? true
+  }
+  if (activeSection.value === 'anticipate') {
+    return (await anticipateEditorRef.value?.save()) ?? true
+  }
+  return saveLesson()
+}
+
 async function publish(): Promise<void> {
   if (!editable.value || !mvp.value) return
-  const saved = await saveLesson()
-  if (!saved) return
+  if (!(await saveActiveSection())) return
+  if (activeSection.value !== 'lesson' && !(await saveLesson())) return
   publishing.value = true
   try {
-    // Publish section activities first, then the parent.
-    if (mvp.value.introductionActivityId) {
-      await activities.publish(mvp.value.introductionActivityId)
-    }
-    await activities.publish(mvp.value.seeActivityId)
-    await activities.publish(mvp.value.processActivityId)
-    await activities.publish(mvp.value.anticipateActivityId)
+    await publishInroadsMvpLesson(activityId.value)
+    await activities.refreshList()
     await ensureParentLoaded()
-    await activities.publish(activityId.value)
     saveMessage.value = 'Published'
   } catch (cause) {
     window.alert(cause instanceof Error ? cause.message : 'Failed to publish Inroads MVP')
@@ -509,7 +520,7 @@ async function remove(): Promise<void> {
             :disabled="saving || publishing || deleting"
             @click="publish"
           >
-            {{ publishing ? 'Publishing…' : 'Publish' }}
+            {{ publishing ? 'Publishing…' : 'Publish lesson' }}
           </AuthorPillButton>
         </div>
       </div>
@@ -560,6 +571,15 @@ async function remove(): Promise<void> {
               {{ deleting ? 'Removing…' : 'Remove Version' }}
             </AuthorPillButton>
           </div>
+        </section>
+
+        <section v-if="editable" class="author-stack-sm">
+          <AuthorSectionHeader title="Bulk import" />
+          <InroadsMvpImportPanel
+            :parent-id="activityId"
+            :disabled="saving || publishing || deleting"
+            @imported="onImported"
+          />
         </section>
 
         <section class="author-stack-sm">
@@ -615,15 +635,6 @@ async function remove(): Promise<void> {
           </p>
         </section>
 
-        <section v-if="editable" class="author-stack-sm">
-          <AuthorSectionHeader title="Bulk import" />
-          <InroadsMvpImportPanel
-            :parent-id="activityId"
-            :disabled="saving || publishing || deleting"
-            @imported="onImported"
-          />
-        </section>
-
         <div v-if="editable" class="author-actions">
           <AuthorPillButton variant="primary" :disabled="saving || deleting" @click="saveLesson">
             {{ saving ? 'Saving…' : 'Save' }}
@@ -637,6 +648,7 @@ async function remove(): Promise<void> {
 
       <div v-else-if="activeSection === 'see'" class="mvp-embedded-editor">
         <SeeEditorView
+          ref="seeEditorRef"
           :key="`see-${mvp.seeActivityId}-${sectionReload}`"
           :activity-id-prop="mvp.seeActivityId"
           embedded
@@ -644,6 +656,7 @@ async function remove(): Promise<void> {
       </div>
       <div v-else-if="activeSection === 'process'" class="mvp-embedded-editor">
         <ProcessEditorView
+          ref="processEditorRef"
           :key="`process-${mvp.processActivityId}-${sectionReload}`"
           :activity-id-prop="mvp.processActivityId"
           embedded
@@ -651,6 +664,7 @@ async function remove(): Promise<void> {
       </div>
       <div v-else-if="activeSection === 'anticipate'" class="mvp-embedded-editor">
         <AnticipateEditorView
+          ref="anticipateEditorRef"
           :key="`anticipate-${mvp.anticipateActivityId}-${sectionReload}`"
           :activity-id-prop="mvp.anticipateActivityId"
           embedded

@@ -13,8 +13,10 @@ import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import ProcessQuestionsForm from '@/components/author/ProcessQuestionsForm.vue'
 import { useAuthorAutosave } from '@/composables/useAuthorAutosave'
 import { useStudioAccess } from '@/composables/useStudioAccess'
+import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 import type { MediaRef } from '@/types/media'
+import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
 import {
   buildPersistableAnticipateDefinition,
   createEmptyAnticipateSegment,
@@ -115,6 +117,16 @@ async function load(): Promise<void> {
     if (!current || !isAnticipateActivity(current.metadata.tags)) {
       anticipate.value = null
       return
+    }
+    if (!props.embedded && isInroadsMvpChildActivity(current.metadata.tags)) {
+      const match = await findInroadsMvpParent(activityId.value)
+      if (match) {
+        await router.replace({
+          path: `/studio/inroads-mvp/${match.parentId}`,
+          query: { ...route.query, section: match.section },
+        })
+        return
+      }
     }
     title.value = current.metadata.title
     description.value = current.metadata.description
@@ -284,6 +296,8 @@ async function remove(): Promise<void> {
     window.alert(cause instanceof Error ? cause.message : 'Failed to remove anticipate')
   }
 }
+
+defineExpose({ save })
 </script>
 
 <template>

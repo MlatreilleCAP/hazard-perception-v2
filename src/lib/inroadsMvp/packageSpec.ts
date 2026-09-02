@@ -196,10 +196,10 @@ export const SLOT_FOLDER_LABELS: Record<VideoSlotId, string> = {
   'observe-summary-audio': 'Hazard Summary Audio',
   'observe-coaching': 'Observe Coaching Video',
   'observe-explanation': 'Observe Explanation Image',
-  'process-1': 'Process Lesson Video',
+  'process-1': 'Process Lesson',
   'process-2': 'Process Coaching Video',
   'process-3': 'Process Video 3',
-  'anticipate-1': 'Anticipate Lesson Video',
+  'anticipate-1': 'Anticipate Lesson',
   'anticipate-2': 'Anticipate Coaching Video',
   'anticipate-3': 'Anticipate Video 3',
 }
@@ -321,9 +321,9 @@ Folder names (case-insensitive):
   Hazard Summary Audio/       (MP3, M4A, WAV, or OGG — plays after Observe Start)
   Observe Coaching Video/     (missed-hazard / coaching clip on Observe)
   Observe Explanation Image/  (JPG, PNG, WebP, or GIF)
-  Process Lesson Video/
+  Process Lesson/
   Process Coaching Video/     (Process Video 2)
-  Anticipate Lesson Video/
+  Anticipate Lesson/
   Anticipate Coaching Video/  (Anticipate Video 2)
 
 Required folders: none. Videos in the named folders are optional.

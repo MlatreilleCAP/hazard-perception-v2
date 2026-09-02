@@ -9,6 +9,7 @@ import {
 import { readProcessDefinition, writeProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
+import { INROADS_MVP_CHILD_TAG } from '@/types/inroadsMvp'
 import {
   AUDIO_SLOT_IDS,
   IMAGE_SLOT_IDS,
@@ -693,6 +694,9 @@ export async function importInroadsMvpPackage(
   if (payload.lesson.title.trim()) {
     nextSee.metadata.title = `${payload.lesson.title.trim()} · Observe`
   }
+  if (!nextSee.metadata.tags.includes(INROADS_MVP_CHILD_TAG)) {
+    nextSee.metadata.tags = [...nextSee.metadata.tags, INROADS_MVP_CHILD_TAG]
+  }
   await services.persistence.save(nextSee)
 
   onProgress?.('Saving Process…')
@@ -703,6 +707,9 @@ export async function importInroadsMvpPackage(
   if (payload.lesson.title.trim()) {
     nextProcess.metadata.title = `${payload.lesson.title.trim()} · Process`
   }
+  if (!nextProcess.metadata.tags.includes(INROADS_MVP_CHILD_TAG)) {
+    nextProcess.metadata.tags = [...nextProcess.metadata.tags, INROADS_MVP_CHILD_TAG]
+  }
   await services.persistence.save(nextProcess)
 
   onProgress?.('Saving Anticipate…')
@@ -712,6 +719,9 @@ export async function importInroadsMvpPackage(
   )
   if (payload.lesson.title.trim()) {
     nextAnticipate.metadata.title = `${payload.lesson.title.trim()} · Anticipate`
+  }
+  if (!nextAnticipate.metadata.tags.includes(INROADS_MVP_CHILD_TAG)) {
+    nextAnticipate.metadata.tags = [...nextAnticipate.metadata.tags, INROADS_MVP_CHILD_TAG]
   }
   await services.persistence.save(nextAnticipate)
 

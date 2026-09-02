@@ -10,23 +10,11 @@ import {
   TEMPLATE_FOLDER_SLOT_IDS,
 } from '@/lib/inroadsMvp/packageSpec'
 import {
-  DEFAULT_ANTICIPATE_INSTRUCTION,
-  DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
-} from '@/types/anticipate'
-import {
-  DEFAULT_PROCESS_INSTRUCTION,
-  DEFAULT_PROCESS_INSTRUCTION_PILL,
-} from '@/types/process'
-import {
   answersWithFixedPoints,
   createAnswerOption,
   DEFAULT_ANSWER_POINTS,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
-import {
-  DEFAULT_SEE_INSTRUCTION,
-  DEFAULT_SEE_INSTRUCTION_PILL,
-} from '@/types/see'
 
 export type ImportWorkbookContent = {
   title: string
@@ -103,6 +91,15 @@ const VIDEO_IMAGE_META_NAMES: Array<
   ['core_competency', (content) => content.observe.coreCompetency],
 ]
 
+const VIDEO_WITH_LANGUAGE_META_NAMES: Array<
+  [string, (content: ImportWorkbookContent) => string]
+> = [
+  ['Country', (content) => content.country || 'Canada'],
+  ['Language', (content) => content.language || 'English'],
+  ['Vehicle Type', () => 'Passenger Vehicle'],
+  ['core_competency', (content) => content.observe.coreCompetency],
+]
+
 const AUDIO_META_NAMES: Array<[string, (content: ImportWorkbookContent) => string]> = [
   ['Country', (content) => content.country || 'Canada'],
   ['Language', (content) => content.language || 'English'],
@@ -113,11 +110,11 @@ const METADATA_TEMPLATE_FOLDERS: Array<{
   names: Array<[string, (content: ImportWorkbookContent) => string]>
 }> = [
   { folder: 'Observe Hazard Scenario', names: VIDEO_IMAGE_META_NAMES },
-  { folder: 'Observe Coaching Video', names: VIDEO_IMAGE_META_NAMES },
-  { folder: 'Process Lesson Video', names: VIDEO_IMAGE_META_NAMES },
-  { folder: 'Process Coaching Video', names: VIDEO_IMAGE_META_NAMES },
-  { folder: 'Anticipate Lesson Video', names: VIDEO_IMAGE_META_NAMES },
-  { folder: 'Anticipate Coaching Video', names: VIDEO_IMAGE_META_NAMES },
+  { folder: 'Observe Coaching Video', names: VIDEO_WITH_LANGUAGE_META_NAMES },
+  { folder: 'Process Lesson Video', names: VIDEO_WITH_LANGUAGE_META_NAMES },
+  { folder: 'Process Coaching Video', names: VIDEO_WITH_LANGUAGE_META_NAMES },
+  { folder: 'Anticipate Lesson Video', names: VIDEO_WITH_LANGUAGE_META_NAMES },
+  { folder: 'Anticipate Coaching Video', names: VIDEO_WITH_LANGUAGE_META_NAMES },
   { folder: 'Observe Explanation Image', names: VIDEO_IMAGE_META_NAMES },
   { folder: 'Hazard Summary Audio', names: AUDIO_META_NAMES },
 ]
@@ -239,38 +236,43 @@ function sampleQuestion(
 export function defaultImportWorkbookContent(): ImportWorkbookContent {
   return {
     title: 'Inroads MVP',
-    description: 'This is a sample of the Inroads MVP',
-    introFirstVisit: true,
+    description: 'This is a sample of the inroads MVP in french',
+    introFirstVisit: false,
     country: 'Canada',
     language: 'English',
     observe: {
-      instruction: DEFAULT_SEE_INSTRUCTION,
-      instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
+      instruction:
+        'Scan from left to right by swiping your finger and tap the most dangerous hazards as soon as you spot it. \r\n\r\n- You have 3 attempts\r\n- Points deducted for incorrect attempts\r\n- You only have 10 seconds',
+      instructionPill: 'Observe Challenge',
       maneuver: 'Travelling Straight',
       roadway: 'Divided 2-Lane',
       trafficDensity: 'Moderate',
       timeOfDay: 'Daytime',
       roadConditions: 'Dry',
       hazardName: 'Hazard 1',
-      coreCompetency: 'Scanning',
-      hazardExplanation: 'Explain the hazard to the learner',
+      coreCompetency: 'Space Management',
+      hazardExplanation:
+        'The SUV pulling out from the row of parked cars was the hazard. ',
       secondInstruction:
-        'Watch the coaching clip, then answer the question that follows.',
-      secondInstructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
+        'Here are the instructions for the coaching lesson in the Observe section. We have room for quite a bit of text, but not a ton.',
+      secondInstructionPill: 'Observe Coaching',
     },
     process: {
-      instruction: DEFAULT_PROCESS_INSTRUCTION,
-      instructionPill: DEFAULT_PROCESS_INSTRUCTION_PILL,
+      instruction:
+        'Watch the following video segment and answer questions. Your results will determine whether additional training is necessary.',
+      instructionPill: 'Process',
       secondInstruction:
         'Based on your recent process challenge performance, you are required to take additional coaching. Watch the video and answer the question that follows.',
       secondInstructionPill: 'Additional Process Coaching',
       secondScoreThreshold: '100',
     },
     anticipate: {
-      instruction: DEFAULT_ANTICIPATE_INSTRUCTION,
-      instructionPill: DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
-      secondInstruction: '',
-      secondInstructionPill: DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
+      instruction:
+        'Watch the following video segment and answer questions. Your results will determine whether additional training is necessary.',
+      instructionPill: 'Anticipate',
+      secondInstruction:
+        'Additional coaching is required, based on your performance ins the anticipate challenge.',
+      secondInstructionPill: 'Additional Anticipate Coaching',
       secondScoreThreshold: '100',
     },
     questions: [
@@ -279,21 +281,14 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
         segment: 1,
         question: sampleQuestion(
           'theory',
-          'Here is a question that relates to the observe hazard.',
-          ['Correct answer', 'Incorrect answer', 'Incorrect answer'],
+          'Here is a question relating to the video?',
+          [
+            'Here is the correct answer',
+            'Here is an incorrect answer',
+            'Here is an incorrect answer. It is a bit long.',
+          ],
           0,
-          'Here we explain the correct answer whenever the user gets it wrong.',
-        ),
-      },
-      {
-        section: 'observe',
-        segment: 1,
-        question: sampleQuestion(
-          'severity',
-          'How dangerous do you think this hazard was?',
-          ['Low', 'Medium', 'High'],
-          1,
-          'Here is the explanation as to why the correct answer was correct.',
+          'Here is an explanation of the correct answer. It will likely be a few sentences long.',
         ),
       },
       {
@@ -308,7 +303,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
             'Incorrect answer',
           ],
           0,
-          'Here we explain the correct answer whenever the user gets it wrong.',
+          'Here we explain the correct answer whenever the user gets it wrong. It can be kind of long. ',
         ),
       },
       {
@@ -323,7 +318,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
             'Here is a long incorrect answer that will definitely wrap into two lines',
           ],
           0,
-          'Here we explain the correct answer whenever the user gets it wrong.',
+          'Here we explain the correct answer whenever the user gets it wrong. It can be kind of long. ',
         ),
       },
       {
@@ -331,7 +326,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
         segment: 1,
         question: sampleQuestion(
           'severity',
-          'How dangerous do you think this hazard was?',
+          'Here is a question that relates to the process video.',
           ['Low', 'Medium', 'High'],
           1,
           'Here is the explanation as to why the correct answer was correct.',
@@ -345,7 +340,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
           'Here is a question relating to the process video',
           ['Correct answer', 'Incorrect Answer', 'Incorrect answer'],
           0,
-          'Here we explain the correct answer whenever the user gets it wrong.',
+          'Here we explain the correct answer whenever the user gets it wrong. It can be kind of long. ',
         ),
       },
       {
@@ -353,10 +348,51 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
         segment: 1,
         question: sampleQuestion(
           'theory',
-          'Here is a question that relates to the anticipate video.',
+          'Here is a question related to the anticipate video?',
+          [
+            'Correct answer goes here',
+            'Incorrect t answer goes here',
+            'Incorrect t answer goes here',
+          ],
+          0,
+          'Here is where we explain to the user why their answer was incorrect and why the correct on was. ',
+        ),
+      },
+      {
+        section: 'anticipate',
+        segment: 1,
+        question: sampleQuestion(
+          'theory',
+          'Here is a question related to the anticipate video?',
+          [
+            'Correct answer goes here',
+            'Incorrect t answer goes here',
+            'Incorrect t answer goes here',
+          ],
+          0,
+          'Here is where we explain to the user why their answer was incorrect and why the correct on was. ',
+        ),
+      },
+      {
+        section: 'anticipate',
+        segment: 1,
+        question: sampleQuestion(
+          'severity',
+          'How dangerous do you think this hazard was?',
+          ['Low', 'Medium', 'High'],
+          1,
+          'Here is where we explain to the user why their answer was incorrect and why the correct on was. ',
+        ),
+      },
+      {
+        section: 'anticipate',
+        segment: 2,
+        question: sampleQuestion(
+          'theory',
+          'Here is a coaching question for anticipate?',
           ['Correct answer', 'Incorrect answer', 'Incorrect answer'],
           0,
-          'Here we explain the correct answer whenever the user gets it wrong.',
+          'Here is an explanation of the correct answer and some additional coaching. ',
         ),
       },
     ],
@@ -456,6 +492,44 @@ export async function buildImportFolderZip(
   zip.file('lesson.xlsx', await buildWorkbookBytes(content))
   for (const slot of TEMPLATE_FOLDER_SLOT_IDS) {
     zip.folder(SLOT_FOLDER_LABELS[slot])?.file('.keep', '')
+  }
+  return zip.generateAsync({ type: 'blob' })
+}
+
+const BUNDLED_SAMPLE_TEMPLATE_BASE = '/inroads-mvp-import-template'
+
+/** Paths bundled under public/inroads-mvp-import-template/ (reference import template). */
+const BUNDLED_SAMPLE_TEMPLATE_PATHS = [
+  'README.txt',
+  'lesson.xlsx',
+  'Intro Video/.keep',
+  'Intro Video/Welcome_meta.mp4',
+  'Observe Hazard Scenario/.keep',
+  'Observe Hazard Scenario/NoMirrors test7_meta.mp4',
+  'Hazard Summary Audio/.keep',
+  'Hazard Summary Audio/Hazard Audio Summary_meta.mp3',
+  'Observe Coaching Video/.keep',
+  'Observe Coaching Video/Observe Coaching_meta.mp4',
+  'Observe Explanation Image/.keep',
+  'Observe Explanation Image/Hazard Image_meta.png',
+  'Process Lesson/.keep',
+  'Process Lesson/Process Challenge Video_meta.mp4',
+  'Process Coaching Video/.keep',
+  'Process Coaching Video/Process Coaching LEsson_meta.mp4',
+  'Anticipate Lesson/.keep',
+  'Anticipate Lesson/Anticipate Video_meta.mp4',
+  'Anticipate Coaching Video/.keep',
+  'Anticipate Coaching Video/Anticipate Coaching_meta.mp4',
+] as const
+
+export async function buildSampleImportTemplateZip(): Promise<Blob> {
+  const zip = new JSZip()
+  for (const relPath of BUNDLED_SAMPLE_TEMPLATE_PATHS) {
+    const response = await fetch(`${BUNDLED_SAMPLE_TEMPLATE_BASE}/${encodeURI(relPath)}`)
+    if (!response.ok) {
+      throw new Error(`Failed to load template asset: ${relPath}`)
+    }
+    zip.file(relPath, await response.arrayBuffer())
   }
   return zip.generateAsync({ type: 'blob' })
 }
