@@ -72,6 +72,9 @@ export async function expandInroadsMvpForPlayback(
   const mvp = readInroadsMvpDefinition(mvpActivity)
   if (!mvp) return null
   const lesson = inroadsMvpToLessonDefinition(mvp)
+  // Intro plays only when a Stand Alone Video is linked — not from legacy introMedia on the parent.
+  lesson.introMedia = null
+  lesson.introShowOnFirstVisitOnly = true
   if (mvp.introductionActivityId) {
     const loadIntro = options?.preview
       ? services.persistence.getById.bind(services.persistence)

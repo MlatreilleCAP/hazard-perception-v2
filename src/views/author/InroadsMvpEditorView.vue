@@ -218,12 +218,17 @@ async function loadIntroductionVersions(
 }
 
 function syncIntroductionToLocale(): void {
-  if (!mvp.value) return
+  if (!mvp.value?.introductionActivityId) return
   const match = introductionVersions.value.find((item) =>
     lessonLocalesMatch(item.country, item.language, country.value, language.value),
   )
   if (!match || mvp.value.introductionActivityId === match.id) return
   mvp.value = { ...mvp.value, introductionActivityId: match.id }
+}
+
+function mvpForSave(source: InroadsMvpDefinition): InroadsMvpDefinition {
+  if (source.introductionActivityId) return source
+  return { ...source, introductionActivityId: '', introMedia: null }
 }
 
 function onVersionSelect(nextId: string): void {
@@ -336,7 +341,11 @@ watch(activeSection, async (section) => {
 
 function setIntroductionActivityId(id: string): void {
   if (!mvp.value) return
-  mvp.value = { ...mvp.value, introductionActivityId: id }
+  mvp.value = {
+    ...mvp.value,
+    introductionActivityId: id,
+    introMedia: id ? mvp.value.introMedia : null,
+  }
 }
 
 async function onImported(): Promise<void> {
@@ -354,7 +363,7 @@ async function saveLesson(): Promise<boolean> {
   try {
     await ensureParentLoaded()
     if (!activities.current || !mvp.value) return false
-    const next = writeInroadsMvpDefinition(activities.current, mvp.value)
+    const next = writeInroadsMvpDefinition(activities.current, mvpForSave(mvp.value))
     next.metadata = {
       ...next.metadata,
       title: title.value.trim(),

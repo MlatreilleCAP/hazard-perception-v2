@@ -14,7 +14,7 @@ export type InroadsMvpDefinition = {
   /** Section 1 — intro clip before Observe / Process / Anticipate. */
   introMedia: MediaRef | null
   introShowOnFirstVisitOnly: boolean
-  /** Standalone introduction activity to play instead of introMedia when set. */
+  /** Stand Alone Video activity id; when empty, no intro plays before Observe. */
   introductionActivityId: string
   country: string
   language: string
