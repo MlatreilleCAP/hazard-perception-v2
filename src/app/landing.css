@@ -990,6 +990,50 @@
   padding-top: 8px;
 }
 
+.demo-language-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.demo-language-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--editor-muted);
+}
+
+.demo-language-select {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--landing-line);
+  border-radius: 999px;
+  background: #fff;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--editor-ink);
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #707591 50%),
+    linear-gradient(135deg, #707591 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size:
+    6px 6px,
+    6px 6px;
+  background-repeat: no-repeat;
+}
+
+.demo-language-select:focus {
+  outline: 2px solid rgb(255 107 181 / 35%);
+  outline-offset: 1px;
+}
+
 .demo-primary-button {
   display: inline-flex;
   width: 100%;
