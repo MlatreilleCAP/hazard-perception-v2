@@ -86,6 +86,12 @@ export {
   isInroadsMvpActivity,
   isInroadsMvpChildActivity,
 } from './inroadsMvp'
+export type { IntroductionDefinition } from './introduction'
+export {
+  INTRODUCTION_NODE_TYPE,
+  INTRODUCTION_TAG,
+  isIntroductionActivity,
+} from './introduction'
 export type { SeeDefinition, SeeHazard, HazardClipSummary } from './see'
 export { SEE_NODE_TYPE, SEE_TAG, isSeeActivity } from './see'
 export type {

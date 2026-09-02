@@ -50,6 +50,8 @@ async function workbookContentFromParent(parentId: string): Promise<ImportWorkbo
     title: parent.metadata.title,
     description: parent.metadata.description,
     introFirstVisit: mvp.introShowOnFirstVisitOnly,
+    country: mvp.country,
+    language: mvp.language,
     observe: {
       instruction: see.instructionText,
       instructionPill: see.instructionPill,

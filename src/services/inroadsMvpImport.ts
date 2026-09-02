@@ -9,8 +9,24 @@ import {
 import { readProcessDefinition, writeProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
-import { AUDIO_SLOT_IDS, IMAGE_SLOT_IDS, LIBRARY_ONLY_SLOTS, type VideoSlotId } from '@/lib/inroadsMvp/packageSpec'
-import type { ImportedQuestionRow, ParsedImportPackage } from '@/lib/inroadsMvp/parseImportPackage'
+import {
+  AUDIO_SLOT_IDS,
+  IMAGE_SLOT_IDS,
+  LIBRARY_ONLY_SLOTS,
+  SLOT_FOLDER_LABELS,
+  TEMPLATE_FOLDER_SLOT_IDS,
+  WORKBOOK_REPLACE_ID,
+  fileMatchesSlot,
+  mediaKindForSlot,
+  type ReplaceSlotId,
+  type SlotMediaKind,
+  type VideoSlotId,
+} from '@/lib/inroadsMvp/packageSpec'
+import {
+  parseImportWorkbook,
+  type ImportedQuestionRow,
+  type ParsedImportPackage,
+} from '@/lib/inroadsMvp/parseImportPackage'
 import { loadActivityOrThrow } from '@/services/createInroadsMvp'
 import type { ActivityDefinition } from '@/types/activity'
 import {
@@ -19,7 +35,7 @@ import {
   type AnticipateDefinition,
 } from '@/types/anticipate'
 import type { MediaClipMetadata, MediaRef } from '@/types/media'
-import { mediaClipMetadataHasContent } from '@/types/media'
+import { mediaAssetDisplayName, mediaClipMetadataHasContent } from '@/types/media'
 import {
   buildPersistableProcessDefinition,
   createEmptyProcessSegment,
@@ -366,6 +382,218 @@ function mediaIdForSlot(
   return null
 }
 
+export type InroadsMvpSlotFile = {
+  slot: ReplaceSlotId
+  label: string
+  kind: SlotMediaKind | 'workbook'
+  hasFile: boolean
+  filename: string | null
+}
+
+function workbookSlotFile(filename = 'Lesson, questions, and metadata'): InroadsMvpSlotFile {
+  return {
+    slot: WORKBOOK_REPLACE_ID,
+    label: 'lesson.xlsx',
+    kind: 'workbook',
+    hasFile: true,
+    filename,
+  }
+}
+
+export async function listInroadsMvpSlotFiles(
+  parentId: string,
+): Promise<InroadsMvpSlotFile[]> {
+  const parent = await loadActivityOrThrow(parentId)
+  const mvp = readInroadsMvpDefinition(parent)
+  if (!mvp) throw new Error('Inroads MVP definition was not found')
+
+  const see = readSeeDefinition(await loadActivityOrThrow(mvp.seeActivityId))
+  const process = readProcessDefinition(await loadActivityOrThrow(mvp.processActivityId))
+  const anticipate = readAnticipateDefinition(
+    await loadActivityOrThrow(mvp.anticipateActivityId),
+  )
+  const uploaded = {}
+
+  const rows: InroadsMvpSlotFile[] = []
+  for (const slot of TEMPLATE_FOLDER_SLOT_IDS) {
+    const mediaId = mediaIdForSlot(
+      slot,
+      uploaded,
+      mvp.introMedia,
+      see,
+      process,
+      anticipate,
+    )
+    let filename: string | null = null
+    if (mediaId) {
+      try {
+        filename = mediaAssetDisplayName(await services.media.getAsset(mediaId))
+      } catch {
+        filename = 'Attached file'
+      }
+    }
+    rows.push({
+      slot,
+      label: SLOT_FOLDER_LABELS[slot],
+      kind: mediaKindForSlot(slot),
+      hasFile: Boolean(mediaId),
+      filename,
+    })
+  }
+  return [workbookSlotFile(), ...rows]
+}
+
+export async function replaceInroadsMvpSlotFile(
+  parentId: string,
+  slot: VideoSlotId,
+  file: File,
+  onProgress?: ImportProgressFn,
+): Promise<InroadsMvpSlotFile> {
+  if (!fileMatchesSlot(slot, file)) {
+    throw new Error(
+      `Choose a ${mediaKindForSlot(slot)} file for ${SLOT_FOLDER_LABELS[slot]}.`,
+    )
+  }
+
+  const parent = await loadActivityOrThrow(parentId)
+  const mvp = readInroadsMvpDefinition(parent)
+  if (!mvp) throw new Error('Inroads MVP definition was not found')
+
+  const seeActivity = await loadActivityOrThrow(mvp.seeActivityId)
+  const processActivity = await loadActivityOrThrow(mvp.processActivityId)
+  const anticipateActivity = await loadActivityOrThrow(mvp.anticipateActivityId)
+  const see = readSeeDefinition(seeActivity)
+  const process = readProcessDefinition(processActivity)
+  const anticipate = readAnticipateDefinition(anticipateActivity)
+
+  const existingId = mediaIdForSlot(
+    slot,
+    {},
+    mvp.introMedia,
+    see,
+    process,
+    anticipate,
+  )
+  let metadata: MediaClipMetadata | undefined
+  if (existingId) {
+    try {
+      const existing = await services.media.getAsset(existingId)
+      if (mediaClipMetadataHasContent(existing.metadata)) {
+        metadata = existing.metadata
+      }
+    } catch {
+      metadata = undefined
+    }
+  }
+
+  const uploaded = await uploadSlot(
+    activityIdForSlot(
+      slot,
+      parentId,
+      mvp.seeActivityId,
+      mvp.processActivityId,
+      mvp.anticipateActivityId,
+    ),
+    slot,
+    file,
+    onProgress,
+    metadata,
+  )
+
+  onProgress?.('Saving…')
+  if (slot === 'intro') {
+    await services.persistence.save(
+      writeInroadsMvpDefinition(parent, { ...mvp, introMedia: uploaded.media }),
+    )
+  } else if (slot.startsWith('observe')) {
+    await services.persistence.save(
+      writeSeeDefinition(seeActivity, applySeeSlotMedia(see, slot, uploaded)),
+    )
+  } else if (slot.startsWith('process')) {
+    await services.persistence.save(
+      writeProcessDefinition(
+        processActivity,
+        applySegmentSlotMedia(process, slot, uploaded, createEmptyProcessSegment),
+      ),
+    )
+  } else {
+    await services.persistence.save(
+      writeAnticipateDefinition(
+        anticipateActivity,
+        applySegmentSlotMedia(
+          anticipate,
+          slot,
+          uploaded,
+          createEmptyAnticipateSegment,
+        ),
+      ),
+    )
+  }
+
+  return {
+    slot,
+    label: SLOT_FOLDER_LABELS[slot],
+    kind: mediaKindForSlot(slot),
+    hasFile: true,
+    filename: file.name,
+  }
+}
+
+export async function replaceInroadsMvpWorkbook(
+  parentId: string,
+  file: File,
+  onProgress?: ImportProgressFn,
+): Promise<{ file: InroadsMvpSlotFile; report: ImportPackageReport }> {
+  onProgress?.('Reading lesson.xlsx…')
+  const payload = await parseImportWorkbook(file)
+  const report = await importInroadsMvpPackage(parentId, payload, onProgress)
+  return { file: workbookSlotFile(file.name), report }
+}
+
+function applySeeSlotMedia(
+  current: SeeDefinition,
+  slot: VideoSlotId,
+  uploaded: { media: MediaRef; durationMs: number },
+): SeeDefinition {
+  if (slot === 'observe-1') {
+    return {
+      ...current,
+      media: uploaded.media,
+      duration:
+        uploaded.durationMs > 0 ? uploaded.durationMs / 1000 : current.duration,
+    }
+  }
+  if (slot === 'observe-summary-audio') {
+    return { ...current, introAudio: uploaded.media }
+  }
+  const first = current.hazards[0] ?? createEmptySeeHazard(1, 0, current.duration || 10)
+  const nextFirst =
+    slot === 'observe-coaching'
+      ? { ...first, missedVideo: uploaded.media }
+      : { ...first, explanationImage: uploaded.media }
+  return { ...current, hazards: [nextFirst, ...current.hazards.slice(1)] }
+}
+
+function applySegmentSlotMedia<
+  T extends { segments: Array<{ media: MediaRef | null; durationMs: number }> },
+>(
+  current: T,
+  slot: VideoSlotId,
+  uploaded: { media: MediaRef; durationMs: number },
+  empty: () => T['segments'][number],
+): T {
+  const index = slot.endsWith('-3') ? 2 : slot.endsWith('-2') ? 1 : 0
+  const segments = [...current.segments]
+  while (segments.length <= index) segments.push(empty())
+  const existing = segments[index]
+  segments[index] = {
+    ...existing,
+    media: uploaded.media,
+    durationMs: uploaded.durationMs > 0 ? uploaded.durationMs : existing.durationMs,
+  }
+  return { ...current, segments }
+}
+
 export async function importInroadsMvpPackage(
   parentId: string,
   payload: ParsedImportPackage,
@@ -493,6 +721,8 @@ export async function importInroadsMvpPackage(
     introMedia: uploaded.intro?.media ?? mvp.introMedia,
     introShowOnFirstVisitOnly:
       payload.lesson.introFirstVisit ?? mvp.introShowOnFirstVisitOnly,
+    country: payload.lesson.country.trim() || mvp.country,
+    language: payload.lesson.language.trim() || mvp.language,
   })
   if (payload.lesson.title.trim()) {
     nextParent.metadata.title = payload.lesson.title.trim()

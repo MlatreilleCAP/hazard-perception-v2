@@ -160,6 +160,11 @@ function onIntroEnded(): void {
   if (lesson.value.introShowOnFirstVisitOnly !== false) {
     markLessonIntroSeen(props.definition.id)
   }
+  if (orderedItems.value.length === 0) {
+    introSrc.value = null
+    emit('finished')
+    return
+  }
   // Leave intro immediately so the last frame cannot stick over the Observe loader.
   showSegmentLoader()
   introSrc.value = null
@@ -180,6 +185,8 @@ async function startLesson(): Promise<void> {
   showSegmentLoader()
 
   if (orderedItems.value.length === 0) {
+    const showingIntro = await startIntro()
+    if (showingIntro || phase.value === 'error') return
     error.value = 'This lesson has no Observe, Process, or Anticipate sections yet.'
     phase.value = 'error'
     onSegmentReady()

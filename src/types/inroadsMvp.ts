@@ -1,3 +1,7 @@
+import {
+  canonicalizeLessonCountry,
+  canonicalizeLessonLanguage,
+} from '@/lib/inroadsMvp/packageSpec'
 import type { MediaRef } from '@/types/media'
 
 export const INROADS_MVP_TAG = 'inroads-mvp'
@@ -10,6 +14,10 @@ export type InroadsMvpDefinition = {
   /** Section 1 — intro clip before Observe / Process / Anticipate. */
   introMedia: MediaRef | null
   introShowOnFirstVisitOnly: boolean
+  /** Standalone introduction activity to play instead of introMedia when set. */
+  introductionActivityId: string
+  country: string
+  language: string
   /** Section 2 — Observe activity id. */
   seeActivityId: string
   /** Section 3 — Process activity id. */
@@ -35,6 +43,9 @@ export function createDefaultInroadsMvpDefinition(
     version: 1,
     introMedia: null,
     introShowOnFirstVisitOnly: true,
+    introductionActivityId: '',
+    country: 'Canada',
+    language: 'English',
     seeActivityId,
     processActivityId,
     anticipateActivityId,
@@ -50,6 +61,9 @@ export function cloneInroadsMvpDefinition(
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
     introShowOnFirstVisitOnly: definition.introShowOnFirstVisitOnly !== false,
+    introductionActivityId: definition.introductionActivityId.trim(),
+    country: canonicalizeLessonCountry(definition.country),
+    language: canonicalizeLessonLanguage(definition.language),
     seeActivityId: definition.seeActivityId,
     processActivityId: definition.processActivityId,
     anticipateActivityId: definition.anticipateActivityId,
@@ -81,6 +95,14 @@ export function normalizeInroadsMvpDefinition(
     version: 1,
     introMedia,
     introShowOnFirstVisitOnly: raw.introShowOnFirstVisitOnly !== false,
+    introductionActivityId:
+      typeof raw.introductionActivityId === 'string' ? raw.introductionActivityId.trim() : '',
+    country: canonicalizeLessonCountry(
+      typeof raw.country === 'string' ? raw.country : '',
+    ),
+    language: canonicalizeLessonLanguage(
+      typeof raw.language === 'string' ? raw.language : '',
+    ),
     seeActivityId,
     processActivityId,
     anticipateActivityId,
@@ -88,10 +110,10 @@ export function normalizeInroadsMvpDefinition(
 }
 
 export const INROADS_MVP_SECTIONS = [
-  { id: 'intro', label: '1 · Intro video' },
-  { id: 'see', label: '2 · Observe' },
-  { id: 'process', label: '3 · Process' },
-  { id: 'anticipate', label: '4 · Anticipate' },
+  { id: 'lesson', label: 'Lesson' },
+  { id: 'see', label: '1 · Observe' },
+  { id: 'process', label: '2 · Process' },
+  { id: 'anticipate', label: '3 · Anticipate' },
 ] as const
 
 export type InroadsMvpSectionId = (typeof INROADS_MVP_SECTIONS)[number]['id']

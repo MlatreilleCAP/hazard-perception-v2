@@ -5,13 +5,17 @@ import { catalogCoverAt } from '@/app/catalogCovers'
 import { useActivityStore } from '@/stores/activityStore'
 import { useAuthStore } from '@/stores/authStore'
 import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
+import { isIntroductionActivity } from '@/types/introduction'
 
 const activities = useActivityStore()
 const auth = useAuthStore()
 
 const published = computed(() =>
   activities.summaries.filter(
-    (summary) => summary.published && !isInroadsMvpChildActivity(summary.tags),
+    (summary) =>
+      summary.published &&
+      !isInroadsMvpChildActivity(summary.tags) &&
+      !isIntroductionActivity(summary.tags),
   ),
 )
 

@@ -32,7 +32,9 @@ export type ImportWorkbookContent = {
   title: string
   description: string
   introFirstVisit: boolean
-    observe: {
+  country: string
+  language: string
+  observe: {
     instruction: string
     instructionPill: string
     maneuver: string
@@ -96,14 +98,14 @@ function copyRows(content: ImportWorkbookContent): string[][] {
 const VIDEO_IMAGE_META_NAMES: Array<
   [string, (content: ImportWorkbookContent) => string]
 > = [
-  ['Country', () => 'Canada'],
+  ['Country', (content) => content.country || 'Canada'],
   ['Vehicle Type', () => 'Passenger Vehicle'],
   ['core_competency', (content) => content.observe.coreCompetency],
 ]
 
 const AUDIO_META_NAMES: Array<[string, (content: ImportWorkbookContent) => string]> = [
-  ['Country', () => 'Canada'],
-  ['Language', () => 'English'],
+  ['Country', (content) => content.country || 'Canada'],
+  ['Language', (content) => content.language || 'English'],
 ]
 
 const METADATA_TEMPLATE_FOLDERS: Array<{
@@ -136,28 +138,7 @@ function questionRow(
   question: ProcessSurveyQuestion | null,
 ): Array<string | number> {
   if (!question) {
-    return [
-      '',
-      1,
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-    ]
+    return QUESTION_HEADERS.map(() => '')
   }
   const correct = ANSWER_COLUMNS[question.correctIndex]?.toUpperCase() ?? 'A'
   const cells: Array<string | number> = [
@@ -260,6 +241,8 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     title: 'Inroads MVP',
     description: 'This is a sample of the Inroads MVP',
     introFirstVisit: true,
+    country: 'Canada',
+    language: 'English',
     observe: {
       instruction: DEFAULT_SEE_INSTRUCTION,
       instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
@@ -390,15 +373,20 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
   lesson.addRow(['title', content.title])
   lesson.addRow(['description', content.description])
   lesson.addRow(['intro_first_visit', content.introFirstVisit ? 'true' : 'false'])
+  lesson.addRow(['country', content.country])
+  lesson.addRow(['language', content.language])
   lesson.getRow(1).font = { bold: true }
   lesson.getColumn(1).width = 22
   lesson.getColumn(2).width = 48
   lesson.eachRow((row, rowNumber) => {
+    const field = String(row.getCell(1).value ?? '')
+    const hide = field === 'intro_first_visit'
+    if (hide) row.hidden = true
     row.eachCell((cell, colNumber) => {
-      lockCell(cell, !(rowNumber > 1 && rowNumber < 4 && colNumber === 2))
+      const valueUnlocked = colNumber === 2 && rowNumber > 1 && !hide
+      lockCell(cell, !valueUnlocked)
     })
   })
-  lesson.getRow(4).hidden = true
   await protectSheet(lesson, false)
 
   const copy = workbook.addWorksheet(SHEET_NAMES.copy)

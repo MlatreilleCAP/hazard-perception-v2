@@ -1,19 +1,29 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import {
   downloadBlob,
   slugForFilename,
 } from '@/lib/inroadsMvp/buildImportTemplate'
-import { SLOT_FOLDER_LABELS } from '@/lib/inroadsMvp/packageSpec'
+import {
+  SLOT_FOLDER_LABELS,
+  WORKBOOK_FILE_ACCEPT,
+  WORKBOOK_REPLACE_ID,
+  slotFileAccept,
+  type ReplaceSlotId,
+} from '@/lib/inroadsMvp/packageSpec'
 import { exportInroadsMvpTemplateZip, exportSampleInroadsMvpTemplateZip } from '@/services/exportInroadsMvpPackage'
 import { parseImportZip } from '@/lib/inroadsMvp/parseImportPackage'
 import { createBlankInroadsMvp } from '@/services/createInroadsMvp'
 import {
   importInroadsMvpPackage,
   inspectInroadsMvpOccupancy,
+  listInroadsMvpSlotFiles,
   occupancyHasContent,
+  replaceInroadsMvpSlotFile,
+  replaceInroadsMvpWorkbook,
   type ImportPackageReport,
+  type InroadsMvpSlotFile,
 } from '@/services/inroadsMvpImport'
 import { useActivityStore } from '@/stores/activityStore'
 
@@ -29,13 +39,66 @@ const emit = defineEmits<{
 
 const activities = useActivityStore()
 const zipInput = ref<HTMLInputElement | null>(null)
+const slotInput = ref<HTMLInputElement | null>(null)
 const importing = ref(false)
 const exporting = ref(false)
+const replacingSlot = ref<ReplaceSlotId | null>(null)
+const pendingSlot = ref<ReplaceSlotId | null>(null)
 const progress = ref<string | null>(null)
 const error = ref<string | null>(null)
 const report = ref<ImportPackageReport | null>(null)
+const slotFiles = ref<InroadsMvpSlotFile[]>([])
+const slotsLoading = ref(false)
+const replaceMenuOpen = ref(false)
+const replaceMenu = ref<HTMLElement | null>(null)
 
-const busy = computed(() => importing.value || exporting.value)
+const busy = computed(() => importing.value || exporting.value || Boolean(replacingSlot.value))
+const showSlotReplace = computed(() => Boolean(props.parentId) && !props.createLesson)
+const slotAccept = computed(() =>
+  pendingSlot.value === WORKBOOK_REPLACE_ID
+    ? WORKBOOK_FILE_ACCEPT
+    : pendingSlot.value
+      ? slotFileAccept(pendingSlot.value)
+      : 'video/*,audio/*,image/*,.xls,.xlsx',
+)
+
+async function refreshSlotFiles(): Promise<void> {
+  if (!props.parentId || props.createLesson) {
+    slotFiles.value = []
+    return
+  }
+  slotsLoading.value = true
+  try {
+    slotFiles.value = await listInroadsMvpSlotFiles(props.parentId)
+  } catch {
+    slotFiles.value = []
+  } finally {
+    slotsLoading.value = false
+  }
+}
+
+function onDocPointerDown(event: PointerEvent): void {
+  if (!replaceMenuOpen.value) return
+  const el = replaceMenu.value
+  if (el && event.target instanceof Node && el.contains(event.target)) return
+  replaceMenuOpen.value = false
+}
+
+onMounted(() => {
+  void refreshSlotFiles()
+  document.addEventListener('pointerdown', onDocPointerDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', onDocPointerDown)
+})
+
+watch(
+  () => props.parentId,
+  () => {
+    void refreshSlotFiles()
+  },
+)
 
 async function downloadTemplate(): Promise<void> {
   if (props.disabled || busy.value) return
@@ -69,6 +132,67 @@ function onZip(event: Event): void {
 function chooseZip(): void {
   if (props.disabled || busy.value) return
   zipInput.value?.click()
+}
+
+function toggleReplaceMenu(): void {
+  if (props.disabled || busy.value) return
+  replaceMenuOpen.value = !replaceMenuOpen.value
+}
+
+function chooseSlotFile(slot: ReplaceSlotId): void {
+  if (props.disabled || busy.value) return
+  replaceMenuOpen.value = false
+  pendingSlot.value = slot
+  requestAnimationFrame(() => slotInput.value?.click())
+}
+
+async function onSlotFile(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  const slot = pendingSlot.value
+  input.value = ''
+  pendingSlot.value = null
+  if (!file || !slot || !props.parentId) return
+
+  const current = slotFiles.value.find((item) => item.slot === slot)
+  const label = current?.label ?? (slot === WORKBOOK_REPLACE_ID ? 'lesson.xlsx' : SLOT_FOLDER_LABELS[slot])
+  if (
+    !window.confirm(
+      slot === WORKBOOK_REPLACE_ID
+        ? `Replace lesson.xlsx with ${file.name}? Copy, questions, and metadata will update. Media files stay in place.`
+        : `Replace ${label}${current?.filename ? ` (${current.filename})` : ''} with ${file.name}?`,
+    )
+  ) {
+    return
+  }
+
+  replacingSlot.value = slot
+  progress.value = slot === WORKBOOK_REPLACE_ID ? 'Reading lesson.xlsx…' : `Uploading ${label}…`
+  error.value = null
+  report.value = null
+  try {
+    if (slot === WORKBOOK_REPLACE_ID) {
+      const result = await replaceInroadsMvpWorkbook(props.parentId, file, (message) => {
+        progress.value = message
+      })
+      slotFiles.value = slotFiles.value.map((item) =>
+        item.slot === slot ? result.file : item,
+      )
+      report.value = result.report
+    } else {
+      const result = await replaceInroadsMvpSlotFile(props.parentId, slot, file, (message) => {
+        progress.value = message
+      })
+      slotFiles.value = slotFiles.value.map((item) => (item.slot === slot ? result : item))
+    }
+    await activities.load(props.parentId)
+    emit('imported', props.parentId)
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Replace failed'
+  } finally {
+    replacingSlot.value = null
+    progress.value = null
+  }
 }
 
 async function runImport(file: File): Promise<void> {
@@ -118,6 +242,7 @@ async function runImport(file: File): Promise<void> {
       await activities.load(targetId)
     }
     report.value = result
+    await refreshSlotFiles()
     emit('imported', targetId)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Import failed'
@@ -156,18 +281,47 @@ async function runImport(file: File): Promise<void> {
       <AuthorPillButton variant="white" :disabled="disabled || busy" @click="downloadTemplate">
         Download template
       </AuthorPillButton>
+      <div v-if="showSlotReplace" ref="replaceMenu" class="author-menu">
+        <input
+          ref="slotInput"
+          type="file"
+          :accept="slotAccept"
+          :disabled="disabled || busy"
+          @change="onSlotFile"
+        />
+        <AuthorPillButton variant="white" :disabled="disabled || busy" @click="toggleReplaceMenu">
+          {{ replacingSlot ? 'Replacing…' : 'Replace file' }}
+        </AuthorPillButton>
+        <div v-if="replaceMenuOpen" class="author-menu-panel inroads-replace-menu" role="menu">
+          <p v-if="slotsLoading" class="inroads-replace-menu-empty">Loading files…</p>
+          <p v-else-if="!slotFiles.length" class="inroads-replace-menu-empty">No slots found.</p>
+          <button
+            v-for="item in slotFiles"
+            :key="item.slot"
+            type="button"
+            class="author-menu-item author-menu-item-stacked"
+            role="menuitem"
+            @click="chooseSlotFile(item.slot)"
+          >
+            <span>{{ item.label }}</span>
+            <span class="author-menu-item-subtext">{{
+              item.filename || 'No file yet'
+            }}</span>
+          </button>
+        </div>
+      </div>
     </div>
+
     <p v-if="progress" class="author-muted">{{ progress }}</p>
     <p v-if="error" class="author-error">{{ error }}</p>
     <div v-if="report" class="author-stack-sm">
       <p class="author-success">
-        Imported {{ report.uploadedSlots.length }} video{{
-          report.uploadedSlots.length === 1 ? '' : 's'
-        }}{{
-          report.uploadedSlots.length
-            ? `: ${report.uploadedSlots.map((slot) => SLOT_FOLDER_LABELS[slot]).join(', ')}`
-            : ''
-        }}.
+        <template v-if="report.uploadedSlots.length">
+          Imported {{ report.uploadedSlots.length }} video{{
+            report.uploadedSlots.length === 1 ? '' : 's'
+          }}: {{ report.uploadedSlots.map((slot) => SLOT_FOLDER_LABELS[slot]).join(', ') }}.
+        </template>
+        <template v-else>Updated lesson from workbook.</template>
         <template v-if="report.metadataSaved">
           Saved metadata on {{ report.metadataSaved }} file{{
             report.metadataSaved === 1 ? '' : 's'

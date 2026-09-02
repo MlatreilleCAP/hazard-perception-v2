@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { cloneJson } from '@/app/clone'
 import { services } from '@/app/container'
-import { expandInroadsMvpForPlayback } from '@/activities/expandInroadsMvp'
+import { expandInroadsMvpForPlayback, expandIntroductionForPlayback } from '@/activities/expandInroadsMvp'
 import { findInroadsMvpNode } from '@/activities/inroadsMvpDefinition'
 import AnticipateExperience from '@/components/anticipate/AnticipateExperience.vue'
 import LessonExperience from '@/components/lesson/LessonExperience.vue'
@@ -14,6 +14,7 @@ import { useRuntimeStore } from '@/stores/runtimeStore'
 import type { ActivityDefinition } from '@/types/activity'
 import { isAnticipateActivity } from '@/types/anticipate'
 import { isInroadsMvpActivity, isInroadsMvpChildActivity } from '@/types/inroadsMvp'
+import { isIntroductionActivity } from '@/types/introduction'
 import { isLessonActivity } from '@/types/lesson'
 import { isProcessActivity } from '@/types/process'
 import { isSeeActivity } from '@/types/see'
@@ -27,7 +28,10 @@ const loading = ref(false)
 
 const published = computed(() =>
   activities.summaries.filter(
-    (summary) => summary.published && !isInroadsMvpChildActivity(summary.tags),
+    (summary) =>
+      summary.published &&
+      !isInroadsMvpChildActivity(summary.tags) &&
+      !isIntroductionActivity(summary.tags),
   ),
 )
 const isProcess = computed(
@@ -81,18 +85,27 @@ async function loadActivity(id: string): Promise<void> {
       )
       return
     }
-    definition.value = cloneJson(loaded)
-    if (
-      isInroadsMvpActivity(definition.value.metadata.tags) &&
-      findInroadsMvpNode(definition.value)
-    ) {
-      const expanded = expandInroadsMvpForPlayback(definition.value)
+    const next = cloneJson(loaded)
+    if (isIntroductionActivity(next.metadata.tags)) {
+      const expanded = expandIntroductionForPlayback(next)
+      if (!expanded) {
+        definition.value = null
+        runtime.setError('Stand Alone Video is missing its video node')
+        return
+      }
+      definition.value = expanded
+    } else if (isInroadsMvpActivity(next.metadata.tags) && findInroadsMvpNode(next)) {
+      const expanded = await expandInroadsMvpForPlayback(next, {
+        preview: isPreview.value,
+      })
       if (!expanded) {
         definition.value = null
         runtime.setError('Inroads MVP is missing required sections')
         return
       }
       definition.value = expanded
+    } else {
+      definition.value = next
     }
     runtime.playDefinition(definition.value)
   } catch (cause) {
@@ -129,11 +142,11 @@ function mvpPreviewReturn(): { path: string; query?: { section: string } } | nul
   const parentId = mvp === '1' ? activityId.value : mvp
   if (!parentId) return null
   const section = route.query.section
+  if (route.query.intro === '1' || section === 'intro') {
+    return { path: `/studio/stand-alone-video/${parentId}` }
+  }
   const query =
-    section === 'intro' ||
-    section === 'see' ||
-    section === 'process' ||
-    section === 'anticipate'
+    section === 'see' || section === 'process' || section === 'anticipate'
       ? { section }
       : undefined
   return { path: `/studio/inroads-mvp/${parentId}`, query }
@@ -144,6 +157,10 @@ function onExperienceFinished(): void {
     const mvpReturn = mvpPreviewReturn()
     if (mvpReturn) {
       void router.push(mvpReturn)
+      return
+    }
+    if (route.query.intro === '1' || isIntroductionActivity(activities.current?.metadata.tags)) {
+      void router.push(`/studio/stand-alone-video/${activityId.value}`)
       return
     }
     if (isLesson.value) {

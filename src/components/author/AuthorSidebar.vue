@@ -7,6 +7,13 @@ const mvpOpen = computed(
   () =>
     route.path === '/studio/inroads-mvp' || route.path.startsWith('/studio/inroads-mvp/'),
 )
+const introductionOpen = computed(
+  () =>
+    route.path === '/studio/stand-alone-video' ||
+    route.path.startsWith('/studio/stand-alone-video/') ||
+    route.path === '/studio/introduction' ||
+    route.path.startsWith('/studio/introduction/'),
+)
 const mediaOpen = computed(
   () => route.path === '/studio/media' || route.path.startsWith('/studio/media/'),
 )
@@ -40,6 +47,13 @@ const publishedOpen = computed(
         :class="{ active: mvpOpen }"
       >
         Inroads MVP
+      </RouterLink>
+      <RouterLink
+        to="/studio/stand-alone-video"
+        class="author-nav-link"
+        :class="{ active: introductionOpen }"
+      >
+        Stand Alone Video
       </RouterLink>
       <RouterLink
         to="/studio/media"

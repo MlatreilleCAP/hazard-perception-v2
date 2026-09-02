@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import { createIntroductionActivity } from '@/activities/createIntroductionActivity'
 import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
-import { createBlankInroadsMvp } from '@/services/createInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 
 const router = useRouter()
@@ -20,11 +20,16 @@ async function create(): Promise<void> {
 
   saving.value = true
   try {
-    const id = await createBlankInroadsMvp(title.value.trim(), description.value.trim())
-    await activities.refreshList()
-    await router.push(`/studio/inroads-mvp/${id}`)
+    const definition = createIntroductionActivity(title.value.trim())
+    definition.metadata.description = description.value.trim()
+    await activities.save(definition)
+    const id = activities.current?.id
+    if (!id) {
+      throw new Error('Stand Alone Video was created but could not be loaded')
+    }
+    await router.push(`/studio/stand-alone-video/${id}`)
   } catch (cause) {
-    window.alert(cause instanceof Error ? cause.message : 'Failed to create Inroads MVP')
+    window.alert(cause instanceof Error ? cause.message : 'Failed to create stand alone video')
   } finally {
     saving.value = false
   }
@@ -36,7 +41,7 @@ async function create(): Promise<void> {
     <div class="author-page-inner author-stack">
       <div class="author-header-row">
         <div class="author-header-left">
-          <RouterLink to="/studio/inroads-mvp" class="author-back" aria-label="Back">
+          <RouterLink to="/studio/stand-alone-video" class="author-back" aria-label="Back">
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
               <path
                 d="M10 3.5 5.5 8 10 12.5"
@@ -47,33 +52,28 @@ async function create(): Promise<void> {
               />
             </svg>
           </RouterLink>
-          <h1 class="author-header-title">New Inroads MVP</h1>
+          <h1 class="author-header-title">New Stand Alone Video</h1>
         </div>
       </div>
 
       <section class="author-stack-sm">
-        <AuthorSectionHeader title="Lesson Info" />
+        <AuthorSectionHeader title="Video Info" />
         <AuthorField
-          id="mvp-title"
+          id="title"
           v-model="title"
           label="Title"
+          placeholder="Stand Alone Video title"
           :error="titleError ?? undefined"
-          placeholder="Inroads MVP title"
         />
         <AuthorField
-          id="mvp-description"
+          id="description"
           v-model="description"
           label="Description"
+          placeholder="Description"
           multiline
-          :rows="3"
-          placeholder="What learners will cover"
+          :rows="2"
         />
       </section>
-
-      <p class="author-muted">
-        Creates Observe, Process, and Anticipate authoring pages nested in this lesson.
-        Add the stand alone video from Stand Alone Video in the sidebar.
-      </p>
 
       <div class="author-actions">
         <AuthorPillButton variant="primary" :disabled="saving" @click="create">

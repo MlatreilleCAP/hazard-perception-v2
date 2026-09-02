@@ -1,5 +1,8 @@
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
+
+const props = defineProps<{
   id: string
   label: string
   error?: string
@@ -12,10 +15,28 @@ defineProps<{
 }>()
 
 const model = defineModel<string>({ required: true })
+
+const selectOptions = computed(() => {
+  if (!props.options) return []
+  return [
+    { value: '', label: props.placeholder ?? 'Select' },
+    ...props.options.map((option) => ({ value: option, label: option })),
+  ]
+})
 </script>
 
 <template>
-  <div>
+  <AuthorSelectField
+    v-if="options"
+    :id="id"
+    v-model="model"
+    :label="label"
+    :placeholder="placeholder"
+    :disabled="disabled"
+    :error="error"
+    :options="selectOptions"
+  />
+  <div v-else>
     <label class="author-field" :for="id">
       <span style="min-width: 0; flex: 1">
         <span class="author-field-label">{{ label }}</span>
@@ -28,18 +49,6 @@ const model = defineModel<string>({ required: true })
           :placeholder="placeholder"
           :disabled="disabled"
         />
-        <select
-          v-else-if="options"
-          :id="id"
-          v-model="model"
-          class="author-field-control"
-          :disabled="disabled"
-        >
-          <option value="">{{ placeholder ?? 'Select' }}</option>
-          <option v-for="option in options" :key="option" :value="option">
-            {{ option }}
-          </option>
-        </select>
         <input
           v-else
           :id="id"

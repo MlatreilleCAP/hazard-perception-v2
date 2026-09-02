@@ -12,6 +12,8 @@ import {
   SLOT_FOLDER_LABELS,
   SHEET_NAMES,
   basename,
+  canonicalizeLessonCountry,
+  canonicalizeLessonLanguage,
   isAudioName,
   isImageName,
   isMediaName,
@@ -42,6 +44,8 @@ export type ImportedLessonFields = {
   title: string
   description: string
   introFirstVisit: boolean | null
+  country: string
+  language: string
 }
 
 export type ImportedCopy = Partial<
@@ -159,13 +163,15 @@ function parseLessonSheet(
   const sheet = findSheet(workbook, SHEET_NAMES.lesson)
   if (!sheet) {
     warnings.push(`Missing "${SHEET_NAMES.lesson}" sheet.`)
-    return { title: '', description: '', introFirstVisit: null }
+    return { title: '', description: '', introFirstVisit: null, country: '', language: '' }
   }
 
   const lesson: ImportedLessonFields = {
     title: '',
     description: '',
     introFirstVisit: null,
+    country: '',
+    language: '',
   }
   const known = new Set<string>(LESSON_KEYS)
 
@@ -179,6 +185,8 @@ function parseLessonSheet(
     }
     if (key === 'title') lesson.title = value
     else if (key === 'description') lesson.description = value
+    else if (key === 'country') lesson.country = canonicalizeLessonCountry(value)
+    else if (key === 'language') lesson.language = canonicalizeLessonLanguage(value)
     else if (key === 'intro_first_visit') {
       const parsed = parseBoolean(value)
       if (value && parsed == null) {
@@ -252,7 +260,10 @@ function parseQuestionsSheet(
     const questionText = record.question_text || record.question || ''
     const kind = parseQuestionKind(record.kind)
     const segmentRaw = record.segment ?? ''
-    if (!section && !record.kind && !questionText && !segmentRaw) return
+    const hasAnswers = ANSWER_COLUMNS.some(
+      (letter) => Boolean(record[`${letter}_text`] || record[letter]),
+    )
+    if (!section && !record.kind && !questionText && !hasAnswers) return
 
     if (!QUESTION_SECTIONS.includes(section as (typeof QUESTION_SECTIONS)[number])) {
       warnings.push(`Questions row ${line}: section must be observe, process, or anticipate.`)
@@ -376,6 +387,20 @@ export function parseWorkbookBytes(
     copy: parseCopySheet(workbook, warnings),
     questions: parseQuestionsSheet(workbook, warnings),
     mediaMetadata: parseMetadataSheet(workbook, warnings),
+  }
+}
+
+export async function parseImportWorkbook(file: File): Promise<ParsedImportPackage> {
+  if (!isWorkbookName(file.name)) {
+    throw new Error('Choose lesson.xls or lesson.xlsx.')
+  }
+  const warnings: string[] = []
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  return {
+    ...parseWorkbookBytes(bytes, warnings),
+    videos: {},
+    warnings,
+    unusedFiles: [],
   }
 }
 

@@ -1,23 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
-import InroadsMvpImportPanel from '@/components/author/InroadsMvpImportPanel.vue'
-import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
-import { isInroadsMvpActivity } from '@/types/inroadsMvp'
 import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
+import { isIntroductionActivity } from '@/types/introduction'
 
-const router = useRouter()
 const activities = useActivityStore()
 const { canCreate, canEdit } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
 const searchQuery = ref('')
 
 const items = computed(() =>
-  activities.summaries.filter((item) => isInroadsMvpActivity(item.tags)),
+  activities.summaries.filter((item) => isIntroductionActivity(item.tags)),
 )
 
 const versionCounts = computed(() => {
@@ -42,10 +39,7 @@ function versionsLabel(title: string): string {
 const filtered = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   if (!query) return items.value
-  return items.value.filter((item) => {
-    const status = item.published ? 'published' : 'draft'
-    return item.title.toLowerCase().includes(query) || status.includes(query)
-  })
+  return items.value.filter((item) => item.title.toLowerCase().includes(query))
 })
 
 onMounted(async () => {
@@ -62,21 +56,9 @@ async function remove(id: string, title: string): Promise<void> {
     return
   }
   try {
-    const loaded = await activities.load(id).then(() => activities.current)
-    const mvp = loaded ? readInroadsMvpDefinition(loaded) : null
-    const childIds = mvp
-      ? [mvp.seeActivityId, mvp.processActivityId, mvp.anticipateActivityId]
-      : []
     await activities.remove(id)
-    for (const childId of childIds) {
-      try {
-        await activities.remove(childId)
-      } catch {
-        // Parent already removed; ignore child cleanup failures.
-      }
-    }
   } catch (cause) {
-    window.alert(cause instanceof Error ? cause.message : 'Failed to remove lesson')
+    window.alert(cause instanceof Error ? cause.message : 'Failed to remove stand alone video')
   }
 }
 </script>
@@ -86,33 +68,26 @@ async function remove(id: string, title: string): Promise<void> {
     <div class="author-page-inner author-stack-sm">
       <div class="author-page-header">
         <div>
-          <h1>Inroads MVP</h1>
-          <p>One lesson with Observe, Process, and Anticipate sections</p>
+          <h1>Stand Alone Video</h1>
+          <p>Build videos that play on their own, or before Observe, Process, and Anticipate</p>
         </div>
         <RouterLink
           v-if="canCreate"
-          to="/studio/inroads-mvp/new"
+          to="/studio/stand-alone-video/new"
           style="text-decoration: none"
         >
-          <AuthorPillButton variant="white">New Inroads MVP</AuthorPillButton>
+          <AuthorPillButton variant="white">New stand alone video</AuthorPillButton>
         </RouterLink>
       </div>
 
       <p v-if="activities.error" class="author-error">{{ activities.error }}</p>
 
-      <section v-if="canCreate" class="author-list-card" style="padding: 16px 20px">
-        <InroadsMvpImportPanel
-          create-lesson
-          @imported="(id) => router.push(`/studio/inroads-mvp/${id}`)"
-        />
-      </section>
-
       <section class="author-list-card">
         <div class="author-list-card-head media-library-head">
-          <h2>Inroads MVP</h2>
+          <h2>All stand alone videos</h2>
           <span class="author-count">{{ filtered.length }}</span>
           <label class="media-library-search">
-            <span class="sr-only">Search Inroads MVP</span>
+            <span class="sr-only">Search stand alone videos</span>
             <input
               v-model="searchQuery"
               type="search"
@@ -123,31 +98,30 @@ async function remove(id: string, title: string): Promise<void> {
         </div>
 
         <div v-if="items.length === 0" class="author-list-empty">
-          <p class="author-muted">No Inroads MVP lessons yet.</p>
+          <p class="author-muted">No stand alone videos yet.</p>
           <RouterLink
             v-if="canCreate"
-            to="/studio/inroads-mvp/new"
+            to="/studio/stand-alone-video/new"
             class="author-list-title"
             style="display: inline-block; margin-top: 12px; font-weight: 500"
           >
-            Create your first Inroads MVP
+            Create your first stand alone video
           </RouterLink>
         </div>
 
         <div v-else-if="filtered.length === 0" class="author-list-empty">
-          <p class="author-muted">No lessons match this search.</p>
+          <p class="author-muted">No stand alone videos match this search.</p>
         </div>
 
         <ul v-else class="author-list">
           <li v-for="item in filtered" :key="item.id" class="author-list-row">
             <div style="min-width: 0; flex: 1">
-              <RouterLink :to="`/studio/inroads-mvp/${item.id}`" class="author-list-title">
+              <RouterLink :to="`/studio/stand-alone-video/${item.id}`" class="author-list-title">
                 {{ item.title }}
               </RouterLink>
               <p class="author-list-sub">
-                {{ item.published ? 'Published' : 'Draft'
-                }}{{ canEdit(item.createdBy) ? '' : ' · View only' }}
-                · {{ versionsLabel(item.title) }}
+                {{ item.published ? 'Published' : 'Draft' }}
+                · {{ versionsLabel(item.title) }}{{ canEdit(item.createdBy) ? '' : ' · View only' }}
               </p>
             </div>
             <AuthorStatusChip :label="item.published ? 'PUBLISHED' : 'DRAFT'" />
@@ -166,7 +140,7 @@ async function remove(id: string, title: string): Promise<void> {
               </button>
               <div v-if="menuOpenId === item.id" class="author-menu-panel" role="menu">
                 <RouterLink
-                  :to="`/studio/inroads-mvp/${item.id}`"
+                  :to="`/studio/stand-alone-video/${item.id}`"
                   class="author-menu-item"
                   role="menuitem"
                 >

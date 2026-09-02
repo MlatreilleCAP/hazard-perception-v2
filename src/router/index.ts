@@ -15,6 +15,9 @@ import ProcessNewView from '@/views/author/ProcessNewView.vue'
 import InroadsMvpEditorView from '@/views/author/InroadsMvpEditorView.vue'
 import InroadsMvpListView from '@/views/author/InroadsMvpListView.vue'
 import InroadsMvpNewView from '@/views/author/InroadsMvpNewView.vue'
+import IntroductionEditorView from '@/views/author/IntroductionEditorView.vue'
+import IntroductionListView from '@/views/author/IntroductionListView.vue'
+import IntroductionNewView from '@/views/author/IntroductionNewView.vue'
 import LessonEditorView from '@/views/author/LessonEditorView.vue'
 import LessonListView from '@/views/author/LessonListView.vue'
 import LessonNewView from '@/views/author/LessonNewView.vue'
@@ -177,6 +180,45 @@ export const router = createRouter({
             requiresAuth: true,
             requiresStudio: true,
           },
+        },
+        {
+          path: 'stand-alone-video',
+          name: 'stand-alone-video-list',
+          component: IntroductionListView,
+          meta: {
+            layout: 'author',
+            title: 'Stand Alone Video',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
+        },
+        {
+          path: 'stand-alone-video/new',
+          name: 'stand-alone-video-new',
+          component: IntroductionNewView,
+          meta: {
+            layout: 'author',
+            title: 'New Stand Alone Video',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
+        },
+        {
+          path: 'stand-alone-video/:id',
+          name: 'stand-alone-video-edit',
+          component: IntroductionEditorView,
+          meta: {
+            layout: 'author',
+            title: 'Edit Stand Alone Video',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
+        },
+        { path: 'introduction', redirect: { name: 'stand-alone-video-list' } },
+        { path: 'introduction/new', redirect: { name: 'stand-alone-video-new' } },
+        {
+          path: 'introduction/:id',
+          redirect: (to) => `/studio/stand-alone-video/${String(to.params.id)}`,
         },
         {
           path: 'media',

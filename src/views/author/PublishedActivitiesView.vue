@@ -7,6 +7,7 @@ import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
 import { isAnticipateActivity } from '@/types/anticipate'
 import { isInroadsMvpActivity, isInroadsMvpChildActivity } from '@/types/inroadsMvp'
+import { isIntroductionActivity } from '@/types/introduction'
 import { isLessonActivity } from '@/types/lesson'
 import { isProcessActivity } from '@/types/process'
 import { isSeeActivity } from '@/types/see'
@@ -29,6 +30,7 @@ onMounted(async () => {
 
 function kindLabel(tags: string[]): string {
   if (isInroadsMvpActivity(tags)) return 'Inroads MVP'
+  if (isIntroductionActivity(tags)) return 'Stand Alone Video'
   if (isLessonActivity(tags)) return 'Compiled Lesson'
   if (isSeeActivity(tags)) return 'Observe'
   if (isProcessActivity(tags)) return 'Process'
@@ -38,6 +40,7 @@ function kindLabel(tags: string[]): string {
 
 function studioPath(id: string, tags: string[]): string {
   if (isInroadsMvpActivity(tags)) return `/studio/inroads-mvp/${id}`
+  if (isIntroductionActivity(tags)) return `/studio/stand-alone-video/${id}`
   if (isLessonActivity(tags)) return `/studio/lesson/${id}`
   if (isSeeActivity(tags)) return `/studio/see/${id}`
   if (isProcessActivity(tags)) return `/studio/process/${id}`

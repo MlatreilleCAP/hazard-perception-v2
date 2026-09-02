@@ -1,5 +1,11 @@
 export const WORKBOOK_EXTENSIONS = ['.xls', '.xlsx'] as const
 
+export const WORKBOOK_REPLACE_ID = 'workbook' as const
+export type WorkbookReplaceId = typeof WORKBOOK_REPLACE_ID
+
+export const WORKBOOK_FILE_ACCEPT =
+  '.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
 export const VIDEO_SLOT_IDS = [
   'intro',
   'observe-1',
@@ -15,6 +21,7 @@ export const VIDEO_SLOT_IDS = [
 ] as const
 
 export type VideoSlotId = (typeof VIDEO_SLOT_IDS)[number]
+export type ReplaceSlotId = VideoSlotId | WorkbookReplaceId
 
 export const REQUIRED_VIDEO_SLOTS: readonly VideoSlotId[] = [
   'observe-1',
@@ -26,6 +33,33 @@ export const LIBRARY_ONLY_SLOTS: readonly VideoSlotId[] = []
 
 export const IMAGE_SLOT_IDS: readonly VideoSlotId[] = ['observe-explanation']
 export const AUDIO_SLOT_IDS: readonly VideoSlotId[] = ['observe-summary-audio']
+
+export type SlotMediaKind = 'video' | 'image' | 'audio'
+
+export function mediaKindForSlot(slot: VideoSlotId): SlotMediaKind {
+  if (IMAGE_SLOT_IDS.includes(slot)) return 'image'
+  if (AUDIO_SLOT_IDS.includes(slot)) return 'audio'
+  return 'video'
+}
+
+export function slotFileAccept(slot: VideoSlotId): string {
+  const kind = mediaKindForSlot(slot)
+  if (kind === 'image') {
+    return 'image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif'
+  }
+  if (kind === 'audio') {
+    return 'audio/mpeg,audio/mp4,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg'
+  }
+  return 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov'
+}
+
+export function fileMatchesSlot(slot: VideoSlotId, file: File): boolean {
+  const kind = mediaKindForSlot(slot)
+  const type = file.type.toLowerCase()
+  if (kind === 'image') return isImageName(file.name) || type.startsWith('image/')
+  if (kind === 'audio') return isAudioName(file.name) || type.startsWith('audio/')
+  return isVideoName(file.name) || type.startsWith('video/')
+}
 
 export const TEMPLATE_FOLDER_SLOT_IDS: readonly VideoSlotId[] = [
   'intro',
@@ -47,7 +81,50 @@ export const SHEET_NAMES = {
   metadata: 'Metadata',
 } as const
 
-export const LESSON_KEYS = ['title', 'description', 'intro_first_visit'] as const
+export const LESSON_KEYS = ['title', 'description', 'intro_first_visit', 'country', 'language'] as const
+
+export const LESSON_COUNTRY_OPTIONS = [
+  'Canada',
+  'USA',
+  'Mexico',
+  'Germany',
+  'United Kingdom',
+] as const
+
+export const LESSON_LANGUAGE_OPTIONS = ['English', 'French', 'Spanish', 'German'] as const
+
+const COUNTRY_ALIASES: Record<string, string> = {
+  'united states': 'USA',
+  'united states of america': 'USA',
+  usa: 'USA',
+  us: 'USA',
+  'u.s.': 'USA',
+  'u.s.a.': 'USA',
+  deutschland: 'Germany',
+  'great britain': 'United Kingdom',
+  uk: 'United Kingdom',
+  gb: 'United Kingdom',
+  'u.k.': 'United Kingdom',
+}
+
+const LANGUAGE_ALIASES: Record<string, string> = {
+  en: 'English',
+  fr: 'French',
+  es: 'Spanish',
+  de: 'German',
+}
+
+export function canonicalizeLessonCountry(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  return COUNTRY_ALIASES[trimmed.toLowerCase()] ?? trimmed
+}
+
+export function canonicalizeLessonLanguage(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  return LANGUAGE_ALIASES[trimmed.toLowerCase()] ?? trimmed
+}
 
 export const COPY_SECTIONS = ['observe', 'process', 'anticipate'] as const
 export type CopySection = (typeof COPY_SECTIONS)[number]
@@ -256,7 +333,9 @@ Workbook sheets
 Lesson: column A = key, column B = value
   title
   description
-  intro_first_visit     true or false
+  intro_first_visit     true or false (hidden)
+  country
+  language
 
 Copy: header row, then section | field | text
   (sheet name Instructions or Copy)
