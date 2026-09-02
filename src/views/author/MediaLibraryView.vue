@@ -5,6 +5,10 @@ import { services } from '@/app/container'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import {
+  collectReferencedMediaAssetIds,
+  deleteUnusedMediaAssets,
+} from '@/services/mediaLibraryCleanup'
+import {
   emptyMediaClipMetadata,
   formatMediaSize,
   mediaAssetDisplayName,
@@ -25,6 +29,9 @@ const posterUrls = ref<Record<string, string>>({})
 const loading = ref(true)
 const error = ref<string | null>(null)
 const deletingId = ref<string | null>(null)
+const deletingUnused = ref(false)
+const scanningUsage = ref(false)
+const referencedIds = ref<Set<string> | null>(null)
 const uploading = ref(false)
 const savingMeta = ref(false)
 const metaDraft = ref<MediaClipMetadata>(emptyMediaClipMetadata())
@@ -32,15 +39,16 @@ const metaBaseline = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 const LIBRARY_ACCEPT =
   'video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp4,audio/wav,audio/ogg,image/jpeg,image/png,image/webp,image/gif,.mp4,.webm,.mov,.mp3,.m4a,.wav,.ogg,.jpg,.jpeg,.png,.webp,.gif'
-const filter = ref<'all' | 'video' | 'audio' | 'image'>('all')
+const filter = ref<'all' | 'video' | 'audio' | 'image' | 'unused'>('all')
 const searchQuery = ref('')
 const selectedId = ref<string | null>(null)
 let previewGeneration = 0
 
 const filtered = computed(() => {
-  const prefix = filter.value === 'all' ? null : `${filter.value}/`
+  const prefix = filter.value === 'all' || filter.value === 'unused' ? null : `${filter.value}/`
   const query = searchQuery.value.trim().toLowerCase()
   return assets.value.filter((asset) => {
+    if (filter.value === 'unused' && !isUnused(asset)) return false
     if (prefix && !asset.mimeType.startsWith(prefix)) return false
     if (!query) return true
     const name = mediaAssetDisplayName(asset).toLowerCase()
@@ -80,6 +88,22 @@ const metaDirty = computed(
   () => showingMetaFields.value && snapshotMeta(metaDraft.value) !== metaBaseline.value,
 )
 
+function isUnused(asset: MediaAsset): boolean {
+  return referencedIds.value ? !referencedIds.value.has(asset.id) : false
+}
+
+async function refreshUsage(): Promise<void> {
+  scanningUsage.value = true
+  try {
+    referencedIds.value = await collectReferencedMediaAssetIds()
+  } catch (cause) {
+    referencedIds.value = null
+    error.value = cause instanceof Error ? cause.message : 'Failed to scan media usage'
+  } finally {
+    scanningUsage.value = false
+  }
+}
+
 function snapshotMeta(meta: MediaClipMetadata): string {
   return JSON.stringify({
     libraryKind: meta.libraryKind.trim(),
@@ -107,6 +131,12 @@ function loadMetaDraft(asset: MediaAsset | null): void {
 function canDelete(asset: MediaAsset): boolean {
   return isAdmin.value || canEdit(asset.createdBy)
 }
+
+const unusedAssets = computed(() =>
+  referencedIds.value ? assets.value.filter((asset) => isUnused(asset)) : [],
+)
+
+const deletableUnusedAssets = computed(() => unusedAssets.value.filter(canDelete))
 
 function kindLabel(mimeType: string): string {
   if (mimeType.startsWith('video/')) return 'Video'
@@ -300,6 +330,7 @@ async function refresh(): Promise<void> {
   posterUrls.value = {}
   try {
     assets.value = await services.media.listAssets()
+    await refreshUsage()
   } catch (cause) {
     assets.value = []
     error.value = cause instanceof Error ? cause.message : 'Failed to load media'
@@ -399,6 +430,7 @@ async function onFiles(event: Event): Promise<void> {
     if (!metaDirty.value) {
       selectedId.value = uploaded[0].id
     }
+    await refreshUsage()
   }
   if (failures.length > 0) {
     error.value = failures.join(' ')
@@ -428,10 +460,63 @@ async function remove(asset: MediaAsset): Promise<void> {
       loadMetaDraft(null)
       selectedId.value = null
     }
+    if (referencedIds.value) {
+      const next = new Set(referencedIds.value)
+      next.delete(asset.id)
+      referencedIds.value = next
+    }
   } catch (cause) {
     window.alert(cause instanceof Error ? cause.message : 'Failed to delete media')
   } finally {
     deletingId.value = null
+  }
+}
+
+async function deleteUnused(): Promise<void> {
+  const candidates = deletableUnusedAssets.value
+  if (candidates.length === 0) {
+    window.alert('No unused media files you can delete.')
+    return
+  }
+
+  const totalBytes = candidates.reduce((sum, asset) => sum + (asset.sizeBytes ?? 0), 0)
+  const sizeLabel = totalBytes > 0 ? formatMediaSize(totalBytes) : 'unknown size'
+  if (
+    !window.confirm(
+      `Delete ${candidates.length} unused file${candidates.length === 1 ? '' : 's'} (${sizeLabel}) from storage? This cannot be undone.`,
+    )
+  ) {
+    return
+  }
+
+  deletingUnused.value = true
+  error.value = null
+  try {
+    const { deleted, failures } = await deleteUnusedMediaAssets(candidates)
+    const deletedIds = new Set(deleted.map((asset) => asset.id))
+    assets.value = assets.value.filter((asset) => !deletedIds.has(asset.id))
+    previewUrls.value = Object.fromEntries(
+      Object.entries(previewUrls.value).filter(([id]) => !deletedIds.has(id)),
+    )
+    posterUrls.value = Object.fromEntries(
+      Object.entries(posterUrls.value).filter(([id]) => !deletedIds.has(id)),
+    )
+    if (selectedId.value && deletedIds.has(selectedId.value)) {
+      loadMetaDraft(null)
+      selectedId.value = null
+    }
+    if (referencedIds.value) {
+      for (const id of deletedIds) referencedIds.value.delete(id)
+    }
+    if (failures.length > 0) {
+      error.value = failures
+        .map((item) => `${mediaAssetDisplayName(item.asset)}: ${item.message}`)
+        .join(' ')
+    }
+  } catch (cause) {
+    window.alert(cause instanceof Error ? cause.message : 'Failed to delete unused media')
+  } finally {
+    deletingUnused.value = false
   }
 }
 
@@ -474,7 +559,7 @@ async function saveMetadata(): Promise<void> {
         <AuthorPillButton
           v-if="canCreate"
           variant="white"
-          :disabled="uploading"
+          :disabled="uploading || deletingUnused"
           @click="chooseFiles"
         >
           {{ uploading ? 'Uploading…' : 'Upload' }}
@@ -523,6 +608,14 @@ async function saveMetadata(): Promise<void> {
           @click="filter = 'image'"
         >
           Image
+        </button>
+        <button
+          type="button"
+          class="mvp-section-tab"
+          :class="{ active: filter === 'unused' }"
+          @click="filter = 'unused'"
+        >
+          Unused ({{ scanningUsage ? '…' : unusedAssets.length }})
         </button>
       </div>
 
@@ -632,15 +725,34 @@ async function saveMetadata(): Promise<void> {
         <div class="author-list-card-head media-library-head">
           <h2>Library</h2>
           <span class="author-count">{{ filtered.length }}</span>
-          <label class="media-library-search">
-            <span class="sr-only">Search library</span>
-            <input
-              v-model="searchQuery"
-              type="search"
-              placeholder="Search"
-              autocomplete="off"
-            />
-          </label>
+          <div class="media-library-head-actions">
+            <button
+              v-if="canCreate"
+              type="button"
+              class="media-library-toolbar-btn"
+              :disabled="
+                uploading || deletingUnused || scanningUsage || deletableUnusedAssets.length === 0
+              "
+              @click="deleteUnused"
+            >
+              {{
+                deletingUnused
+                  ? 'Deleting unused…'
+                  : scanningUsage
+                    ? 'Scanning…'
+                    : `Delete unused (${deletableUnusedAssets.length})`
+              }}
+            </button>
+            <label class="media-library-search">
+              <span class="sr-only">Search library</span>
+              <input
+                v-model="searchQuery"
+                type="search"
+                placeholder="Search"
+                autocomplete="off"
+              />
+            </label>
+          </div>
         </div>
 
         <div v-if="loading" class="author-list-empty">
@@ -650,9 +762,11 @@ async function saveMetadata(): Promise<void> {
         <div v-else-if="filtered.length === 0" class="author-list-empty">
           <p class="author-muted">
             {{
-              searchQuery.trim()
-                ? 'No media matches this search.'
-                : 'No media in this filter.'
+              filter === 'unused'
+                ? 'No unused media files.'
+                : searchQuery.trim()
+                  ? 'No media matches this search.'
+                  : 'No media in this filter.'
             }}
           </p>
         </div>

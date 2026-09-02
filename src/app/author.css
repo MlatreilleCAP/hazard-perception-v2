@@ -1060,8 +1060,36 @@ fieldset.author-stack {
   flex-wrap: wrap;
 }
 
-.media-library-search {
+.media-library-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
+}
+
+.media-library-toolbar-btn {
+  height: 36px;
+  border: 1px solid var(--editor-border);
+  border-radius: 999px;
+  background: #fff;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--editor-ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.media-library-toolbar-btn:hover:not(:disabled) {
+  border-color: var(--editor-teal);
+}
+
+.media-library-toolbar-btn:disabled {
+  cursor: not-allowed;
+  color: var(--editor-muted);
+}
+
+.media-library-search {
   min-width: 180px;
   width: min(280px, 100%);
 }

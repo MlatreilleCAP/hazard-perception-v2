@@ -8,6 +8,7 @@ import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
 import { isInroadsMvpActivity } from '@/types/inroadsMvp'
+import type { ActivitySummary } from '@/types/activity'
 import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
 
 const router = useRouter()
@@ -20,29 +21,52 @@ const items = computed(() =>
   activities.summaries.filter((item) => isInroadsMvpActivity(item.tags)),
 )
 
-const versionCounts = computed(() => {
-  const counts = new Map<string, number>()
-  for (const item of items.value) {
-    const key = lessonVersionKey(item.title)
-    if (!key) continue
-    counts.set(key, (counts.get(key) ?? 0) + 1)
-  }
-  return counts
-})
-
-function versionsFor(title: string): number {
-  return versionCounts.value.get(lessonVersionKey(title)) ?? 1
+type LessonListRow = {
+  key: string
+  title: string
+  id: string
+  published: boolean
+  updatedAt: string
+  createdBy: string | null
+  versionCount: number
 }
 
-function versionsLabel(title: string): string {
-  const count = versionsFor(title)
+function groupLessonRows(summaries: ActivitySummary[]): LessonListRow[] {
+  const groups = new Map<string, ActivitySummary[]>()
+  for (const item of summaries) {
+    const key = lessonVersionKey(item.title)
+    const group = groups.get(key) ?? []
+    group.push(item)
+    groups.set(key, group)
+  }
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const sorted = [...group].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      const representative = sorted[0]
+      return {
+        key: lessonVersionKey(representative.title),
+        title: representative.title,
+        id: representative.id,
+        published: group.some((item) => item.published),
+        updatedAt: representative.updatedAt,
+        createdBy: representative.createdBy,
+        versionCount: group.length,
+      }
+    })
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+}
+
+const lessonRows = computed(() => groupLessonRows(items.value))
+
+function versionsLabel(count: number): string {
   return count === 1 ? '1 version' : `${count} versions`
 }
 
 const filtered = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
-  if (!query) return items.value
-  return items.value.filter((item) => {
+  if (!query) return lessonRows.value
+  return lessonRows.value.filter((item) => {
     const status = item.published ? 'published' : 'draft'
     return item.title.toLowerCase().includes(query) || status.includes(query)
   })
@@ -122,7 +146,7 @@ async function remove(id: string, title: string): Promise<void> {
           </label>
         </div>
 
-        <div v-if="items.length === 0" class="author-list-empty">
+        <div v-if="lessonRows.length === 0" class="author-list-empty">
           <p class="author-muted">No Inroads MVP lessons yet.</p>
           <RouterLink
             v-if="canCreate"
@@ -139,7 +163,7 @@ async function remove(id: string, title: string): Promise<void> {
         </div>
 
         <ul v-else class="author-list">
-          <li v-for="item in filtered" :key="item.id" class="author-list-row">
+          <li v-for="item in filtered" :key="item.key" class="author-list-row">
             <div style="min-width: 0; flex: 1">
               <RouterLink :to="`/studio/inroads-mvp/${item.id}`" class="author-list-title">
                 {{ item.title }}
@@ -147,7 +171,7 @@ async function remove(id: string, title: string): Promise<void> {
               <p class="author-list-sub">
                 {{ item.published ? 'Published' : 'Draft'
                 }}{{ canEdit(item.createdBy) ? '' : ' · View only' }}
-                · {{ versionsLabel(item.title) }}
+                · {{ versionsLabel(item.versionCount) }}
               </p>
             </div>
             <AuthorStatusChip :label="item.published ? 'PUBLISHED' : 'DRAFT'" />
@@ -156,7 +180,7 @@ async function remove(id: string, title: string): Promise<void> {
                 type="button"
                 class="author-menu-btn"
                 aria-label="More actions"
-                @click="menuOpenId = menuOpenId === item.id ? null : item.id"
+                @click="menuOpenId = menuOpenId === item.key ? null : item.key"
               >
                 <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
                   <circle cx="8" cy="3.5" r="1.25" />
@@ -164,7 +188,7 @@ async function remove(id: string, title: string): Promise<void> {
                   <circle cx="8" cy="12.5" r="1.25" />
                 </svg>
               </button>
-              <div v-if="menuOpenId === item.id" class="author-menu-panel" role="menu">
+              <div v-if="menuOpenId === item.key" class="author-menu-panel" role="menu">
                 <RouterLink
                   :to="`/studio/inroads-mvp/${item.id}`"
                   class="author-menu-item"
