@@ -18,6 +18,7 @@ import SeeEditorView from '@/views/author/SeeEditorView.vue'
 import { services } from '@/app/container'
 import { duplicateInroadsMvpVersion } from '@/services/createInroadsMvp'
 import { publishInroadsMvpLesson } from '@/services/publishInroadsMvp'
+import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
 import {
@@ -442,22 +443,11 @@ async function publish(): Promise<void> {
 
 async function removeCurrentVersion(): Promise<void> {
   if (!editable.value || !mvp.value) return
-  const childIds = [
-    mvp.value.seeActivityId,
-    mvp.value.processActivityId,
-    mvp.value.anticipateActivityId,
-  ]
   const siblingId = versions.value.find((item) => item.id !== activityId.value)?.id ?? ''
   deleting.value = true
   try {
-    await activities.remove(activityId.value)
-    for (const childId of childIds) {
-      try {
-        await activities.remove(childId)
-      } catch {
-        // Parent removal succeeded; orphaned children can be cleaned up later.
-      }
-    }
+    await removeInroadsMvpParent(activityId.value)
+    await activities.refreshList()
     await router.push(
       siblingId
         ? { path: `/studio/inroads-mvp/${siblingId}`, query: route.query }
@@ -482,8 +472,23 @@ async function removeVersion(): Promise<void> {
 
 async function remove(): Promise<void> {
   if (!editable.value || !mvp.value) return
-  if (!window.confirm('Remove this Inroads MVP lesson from authoring and training?')) return
-  await removeCurrentVersion()
+  const count = versions.value.length
+  const message =
+    count > 1
+      ? `Remove this lesson and all ${count} versions from authoring and training?`
+      : 'Remove this Inroads MVP lesson from authoring and training?'
+  if (!window.confirm(message)) return
+  deleting.value = true
+  try {
+    for (const version of versions.value) {
+      await removeInroadsMvpParent(version.id)
+    }
+    await activities.refreshList()
+    await router.push('/studio/inroads-mvp')
+  } catch (cause) {
+    deleting.value = false
+    window.alert(cause instanceof Error ? cause.message : 'Failed to remove lesson')
+  }
 }
 </script>
 

@@ -4,8 +4,8 @@ import { RouterLink, useRouter } from 'vue-router'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import InroadsMvpImportPanel from '@/components/author/InroadsMvpImportPanel.vue'
-import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { useStudioAccess } from '@/composables/useStudioAccess'
+import { removeInroadsMvpLessonGroup } from '@/services/removeInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 import { isInroadsMvpActivity } from '@/types/inroadsMvp'
 import type { ActivitySummary } from '@/types/activity'
@@ -76,29 +76,18 @@ onMounted(async () => {
   await activities.refreshList()
 })
 
-async function remove(id: string, title: string): Promise<void> {
+async function remove(row: LessonListRow): Promise<void> {
   menuOpenId.value = null
-  if (
-    !window.confirm(
-      `Remove "${title}" from authoring and training? The record will be kept in the database.`,
-    )
-  ) {
+  const message =
+    row.versionCount > 1
+      ? `Remove "${row.title}" and all ${row.versionCount} versions from authoring and training? The records will be kept in the database.`
+      : `Remove "${row.title}" from authoring and training? The record will be kept in the database.`
+  if (!window.confirm(message)) {
     return
   }
   try {
-    const loaded = await activities.load(id).then(() => activities.current)
-    const mvp = loaded ? readInroadsMvpDefinition(loaded) : null
-    const childIds = mvp
-      ? [mvp.seeActivityId, mvp.processActivityId, mvp.anticipateActivityId]
-      : []
-    await activities.remove(id)
-    for (const childId of childIds) {
-      try {
-        await activities.remove(childId)
-      } catch {
-        // Parent already removed; ignore child cleanup failures.
-      }
-    }
+    await removeInroadsMvpLessonGroup(row.title, items.value)
+    await activities.refreshList()
   } catch (cause) {
     window.alert(cause instanceof Error ? cause.message : 'Failed to remove lesson')
   }
@@ -201,7 +190,7 @@ async function remove(id: string, title: string): Promise<void> {
                   type="button"
                   class="author-menu-item danger"
                   role="menuitem"
-                  @click="remove(item.id, item.title)"
+                  @click="remove(item)"
                 >
                   Remove
                 </button>
