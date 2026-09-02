@@ -211,7 +211,6 @@ function setSelected(groupKey: string, id: string): void {
                 class="demo-language-field"
                 :for="`demo-language-${group.key}`"
               >
-                <span class="demo-language-label">Language</span>
                 <select
                   :id="`demo-language-${group.key}`"
                   class="demo-language-select"

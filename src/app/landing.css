@@ -991,41 +991,26 @@
 }
 
 .demo-language-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: block;
   margin-top: 12px;
-}
-
-.demo-language-label {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--editor-muted);
 }
 
 .demo-language-select {
   width: 100%;
-  height: 40px;
+  height: 37px;
   border: 1px solid var(--landing-line);
   border-radius: 999px;
-  background: #fff;
-  padding: 0 14px;
+  background-color: #fff;
+  padding: 0 32px 0 13px;
   font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 400;
   color: var(--editor-ink);
   cursor: pointer;
   appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, #707591 50%),
-    linear-gradient(135deg, #707591 50%, transparent 50%);
-  background-position:
-    calc(100% - 18px) calc(50% - 3px),
-    calc(100% - 12px) calc(50% - 3px);
-  background-size:
-    6px 6px,
-    6px 6px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1.5 5 4.5 9 1.5' stroke='%23707591' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: calc(100% - 14px) center;
+  background-size: 9px 6px;
   background-repeat: no-repeat;
 }
 
@@ -1037,14 +1022,14 @@
 .demo-primary-button {
   display: inline-flex;
   width: 100%;
-  height: 40px;
+  height: 37px;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   background: linear-gradient(90deg, #ff6bb5, #707591);
-  padding: 0 16px;
+  padding: 0 15px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: #fff;
   text-decoration: none;
