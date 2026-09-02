@@ -60,17 +60,11 @@ export function activeHazardAtTime<T extends Hazard>(
   )
 }
 
-/** Next unresolved hazard a click should count toward (includes before its window opens). */
+/** Hazard a click should count toward — only while that hazard is on screen. */
 export function targetHazardForClick<T extends Hazard>(
   hazards: T[],
   resolvedIds: Set<string>,
   time: number,
 ): T | null {
-  const active = activeHazardAtTime(hazards, resolvedIds, time)
-  if (active) return active
-
-  return (
-    hazards.find((hazard) => !resolvedIds.has(hazard.id) && time <= hazard.endTime) ??
-    null
-  )
+  return activeHazardAtTime(hazards, resolvedIds, time)
 }
