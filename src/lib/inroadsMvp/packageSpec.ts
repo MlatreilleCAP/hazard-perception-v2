@@ -81,6 +81,13 @@ export const SHEET_NAMES = {
   metadata: 'Metadata',
 } as const
 
+/** Workbook tabs that hold section | field | text copy rows. */
+export const COPY_SHEET_ALIASES = [
+  SHEET_NAMES.copy,
+  SHEET_NAMES.copyLegacy,
+  'Instruction',
+] as const
+
 export const LESSON_KEYS = ['title', 'description', 'intro_first_visit', 'country', 'language'] as const
 
 export const LESSON_COUNTRY_OPTIONS = [
@@ -338,7 +345,7 @@ Lesson: column A = key, column B = value
   language
 
 Copy: header row, then section | field | text
-  (sheet name Instructions or Copy)
+  (sheet name Instructions, Copy, or Instruction)
   section: observe | process | anticipate
   field: instruction | instruction_pill | second_instruction |
          second_instruction_pill | second_score_threshold |

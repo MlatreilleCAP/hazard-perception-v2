@@ -10,6 +10,7 @@ import {
   QUESTION_SECTIONS,
   REQUIRED_VIDEO_SLOTS,
   SLOT_FOLDER_LABELS,
+  COPY_SHEET_ALIASES,
   SHEET_NAMES,
   basename,
   canonicalizeLessonCountry,
@@ -140,6 +141,64 @@ function sheetRecords(sheet: XLSX.WorkSheet | null): Array<Record<string, string
   })
 }
 
+const COPY_TEXT_COLUMNS = ['text', 'value', 'content', 'copy', 'instruction_text'] as const
+
+function copyTextFromRecord(record: Record<string, string>): string {
+  for (const key of COPY_TEXT_COLUMNS) {
+    const value = record[key]
+    if (value) return value
+  }
+  return ''
+}
+
+function isCopyHeaderRow(row: unknown[]): boolean {
+  const section = normalizeHeader(row[0])
+  const field = normalizeHeader(row[1])
+  const textColumn = normalizeHeader(row[2])
+  if (section !== 'section' || field !== 'field') return false
+  return COPY_TEXT_COLUMNS.includes(
+    textColumn as (typeof COPY_TEXT_COLUMNS)[number],
+  )
+}
+
+function copySheetRecords(sheet: XLSX.WorkSheet): Array<Record<string, string>> {
+  const rows = sheetRows(sheet)
+  if (rows.length === 0) return []
+
+  const headerIndex = rows.findIndex((row) => isCopyHeaderRow(row))
+  if (headerIndex < 0) {
+    return sheetRecords(sheet)
+  }
+
+  const records: Array<Record<string, string>> = []
+  for (let index = headerIndex + 1; index < rows.length; index += 1) {
+    const row = rows[index] ?? []
+    const section = cellString(row[0])
+    const field = cellString(row[1])
+    let text = cellString(row[2])
+    if (!text) {
+      for (let column = 3; column < row.length; column += 1) {
+        const candidate = cellString(row[column])
+        if (candidate) {
+          text = candidate
+          break
+        }
+      }
+    }
+    if (!section && !field && !text) continue
+    records.push({ section, field, text })
+  }
+  return records
+}
+
+function findCopySheet(workbook: XLSX.WorkBook): XLSX.WorkSheet | null {
+  for (const name of COPY_SHEET_ALIASES) {
+    const sheet = findSheet(workbook, name)
+    if (sheet) return sheet
+  }
+  return null
+}
+
 function parseQuestionKind(raw: string): ProcessQuestionKind | null {
   const value = normalizeHeader(raw)
   if (!value) return null
@@ -200,14 +259,15 @@ function parseLessonSheet(
 }
 
 function parseCopySheet(workbook: XLSX.WorkBook, warnings: string[]): ImportedCopy {
-  const sheet =
-    findSheet(workbook, SHEET_NAMES.copy) ?? findSheet(workbook, SHEET_NAMES.copyLegacy)
+  const sheet = findCopySheet(workbook)
   if (!sheet) {
-    warnings.push(`Missing "${SHEET_NAMES.copy}" sheet.`)
+    warnings.push(
+      `Missing Instructions sheet (expected one of: ${COPY_SHEET_ALIASES.join(', ')}).`,
+    )
     return {}
   }
 
-  const records = sheetRecords(sheet)
+  const records = copySheetRecords(sheet)
   const copy: ImportedCopy = {}
   const knownSections = new Set<string>(COPY_SECTIONS)
   const knownFields = new Set<string>(COPY_FIELDS)
@@ -221,7 +281,7 @@ function parseCopySheet(workbook: XLSX.WorkBook, warnings: string[]): ImportedCo
     let section = normalizeHeader(record.section)
     if (section === 'see') section = 'observe'
     const field = normalizeHeader(record.field)
-    const text = record.text ?? record.value ?? ''
+    const text = copyTextFromRecord(record)
     if (!section && !field && !text) continue
     if (!knownSections.has(section)) {
       warnings.push(`Unknown Copy section "${section || '(empty)'}".`)

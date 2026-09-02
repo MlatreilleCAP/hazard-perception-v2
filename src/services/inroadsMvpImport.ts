@@ -19,6 +19,7 @@ import {
   WORKBOOK_REPLACE_ID,
   fileMatchesSlot,
   mediaKindForSlot,
+  type CopyField,
   type ReplaceSlotId,
   type SlotMediaKind,
   type VideoSlotId,
@@ -175,11 +176,20 @@ function patchProcess(
   }
   const working: ProcessDefinition = {
     ...current,
-    instructionText: firstFilled(copy.instruction, current.instructionText),
-    instructionPill: firstFilled(copy.instruction_pill, current.instructionPill),
-    secondInstructionText: firstFilled(copy.second_instruction, current.secondInstructionText),
-    secondInstructionPill: firstFilled(
-      copy.second_instruction_pill,
+    instructionText: importedCopyField(copy, 'instruction', current.instructionText),
+    instructionPill: importedCopyField(
+      copy,
+      'instruction_pill',
+      current.instructionPill,
+    ),
+    secondInstructionText: importedCopyField(
+      copy,
+      'second_instruction',
+      current.secondInstructionText,
+    ),
+    secondInstructionPill: importedCopyField(
+      copy,
+      'second_instruction_pill',
       current.secondInstructionPill,
     ),
     secondSegmentScoreThreshold: 100,
@@ -216,11 +226,20 @@ function patchAnticipate(
   const enableThird = Boolean(uploaded['anticipate-3'])
   const working: AnticipateDefinition = {
     ...current,
-    instructionText: firstFilled(copy.instruction, current.instructionText),
-    instructionPill: firstFilled(copy.instruction_pill, current.instructionPill),
-    secondInstructionText: firstFilled(copy.second_instruction, current.secondInstructionText),
-    secondInstructionPill: firstFilled(
-      copy.second_instruction_pill,
+    instructionText: importedCopyField(copy, 'instruction', current.instructionText),
+    instructionPill: importedCopyField(
+      copy,
+      'instruction_pill',
+      current.instructionPill,
+    ),
+    secondInstructionText: importedCopyField(
+      copy,
+      'second_instruction',
+      current.secondInstructionText,
+    ),
+    secondInstructionPill: importedCopyField(
+      copy,
+      'second_instruction_pill',
       current.secondInstructionPill,
     ),
     secondSegmentScoreThreshold: 100,
@@ -263,6 +282,14 @@ function firstFilled(...values: Array<string | undefined | null>): string {
     if (typeof value === 'string' && value.trim()) return value
   }
   return ''
+}
+
+function importedCopyField(
+  copy: Partial<Record<CopyField, string>>,
+  field: CopyField,
+  fallback: string,
+): string {
+  return field in copy ? (copy[field] ?? '') : fallback
 }
 
 function patchSee(
@@ -316,8 +343,16 @@ function patchSee(
         explanation: xlsExplanation || first.explanation,
         explanationImage: uploaded['observe-explanation']?.media ?? first.explanationImage,
         missedVideo: uploaded['observe-coaching']?.media ?? first.missedVideo,
-        instructionText: copy.second_instruction ?? first.instructionText,
-        instructionPill: copy.second_instruction_pill || first.instructionPill,
+        instructionText: importedCopyField(
+          copy,
+          'second_instruction',
+          first.instructionText,
+        ),
+        instructionPill: importedCopyField(
+          copy,
+          'second_instruction_pill',
+          first.instructionPill,
+        ),
         maneuver: xlsManeuver || first.maneuver,
         roadway: xlsRoadway || first.roadway,
         trafficDensity: xlsDensity || first.trafficDensity,
@@ -332,8 +367,8 @@ function patchSee(
     ...current,
     media: uploaded['observe-1']?.media ?? current.media,
     duration: durationSeconds,
-    instructionText: copy.instruction ?? current.instructionText,
-    instructionPill: copy.instruction_pill || current.instructionPill,
+    instructionText: importedCopyField(copy, 'instruction', current.instructionText),
+    instructionPill: importedCopyField(copy, 'instruction_pill', current.instructionPill),
     introAudio: uploaded['observe-summary-audio']?.media ?? current.introAudio,
     maneuver: xlsManeuver || current.maneuver,
     roadway: xlsRoadway || current.roadway,
@@ -650,42 +685,6 @@ export async function importInroadsMvpPackage(
   }
   warnings.push(...uploadFailures)
 
-  onProgress?.('Saving media metadata…')
-  const seeCurrent = readSeeDefinition(seeActivity)
-  const processCurrent = readProcessDefinition(processActivity)
-  const anticipateCurrent = readAnticipateDefinition(anticipateActivity)
-  let metadataSaved = 0
-  for (const [slot, meta] of Object.entries(payload.mediaMetadata) as Array<
-    [VideoSlotId, MediaClipMetadata]
-  >) {
-    if (!mediaClipMetadataHasContent(meta)) continue
-    const mediaId = mediaIdForSlot(
-      slot,
-      uploaded,
-      mvp.introMedia,
-      seeCurrent,
-      processCurrent,
-      anticipateCurrent,
-    )
-    if (!mediaId) continue
-    try {
-      await services.media.updateAssetMetadata(mediaId, meta)
-      metadataSaved += 1
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : 'Failed to save metadata'
-      warnings.push(`${slot}: ${message}`)
-    }
-  }
-  const metadataRows = Object.values(payload.mediaMetadata).filter(
-    (meta) => meta && mediaClipMetadataHasContent(meta),
-  ).length
-  if (metadataRows > 0 && metadataSaved === 0) {
-    throw new Error(
-      warnings.find((item) => /metadata/i.test(item)) ||
-        'The Metadata sheet was read, but none of it could be saved onto the media files.',
-    )
-  }
-
   onProgress?.('Saving Observe…')
   const nextSee = writeSeeDefinition(
     seeActivity,
@@ -741,6 +740,42 @@ export async function importInroadsMvpPackage(
     nextParent.metadata.description = payload.lesson.description
   }
   await services.persistence.save(nextParent)
+
+  onProgress?.('Saving media metadata…')
+  const seeSaved = readSeeDefinition(nextSee)
+  const processSaved = readProcessDefinition(nextProcess)
+  const anticipateSaved = readAnticipateDefinition(nextAnticipate)
+  const savedMvp = readInroadsMvpDefinition(nextParent)
+  let metadataSaved = 0
+  for (const [slot, meta] of Object.entries(payload.mediaMetadata) as Array<
+    [VideoSlotId, MediaClipMetadata]
+  >) {
+    if (!mediaClipMetadataHasContent(meta)) continue
+    const mediaId = mediaIdForSlot(
+      slot,
+      uploaded,
+      savedMvp?.introMedia ?? mvp.introMedia,
+      seeSaved,
+      processSaved,
+      anticipateSaved,
+    )
+    if (!mediaId) continue
+    try {
+      await services.media.updateAssetMetadata(mediaId, meta)
+      metadataSaved += 1
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Failed to save metadata'
+      warnings.push(`${slot}: ${message}`)
+    }
+  }
+  const metadataRows = Object.values(payload.mediaMetadata).filter(
+    (meta) => meta && mediaClipMetadataHasContent(meta),
+  ).length
+  if (metadataRows > 0 && metadataSaved === 0) {
+    warnings.push(
+      'The Metadata sheet was read, but none of it could be saved onto the media files yet. Import media first, then replace lesson.xlsx if needed.',
+    )
+  }
 
   return {
     uploadedSlots,
