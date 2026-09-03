@@ -280,7 +280,8 @@ function parseCopySheet(workbook: XLSX.WorkBook, warnings: string[]): ImportedCo
   for (const record of records) {
     let section = normalizeHeader(record.section)
     if (section === 'see') section = 'observe'
-    const field = normalizeHeader(record.field)
+    let field = normalizeHeader(record.field)
+    if (field === 'missed_2_attempt') field = 'missed_2_attempts'
     const text = copyTextFromRecord(record)
     if (!section && !field && !text) continue
     if (!knownSections.has(section)) {

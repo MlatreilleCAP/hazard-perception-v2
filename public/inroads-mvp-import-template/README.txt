@@ -35,11 +35,15 @@ Copy: header row, then section | field | text
   field: instruction | instruction_pill | second_instruction |
          second_instruction_pill | second_score_threshold
   Observe also uses: hazard_name | core_competency | hazard_explanation |
-         maneuver | roadway | traffic_density | time_of_day | road_conditions
+         maneuver | roadway | traffic_density | time_of_day | road_conditions |
+         success_result | fail_screen | 2_attempts | 3_attempts | time_out |
+         missed_1_attempt | missed_2_attempts
   Observe instruction / instruction_pill = scenario overlay on the hazard clip
   Observe maneuver / roadway / traffic_density / time_of_day / road_conditions
          = summary card after Start, before the first video
   Observe second_instruction / second_instruction_pill = coaching clip overlay
+  Observe success_result / fail_screen / 2_attempts / 3_attempts / time_out /
+         missed_1_attempt / missed_2_attempts = Observe hazard results screen
   core_competency: Attitude | Speed Management | Space Management |
                    Danger Zones | Scanning | Other Motorists
 

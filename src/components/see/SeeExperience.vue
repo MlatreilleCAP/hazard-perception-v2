@@ -39,7 +39,7 @@ import {
   type ProcessQuestionResult,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
-import { DEFAULT_SEE_INSTRUCTION_PILL, hazardClipSummary } from '@/types/see'
+import { DEFAULT_SEE_INSTRUCTION_PILL, hazardClipSummary, resolveObserveHazardOutcome, type ObserveHazardOutcome } from '@/types/see'
 
 const props = withDefaults(
   defineProps<{
@@ -426,51 +426,32 @@ function measureStage(): void {
 const spotted = computed(() => resolvedIds.value.size)
 const totalHazards = computed(() => see.value.hazards.length)
 const allSpotted = computed(() => totalHazards.value > 0 && spotted.value >= totalHazards.value)
-const passedOnFirstAttempt = computed(
-  () =>
-    Object.keys(hitAttempts.value).length > 0 &&
-    Object.values(hitAttempts.value).every((attempts) => attempts === 1) &&
-    deferredMissIds.value.size === 0,
-)
-const passExplanations = computed(() =>
-  sortedHazards.value
-    .filter((hazard) => hitAttempts.value[hazard.id] != null)
-    .map((hazard) => hazard.explanation.trim())
-    .filter(Boolean),
-)
-const coachingRequired = computed(
-  () =>
-    Object.values(hitAttempts.value).some((attempts) => attempts >= 2) &&
-    deferredMissIds.value.size === 0,
-)
-const foundInAttempts = computed(() => {
-  const counts = Object.values(hitAttempts.value)
-  return counts.length > 0 ? Math.max(...counts) : 1
+const resultsHazard = computed(() => sortedHazards.value[0] ?? null)
+const hazardOutcome = computed((): ObserveHazardOutcome | null => {
+  if (totalHazards.value !== 1) return null
+  const hazard = resultsHazard.value
+  if (!hazard) return null
+  const correct = resolvedIds.value.has(hazard.id)
+  const attempts = hitAttempts.value[hazard.id] ?? 0
+  if (correct) {
+    return resolveObserveHazardOutcome({ correct: true, attempts })
+  }
+  const taps = tapAttemptsByHazard.value[hazard.id] ?? 0
+  const reason = missReasons.value[hazard.id] ?? resolveMissReason(hazard.id)
+  return resolveObserveHazardOutcome({
+    correct: false,
+    missReason: reason,
+    tapsBeforeMiss: taps,
+  })
 })
-const hazardMissed = computed(
-  () => totalHazards.value > 0 && spotted.value === 0,
-)
-const missReason = computed((): 'attempts' | 'time' => {
-  const missedId = sortedHazards.value.find(
-    (hazard) => hitAttempts.value[hazard.id] == null,
-  )?.id
-  if (missedId && missReasons.value[missedId] === 'attempts') return 'attempts'
-  return 'time'
-})
-const missExplanations = computed(() =>
-  sortedHazards.value
-    .filter((hazard) => hitAttempts.value[hazard.id] == null)
-    .map((hazard) => hazard.explanation.trim())
-    .filter(Boolean),
-)
-const missedExplanationImageUrl = computed(() => {
-  const missed = sortedHazards.value.find(
-    (hazard) => hitAttempts.value[hazard.id] == null && explanationImageUrls.value[hazard.id],
-  )
-  return missed ? explanationImageUrls.value[missed.id] ?? null : null
+const resultsExplanation = computed(() => resultsHazard.value?.explanation.trim() ?? '')
+const resultsImageUrl = computed(() => {
+  const hazard = resultsHazard.value
+  if (!hazard) return null
+  return explanationImageUrls.value[hazard.id] ?? null
 })
 const postResultsHazardId = computed(() => {
-  if (passedOnFirstAttempt.value) return null
+  if (hazardOutcome.value === 'success_first_attempt') return null
   const lateHit = sortedHazards.value.find((hazard) => (hitAttempts.value[hazard.id] ?? 0) >= 2)
   if (lateHit) return lateHit.id
   return sortedHazards.value.find((hazard) => hitAttempts.value[hazard.id] == null)?.id ?? null
@@ -885,6 +866,10 @@ function emitFinished(): void {
 }
 
 function onResultsContinue(): void {
+  if (hazardOutcome.value === 'success_first_attempt') {
+    emitFinished()
+    return
+  }
   const hazardId = postResultsHazardId.value
   if (!hazardId) {
     emitFinished()
@@ -1380,25 +1365,11 @@ onBeforeUnmount(() => {
       </div>
 
       <SeeResultsPassCard
-        v-else-if="passedOnFirstAttempt"
-        variant="passed"
-        :attempts="foundInAttempts"
-        :explanations="passExplanations"
-        @continue="emitFinished"
-      />
-      <SeeResultsPassCard
-        v-else-if="coachingRequired"
-        variant="coaching"
-        :attempts="foundInAttempts"
-        :explanations="passExplanations"
-        @continue="onResultsContinue"
-      />
-      <SeeResultsPassCard
-        v-else-if="hazardMissed"
-        variant="missed"
-        :miss-reason="missReason"
-        :image-src="missedExplanationImageUrl"
-        :explanations="missExplanations"
+        v-else-if="hazardOutcome"
+        :outcome="hazardOutcome"
+        :result-copy="see.resultCopy"
+        :explanation="resultsExplanation"
+        :image-src="resultsImageUrl"
         @continue="onResultsContinue"
       />
       <div v-else class="process-results-page" role="main" aria-label="Observe results">

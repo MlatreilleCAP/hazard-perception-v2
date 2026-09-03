@@ -147,6 +147,14 @@ export const COPY_FIELDS = [
   'hazard_name',
   'core_competency',
   'hazard_explanation',
+  'success_result',
+  'fail_screen',
+  '2_attempts',
+  '3_attempts',
+  'time_out',
+  'missed_1_attempt',
+  'missed_2_attempts',
+  'missed_2_attempt',
   'second_instruction',
   'second_instruction_pill',
   'second_score_threshold',
@@ -350,12 +358,20 @@ Copy: header row, then section | field | text
   field: instruction | instruction_pill | second_instruction |
          second_instruction_pill | second_score_threshold |
          maneuver | roadway | traffic_density | time_of_day | road_conditions |
-         hazard_explanation
+         hazard_explanation | success_result | fail_screen | 2_attempts |
+         3_attempts | time_out | missed_1_attempt | missed_2_attempts
   Observe instruction / instruction_pill = scenario overlay on the hazard clip
   Observe second_instruction / second_instruction_pill = coaching clip overlay
   Observe maneuver / roadway / traffic_density / time_of_day / road_conditions
          = Observe clip summary (not media-library metadata)
   Observe hazard_explanation = Observe hazard details text
+  Observe success_result = Observe results header when hazard spotted on 1st attempt
+  Observe fail_screen = Observe results header for all non-first-attempt outcomes
+  Observe 2_attempts = Observe results subtext when hazard spotted on 2nd attempt
+  Observe 3_attempts = Observe results subtext when hazard spotted on 3rd attempt
+  Observe time_out = Observe results subtext when hazard missed with 0 attempts
+  Observe missed_1_attempt = Observe results subtext when hazard missed after 1 attempt
+  Observe missed_2_attempts = Observe results subtext when hazard missed after 2 attempts
 
 Metadata: header row, then Video Folder | Metadata Name | Metadata text
   Video Folder must match a media folder name (e.g. Observe Hazard Scenario).

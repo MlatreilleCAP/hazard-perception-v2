@@ -33,6 +33,13 @@ export type ImportWorkbookContent = {
     hazardName: string
     coreCompetency: string
     hazardExplanation: string
+    successResult: string
+    failScreen: string
+    twoAttempts: string
+    threeAttempts: string
+    timeOut: string
+    missed1Attempt: string
+    missed2Attempt: string
     secondInstruction: string
     secondInstructionPill: string
   }
@@ -69,6 +76,13 @@ function copyRows(content: ImportWorkbookContent): string[][] {
     ['observe', 'time_of_day', content.observe.timeOfDay],
     ['observe', 'road_conditions', content.observe.roadConditions],
     ['observe', 'hazard_explanation', content.observe.hazardExplanation],
+    ['observe', 'success_result', content.observe.successResult],
+    ['observe', 'fail_screen', content.observe.failScreen],
+    ['observe', '2_attempts', content.observe.twoAttempts],
+    ['observe', '3_attempts', content.observe.threeAttempts],
+    ['observe', 'time_out', content.observe.timeOut],
+    ['observe', 'missed_1_attempt', content.observe.missed1Attempt],
+    ['observe', 'missed_2_attempts', content.observe.missed2Attempt],
     ['observe', 'second_instruction_pill', content.observe.secondInstructionPill],
     ['process', 'instruction', content.process.instruction],
     ['process', 'instruction_pill', content.process.instructionPill],
@@ -236,13 +250,13 @@ function sampleQuestion(
 export function defaultImportWorkbookContent(): ImportWorkbookContent {
   return {
     title: 'Inroads MVP',
-    description: 'This is a sample of the inroads MVP in french',
+    description: 'Canadian English inroads',
     introFirstVisit: false,
     country: 'Canada',
     language: 'English',
     observe: {
       instruction:
-        'Scan from left to right by swiping your finger and tap the most dangerous hazards as soon as you spot it. \r\n\r\n- You have 3 attempts\r\n- Points deducted for incorrect attempts\r\n- You only have 10 seconds',
+        "You're about to watch a short driving video.\r\nSomewhere in the scenario is the primary hazard.It could be in front, behind or to either side, so drag the screen from side to side to scan the road and your mirrors.\r\n\r\nAs soon as you spot it, click on it. You'll have a few seconds and up to three attempts. There's no replay, so watch closely. Ready? Here we go.",
       instructionPill: 'Observe Challenge',
       maneuver: 'Travelling Straight',
       roadway: 'Divided 2-Lane',
@@ -253,8 +267,15 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
       coreCompetency: 'Space Management',
       hazardExplanation:
         'The SUV pulling out from the row of parked cars was the hazard. ',
+      successResult: 'NO COACHING NEEDED',
+      failScreen: 'COACHING REQUIRED',
+      twoAttempts: 'You got it on your second attempt. ',
+      threeAttempts: 'You found it, but it took 3 attempts. ',
+      timeOut: 'Time ran out before you attempted anything. ',
+      missed1Attempt: 'You attempted once, but time ran out before you found it. ',
+      missed2Attempt: 'You tried twice and time ran out. ',
       secondInstruction:
-        'Here are the instructions for the coaching lesson in the Observe section. We have room for quite a bit of text, but not a ton.',
+        "Let's sharpen a couple of perception skills that can help keep you safe.",
       secondInstructionPill: 'Observe Coaching',
     },
     process: {
@@ -484,54 +505,28 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
   return new Uint8Array(buffer)
 }
 
-export async function buildImportFolderZip(
-  content: ImportWorkbookContent = defaultImportWorkbookContent(),
-): Promise<Blob> {
+const BUNDLED_SAMPLE_TEMPLATE_BASE = '/inroads-mvp-import-template'
+
+async function loadBundledLessonWorkbook(): Promise<ArrayBuffer> {
+  const response = await fetch(`${BUNDLED_SAMPLE_TEMPLATE_BASE}/lesson.xlsx`)
+  if (!response.ok) {
+    throw new Error('Failed to load lesson.xlsx template')
+  }
+  return response.arrayBuffer()
+}
+
+export async function buildImportFolderZip(): Promise<Blob> {
   const zip = new JSZip()
   zip.file('README.txt', IMPORT_README)
-  zip.file('lesson.xlsx', await buildWorkbookBytes(content))
+  zip.file('lesson.xlsx', await loadBundledLessonWorkbook())
   for (const slot of TEMPLATE_FOLDER_SLOT_IDS) {
     zip.folder(SLOT_FOLDER_LABELS[slot])?.file('.keep', '')
   }
   return zip.generateAsync({ type: 'blob' })
 }
 
-const BUNDLED_SAMPLE_TEMPLATE_BASE = '/inroads-mvp-import-template'
-
-/** Paths bundled under public/inroads-mvp-import-template/ (reference import template). */
-const BUNDLED_SAMPLE_TEMPLATE_PATHS = [
-  'README.txt',
-  'lesson.xlsx',
-  'Intro Video/.keep',
-  'Intro Video/Welcome_meta.mp4',
-  'Observe Hazard Scenario/.keep',
-  'Observe Hazard Scenario/NoMirrors test7_meta.mp4',
-  'Hazard Summary Audio/.keep',
-  'Hazard Summary Audio/Hazard Audio Summary_meta.mp3',
-  'Observe Coaching Video/.keep',
-  'Observe Coaching Video/Observe Coaching_meta.mp4',
-  'Observe Explanation Image/.keep',
-  'Observe Explanation Image/Hazard Image_meta.png',
-  'Process Lesson/.keep',
-  'Process Lesson/Process Challenge Video_meta.mp4',
-  'Process Coaching Video/.keep',
-  'Process Coaching Video/Process Coaching LEsson_meta.mp4',
-  'Anticipate Lesson/.keep',
-  'Anticipate Lesson/Anticipate Video_meta.mp4',
-  'Anticipate Coaching Video/.keep',
-  'Anticipate Coaching Video/Anticipate Coaching_meta.mp4',
-] as const
-
 export async function buildSampleImportTemplateZip(): Promise<Blob> {
-  const zip = new JSZip()
-  for (const relPath of BUNDLED_SAMPLE_TEMPLATE_PATHS) {
-    const response = await fetch(`${BUNDLED_SAMPLE_TEMPLATE_BASE}/${encodeURI(relPath)}`)
-    if (!response.ok) {
-      throw new Error(`Failed to load template asset: ${relPath}`)
-    }
-    zip.file(relPath, await response.arrayBuffer())
-  }
-  return zip.generateAsync({ type: 'blob' })
+  return buildImportFolderZip()
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {

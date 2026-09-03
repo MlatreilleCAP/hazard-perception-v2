@@ -51,7 +51,7 @@ import {
   type ProcessQuestionBank,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
-import { createEmptySeeHazard, type SeeDefinition } from '@/types/see'
+import { createEmptySeeHazard, DEFAULT_OBSERVE_RESULT_COPY, type SeeDefinition } from '@/types/see'
 
 export type InroadsMvpOccupancy = {
   introMedia: boolean
@@ -375,6 +375,47 @@ function patchSee(
     trafficDensity: xlsDensity || current.trafficDensity,
     timeOfDay: xlsTimeOfDay || current.timeOfDay,
     roadConditions: xlsRoadConditions || current.roadConditions,
+    resultCopy: {
+      successResult: importedCopyField(
+        copy,
+        'success_result',
+        current.resultCopy?.successResult ?? DEFAULT_OBSERVE_RESULT_COPY.successResult,
+      ),
+      failScreen: importedCopyField(
+        copy,
+        'fail_screen',
+        current.resultCopy?.failScreen ?? DEFAULT_OBSERVE_RESULT_COPY.failScreen,
+      ),
+      twoAttempts: importedCopyField(
+        copy,
+        '2_attempts',
+        current.resultCopy?.twoAttempts ?? DEFAULT_OBSERVE_RESULT_COPY.twoAttempts,
+      ),
+      threeAttempts: importedCopyField(
+        copy,
+        '3_attempts',
+        current.resultCopy?.threeAttempts ?? DEFAULT_OBSERVE_RESULT_COPY.threeAttempts,
+      ),
+      timeOut: importedCopyField(
+        copy,
+        'time_out',
+        current.resultCopy?.timeOut ?? DEFAULT_OBSERVE_RESULT_COPY.timeOut,
+      ),
+      missed1Attempt: importedCopyField(
+        copy,
+        'missed_1_attempt',
+        current.resultCopy?.missed1Attempt ?? DEFAULT_OBSERVE_RESULT_COPY.missed1Attempt,
+      ),
+      missed2Attempt: importedCopyField(
+        copy,
+        'missed_2_attempts',
+        importedCopyField(
+          copy,
+          'missed_2_attempt',
+          current.resultCopy?.missed2Attempt ?? DEFAULT_OBSERVE_RESULT_COPY.missed2Attempt,
+        ),
+      ),
+    },
     hazards,
   }
 }

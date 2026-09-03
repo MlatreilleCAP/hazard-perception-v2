@@ -428,6 +428,7 @@ async function publish(): Promise<void> {
   if (!editable.value || !mvp.value) return
   if (!(await saveActiveSection())) return
   if (activeSection.value !== 'lesson' && !(await saveLesson())) return
+  if (!(await ensureParentLoaded())) return
   publishing.value = true
   try {
     await publishInroadsMvpLesson(activityId.value)

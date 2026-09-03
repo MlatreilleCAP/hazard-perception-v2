@@ -3,42 +3,30 @@ import { computed, ref, watch } from 'vue'
 import ProcessResultsLottie from '@/components/process/ProcessResultsLottie.vue'
 import passAnimation from '@/assets/lottie/process-results.json'
 import failAnimation from '@/assets/lottie/process-results-fail.json'
-import { MAX_HAZARD_ATTEMPTS } from '@/lib/hazards/attempts'
+import {
+  observeResultHeading,
+  observeResultSubtext,
+  type ObserveHazardOutcome,
+  type ObserveResultCopy,
+} from '@/types/see'
 
-const props = withDefaults(
-  defineProps<{
-    variant?: 'passed' | 'coaching' | 'missed'
-    attempts?: number
-    missReason?: 'attempts' | 'time'
-    imageSrc?: string | null
-    explanations: string[]
-  }>(),
-  { variant: 'passed', attempts: 1, missReason: 'time', imageSrc: null },
-)
+const props = defineProps<{
+  outcome: ObserveHazardOutcome
+  resultCopy: ObserveResultCopy
+  explanation: string
+  imageSrc?: string | null
+}>()
 
 defineEmits<{
   continue: []
 }>()
 
-const heading = computed(() =>
-  props.variant === 'passed' ? 'SECTION PASSED' : 'COACHING REQUIRED',
-)
-
-const attemptsLabel = computed(() => {
-  if (props.variant === 'missed') {
-    if (props.missReason === 'attempts') {
-      return `You used ${MAX_HAZARD_ATTEMPTS} attempts and missed the hazard`
-    }
-    return 'You ran out of time'
-  }
-  const count = Math.max(1, props.attempts)
-  const word = count === 1 ? 'attempt' : 'attempts'
-  return `You spotted the hazard in ${count} ${word}`
-})
-
-const showMissedImage = computed(
-  () => props.variant === 'missed' && Boolean(props.imageSrc),
-)
+const heading = computed(() => observeResultHeading(props.outcome, props.resultCopy))
+const subtext = computed(() => observeResultSubtext(props.outcome, props.resultCopy))
+const isSuccess = computed(() => props.outcome === 'success_first_attempt')
+const showExplanation = computed(() => !isSuccess.value)
+const explanationText = computed(() => props.explanation.trim())
+const showImage = computed(() => !isSuccess.value && Boolean(props.imageSrc))
 const imageReady = ref(false)
 const photoStyle = computed(() => {
   if (!props.imageSrc) return undefined
@@ -84,24 +72,22 @@ watch(
     class="process-results-page"
     role="main"
     :aria-label="
-      variant === 'passed'
+      isSuccess
         ? 'Observe results — section passed'
-        : variant === 'missed'
-          ? 'Observe results — hazard missed'
-          : 'Observe results — coaching required'
+        : 'Observe results — coaching required'
     "
   >
     <div class="see-results-heading">
       <p class="process-results-announcement is-emphasis">{{ heading }}</p>
-      <p class="see-results-attempts">{{ attemptsLabel }}</p>
+      <p v-if="subtext" class="see-results-attempts">{{ subtext }}</p>
     </div>
     <section
       class="process-results-score-card"
-      :class="{ 'is-hazard-image': showMissedImage }"
+      :class="{ 'is-hazard-image': showImage }"
       aria-hidden="true"
     >
       <div class="process-results-lottie-fill">
-        <div v-if="showMissedImage" class="see-results-hazard-image-frame">
+        <div v-if="showImage" class="see-results-hazard-image-frame">
           <div
             class="see-results-hazard-token"
             :class="{ 'is-in': imageReady }"
@@ -112,20 +98,11 @@ watch(
             </div>
           </div>
         </div>
-        <ProcessResultsLottie
-          v-else
-          :animation-data="variant === 'passed' ? passAnimation : failAnimation"
-        />
+        <ProcessResultsLottie v-else :animation-data="isSuccess ? passAnimation : failAnimation" />
       </div>
     </section>
-    <div v-if="explanations.length > 0" class="see-results-explanations">
-      <p
-        v-for="(text, index) in explanations"
-        :key="index"
-        class="see-results-explanation"
-      >
-        {{ text }}
-      </p>
+    <div v-if="showExplanation && explanationText" class="see-results-explanations">
+      <p class="see-results-explanation">{{ explanationText }}</p>
     </div>
     <button type="button" class="process-instruction-begin" @click="$emit('continue')">
       Continue

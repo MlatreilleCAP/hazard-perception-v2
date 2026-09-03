@@ -24,6 +24,111 @@ export const DEFAULT_SEE_INSTRUCTION_PILL = 'Observe'
 export const DEFAULT_SEE_INSTRUCTION =
   'Watch the following video and tap hazards as they develop.'
 
+export type ObserveHazardOutcome =
+  | 'success_first_attempt'
+  | 'success_second_attempt'
+  | 'success_third_attempt'
+  | 'failed_max_attempts'
+  | 'failed_timeout_zero'
+  | 'failed_timeout_one'
+  | 'failed_timeout_two'
+
+export type ObserveResultCopy = {
+  successResult: string
+  failScreen: string
+  twoAttempts: string
+  threeAttempts: string
+  timeOut: string
+  missed1Attempt: string
+  missed2Attempt: string
+}
+
+export const DEFAULT_OBSERVE_RESULT_COPY: ObserveResultCopy = {
+  successResult: 'NO COACHING NEEDED',
+  failScreen: 'COACHING REQUIRED',
+  twoAttempts: 'You got it on your second attempt. ',
+  threeAttempts: 'You found it, but it took 3 attempts. ',
+  timeOut: 'Time ran out before you attempted anything. ',
+  missed1Attempt: 'You attempted once, but time ran out before you found it. ',
+  missed2Attempt: 'You tried twice and time ran out. ',
+}
+
+export function resolveObserveHazardOutcome(params: {
+  correct: boolean
+  attempts?: number
+  missReason?: 'attempts' | 'time'
+  tapsBeforeMiss?: number
+}): ObserveHazardOutcome {
+  if (params.correct) {
+    const attempts = params.attempts ?? 1
+    if (attempts <= 1) return 'success_first_attempt'
+    if (attempts === 2) return 'success_second_attempt'
+    return 'success_third_attempt'
+  }
+  if (params.missReason === 'attempts') return 'failed_max_attempts'
+  const taps = params.tapsBeforeMiss ?? 0
+  if (taps <= 0) return 'failed_timeout_zero'
+  if (taps === 1) return 'failed_timeout_one'
+  return 'failed_timeout_two'
+}
+
+export function observeResultSubtext(
+  outcome: ObserveHazardOutcome,
+  copy: ObserveResultCopy,
+): string | null {
+  switch (outcome) {
+    case 'success_first_attempt':
+    case 'failed_max_attempts':
+      return null
+    case 'success_second_attempt':
+      return copy.twoAttempts
+    case 'success_third_attempt':
+      return copy.threeAttempts
+    case 'failed_timeout_zero':
+      return copy.timeOut
+    case 'failed_timeout_one':
+      return copy.missed1Attempt
+    case 'failed_timeout_two':
+      return copy.missed2Attempt
+  }
+}
+
+export function observeResultHeading(
+  outcome: ObserveHazardOutcome,
+  copy: ObserveResultCopy,
+): string {
+  return outcome === 'success_first_attempt' ? copy.successResult : copy.failScreen
+}
+
+function readObserveResultCopy(value: unknown): ObserveResultCopy {
+  const raw = value && typeof value === 'object' ? (value as Partial<ObserveResultCopy>) : {}
+  return {
+    successResult:
+      typeof raw.successResult === 'string' && raw.successResult.trim()
+        ? raw.successResult
+        : DEFAULT_OBSERVE_RESULT_COPY.successResult,
+    failScreen:
+      typeof raw.failScreen === 'string' && raw.failScreen.trim()
+        ? raw.failScreen
+        : DEFAULT_OBSERVE_RESULT_COPY.failScreen,
+    twoAttempts:
+      typeof raw.twoAttempts === 'string' ? raw.twoAttempts : DEFAULT_OBSERVE_RESULT_COPY.twoAttempts,
+    threeAttempts:
+      typeof raw.threeAttempts === 'string'
+        ? raw.threeAttempts
+        : DEFAULT_OBSERVE_RESULT_COPY.threeAttempts,
+    timeOut: typeof raw.timeOut === 'string' ? raw.timeOut : DEFAULT_OBSERVE_RESULT_COPY.timeOut,
+    missed1Attempt:
+      typeof raw.missed1Attempt === 'string'
+        ? raw.missed1Attempt
+        : DEFAULT_OBSERVE_RESULT_COPY.missed1Attempt,
+    missed2Attempt:
+      typeof raw.missed2Attempt === 'string'
+        ? raw.missed2Attempt
+        : DEFAULT_OBSERVE_RESULT_COPY.missed2Attempt,
+  }
+}
+
 export interface SeeHazard extends HazardDetails {
   id: string
   startTime: number
@@ -91,6 +196,8 @@ export interface SeeDefinition {
   timeOfDay: string
   roadConditions: string
   hazards: SeeHazard[]
+  /** Copy for the Observe hazard results screen (imported from lesson.xlsx). */
+  resultCopy: ObserveResultCopy
 }
 
 export function createDefaultTrajectory(
@@ -181,6 +288,7 @@ export function createDefaultSeeDefinition(): SeeDefinition {
     timeOfDay: '',
     roadConditions: '',
     hazards: [],
+    resultCopy: { ...DEFAULT_OBSERVE_RESULT_COPY },
   }
 }
 
@@ -278,6 +386,7 @@ export function normalizeSeeDefinition(definition: SeeDefinition): SeeDefinition
     introAudio: readMediaRef(definition.introAudio) ?? readMediaRef(first?.introAudio),
     ...summary,
     hazards: hazards.sort((a, b) => a.startTime - b.startTime),
+    resultCopy: readObserveResultCopy(definition.resultCopy),
   }
 }
 

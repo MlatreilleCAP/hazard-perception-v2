@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
-import {
-  downloadBlob,
-  slugForFilename,
-} from '@/lib/inroadsMvp/buildImportTemplate'
+import { downloadBlob } from '@/lib/inroadsMvp/buildImportTemplate'
 import {
   SLOT_FOLDER_LABELS,
   WORKBOOK_FILE_ACCEPT,
@@ -12,7 +9,7 @@ import {
   slotFileAccept,
   type ReplaceSlotId,
 } from '@/lib/inroadsMvp/packageSpec'
-import { exportInroadsMvpTemplateZip, exportSampleInroadsMvpTemplateZip } from '@/services/exportInroadsMvpPackage'
+import { exportSampleInroadsMvpTemplateZip } from '@/services/exportInroadsMvpPackage'
 import { parseImportZip } from '@/lib/inroadsMvp/parseImportPackage'
 import { createBlankInroadsMvp } from '@/services/createInroadsMvp'
 import {
@@ -106,12 +103,6 @@ async function downloadTemplate(): Promise<void> {
   exporting.value = true
   progress.value = 'Building template…'
   try {
-    if (props.parentId) {
-      const blob = await exportInroadsMvpTemplateZip(props.parentId)
-      const title = activities.current?.metadata.title ?? 'inroads-mvp'
-      downloadBlob(blob, `${slugForFilename(title)}-import.zip`)
-      return
-    }
     const blob = await exportSampleInroadsMvpTemplateZip()
     downloadBlob(blob, 'inroads-mvp-import-template.zip')
   } catch (cause) {
@@ -261,11 +252,8 @@ async function runImport(file: File): Promise<void> {
       and those files are applied to the builder together, including the full Observe page
       (hazard clip, details, coaching clip, explanation image, summary audio, and questions).
     </p>
-    <p v-if="createLesson" class="author-muted">
-      Download template includes a filled workbook and empty named folders.
-    </p>
-    <p v-else class="author-muted">
-      Download template includes this lesson’s copy and questions plus empty named folders.
+    <p class="author-muted">
+      Download template includes the lesson.xlsx workbook and empty named folders.
     </p>
     <div class="author-actions" style="margin-top: 0">
       <input

@@ -13,8 +13,10 @@ import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import ProcessQuestionsForm from '@/components/author/ProcessQuestionsForm.vue'
 import { useAuthorAutosave } from '@/composables/useAuthorAutosave'
 import { useStudioAccess } from '@/composables/useStudioAccess'
+import { services } from '@/app/container'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
+import type { ActivityDefinition } from '@/types/activity'
 import type { MediaRef } from '@/types/media'
 import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
 import {
@@ -48,6 +50,7 @@ const saveMessage = ref<string | null>(null)
 let loadGeneration = 0
 const title = ref('')
 const description = ref('')
+const sourceActivity = ref<ActivityDefinition | null>(null)
 const anticipate = ref<AnticipateDefinition | null>(null)
 const enableThird = ref(false)
 const video1Questions = ref<{ snapshot: () => ProcessQuestionBank } | null>(null)
@@ -58,7 +61,9 @@ const activityId = computed(
 const isPublished = computed(
   () => activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
 )
-const editable = computed(() => canEdit(activities.current?.metadata.authorId))
+const editable = computed(() =>
+  canEdit(sourceActivity.value?.metadata.authorId ?? activities.current?.metadata.authorId),
+)
 
 const working = computed(() => {
   if (!anticipate.value) return null
@@ -111,9 +116,11 @@ async function load(): Promise<void> {
   loadError.value = null
   try {
     await activities.refreshList()
-    await activities.load(activityId.value)
+    const current = props.embedded
+      ? await services.persistence.getById(activityId.value)
+      : (await activities.load(activityId.value), activities.current)
     if (generation !== loadGeneration) return
-    const current = activities.current
+    sourceActivity.value = current
     if (!current || !isAnticipateActivity(current.metadata.tags)) {
       anticipate.value = null
       return
@@ -190,26 +197,39 @@ function flushVideo1Questions(): void {
 }
 
 async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
-  if (!editable.value || !activities.current || !anticipate.value) return false
+  if (!editable.value || !anticipate.value) return false
 
   await nextTick()
   flushVideo1Questions()
   if (origin === 'manual') saving.value = true
   saveMessage.value = null
   try {
+    const source =
+      sourceActivity.value?.id === activityId.value
+        ? sourceActivity.value
+        : await services.persistence.getById(activityId.value)
+    if (!source || source.id !== activityId.value) return false
     const nextAnticipate = {
       ...buildPersistableAnticipateDefinition(anticipate.value, true, enableThird.value),
       secondSegmentScoreThreshold: 100,
     }
     autosave.pause()
     anticipate.value = nextAnticipate
-    const next = writeAnticipateDefinition(activities.current, nextAnticipate)
-    next.metadata.title = title.value.trim() || next.metadata.title
-    next.metadata.description = description.value.trim()
+    const next = writeAnticipateDefinition(source, nextAnticipate)
+    if (!props.embedded) {
+      next.metadata.title = title.value.trim() || next.metadata.title
+      next.metadata.description = description.value.trim()
+    }
     await nextTick()
     autosave.resume()
-    await activities.save(next)
-    activities.stagePreview(next)
+    if (props.embedded) {
+      sourceActivity.value = await services.persistence.save(next)
+      await activities.refreshList()
+    } else {
+      await activities.save(next)
+      sourceActivity.value = activities.current
+      activities.stagePreview(next)
+    }
     saveMessage.value = 'Saved'
     window.setTimeout(() => {
       saveMessage.value = null
@@ -306,7 +326,7 @@ defineExpose({ save })
       <p class="author-muted">Loading anticipate…</p>
     </div>
 
-    <div v-else-if="!activities.current || !working" class="author-page-inner author-stack-sm">
+    <div v-else-if="!sourceActivity || !working" class="author-page-inner author-stack-sm">
       <p class="author-error">{{ loadError ?? activities.error ?? 'Anticipate not found' }}</p>
       <RouterLink to="/studio/anticipate">Back to list</RouterLink>
     </div>
