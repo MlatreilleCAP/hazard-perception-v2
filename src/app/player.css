@@ -629,8 +629,35 @@ body:has(.player-page) {
   color: #fff;
 }
 
-.process-question-card.is-explained .process-theory-answer.correct {
-  animation: process-correct-answer-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+.process-theory-explanation-inline {
+  margin: 4px 0 0;
+  padding: 0 4px;
+  font-family: var(--font-poppins, inherit);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: left;
+  color: #403b3b;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.process-theory-explanation-inline.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.process-question-card.is-explained .process-theory-answers .process-question-continue {
+  margin-top: 12px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.3s 0.08s ease, transform 0.3s 0.08s ease;
+}
+
+.process-question-card.is-explained .process-theory-answers .process-question-continue.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .process-theory-answer.incorrect,
