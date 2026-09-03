@@ -17,12 +17,14 @@ const emit = defineEmits<{
   complete: []
 }>()
 
-const REVEAL_DELAY_MS = 1000
+const CORRECT_HIGHLIGHT_DELAY_MS = 1000
+const ANIMATION_PAUSE_MS = 1000
 
 const selectedIndex = ref<number | null>(null)
 const locked = ref(false)
 const revealExplanation = ref(false)
 const showRevealContent = ref(false)
+const showCorrectHighlight = ref(false)
 const revealEl = ref<HTMLButtonElement | null>(null)
 const cardEl = ref<HTMLElement | null>(null)
 const answerBtnRefs = ref<HTMLButtonElement[]>([])
@@ -66,6 +68,7 @@ watch(
     locked.value = false
     revealExplanation.value = false
     showRevealContent.value = false
+    showCorrectHighlight.value = false
     window.clearTimeout(advanceTimer)
     window.clearTimeout(revealTimer)
   },
@@ -80,7 +83,9 @@ watch(awaitingContinue, async (open) => {
 function answerState(index: number): 'default' | 'correct' | 'incorrect' {
   if (!locked.value || !showCorrectIncorrect.value) return 'default'
   if (needsExplanation.value) {
-    if (index === props.question.correctIndex) return 'correct'
+    if (index === props.question.correctIndex) {
+      return showCorrectHighlight.value ? 'correct' : 'default'
+    }
     if (selectedIndex.value === index) return 'incorrect'
     return 'default'
   }
@@ -174,7 +179,10 @@ function select(index: number): void {
   locked.value = true
   emit('answer', index)
   if (showExplanation.value && !isAnswerCorrect(props.question, index)) {
-    revealTimer = window.setTimeout(runFadeAndSlide, REVEAL_DELAY_MS)
+    revealTimer = window.setTimeout(() => {
+      showCorrectHighlight.value = true
+      revealTimer = window.setTimeout(runFadeAndSlide, ANIMATION_PAUSE_MS)
+    }, CORRECT_HIGHLIGHT_DELAY_MS)
     return
   }
   if (!showCorrectIncorrect.value) {

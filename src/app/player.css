@@ -629,6 +629,10 @@ body:has(.player-page) {
   color: #fff;
 }
 
+.process-theory-answer.correct {
+  animation: process-correct-answer-in 0.2s ease-out both;
+}
+
 .process-theory-explanation-inline {
   margin: 4px 0 0;
   padding: 0 4px;
@@ -1121,6 +1125,7 @@ body:has(.player-page) {
   .process-question-card.is-explained,
   .process-question-reveal.is-open .process-question-feedback,
   .process-question-reveal.is-open .process-question-continue,
+  .process-theory-answer.correct,
   .process-question-card.is-explained .process-theory-answer.correct,
   .process-question-card.is-explained .process-severity-label.is-correct {
     animation: none;
