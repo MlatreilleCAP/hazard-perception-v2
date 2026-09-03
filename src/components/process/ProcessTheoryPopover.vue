@@ -33,10 +33,6 @@ const answers = computed(() => configuredAnswerEntries(props.question))
 const showExplanation = computed(() => props.question.showExplanation !== false)
 const showCorrectIncorrect = computed(() => props.question.showCorrectIncorrect !== false)
 const explanationText = computed(() => props.question.explanation.trim())
-const correctAnswerText = computed(() => {
-  const entry = answers.value.find((a) => a.index === props.question.correctIndex)
-  return entry?.text ?? ''
-})
 const answeredCorrectly = computed(
   () => selectedIndex.value != null && isAnswerCorrect(props.question, selectedIndex.value),
 )
