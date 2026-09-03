@@ -647,10 +647,14 @@ function syncHazardTracking(time: number): void {
       deferMiss(trackingId)
       return
     }
+    // Keep attempt tracking for an upcoming / still-open hazard so taps outside
+    // its on-screen window still consume attempts and show feedback.
+    if (tracked && !closed.has(tracked.id) && time <= tracked.endTime) {
+      return
+    }
   }
 
   trackingHazardId.value = null
-  attemptCount.value = 0
 }
 
 function syncTime(): void {
@@ -938,29 +942,44 @@ function onTap(clientX: number, clientY: number): void {
 
   const targetAlreadyMissed = target != null && deferredMissIds.value.has(target.id)
   const attemptsUsedOnTarget =
-    target != null &&
-    trackingHazardId.value === target.id &&
-    attemptCount.value >= MAX_HAZARD_ATTEMPTS
+    target != null && tapsUsedForHazard(target.id) >= MAX_HAZARD_ATTEMPTS
+  const noOpenTargetAfterExhaustion =
+    target == null &&
+    (deferredMissIds.value.size > 0 || attemptCount.value >= MAX_HAZARD_ATTEMPTS)
 
-  if (targetAlreadyMissed || attemptsUsedOnTarget) {
+  if (targetAlreadyMissed || attemptsUsedOnTarget || noOpenTargetAfterExhaustion) {
     showOutOfAttemptsCaption()
     return
   }
 
-  if (!target) return
-
-  const isHit = isClickOnHazard({ x, y, time }, target, time, frame)
+  const activeAtClick = activeHazardAtTime(sortedHazards.value, closed, time)
+  const isHit =
+    target != null &&
+    activeAtClick?.id === target.id &&
+    isClickOnHazard({ x, y, time }, target, time, frame)
 
   let nextAttempts = attemptCount.value
-  if (trackingHazardId.value !== target.id) {
-    trackingHazardId.value = target.id
-    nextAttempts = 0
-  }
-  nextAttempts += 1
-  attemptCount.value = nextAttempts
-  tapAttemptsByHazard.value = {
-    ...tapAttemptsByHazard.value,
-    [target.id]: nextAttempts,
+  if (target) {
+    if (trackingHazardId.value !== target.id) {
+      trackingHazardId.value = target.id
+      nextAttempts = tapAttemptsByHazard.value[target.id] ?? 0
+    }
+    nextAttempts += 1
+    attemptCount.value = nextAttempts
+    tapAttemptsByHazard.value = {
+      ...tapAttemptsByHazard.value,
+      [target.id]: nextAttempts,
+    }
+  } else if (trackingHazardId.value) {
+    nextAttempts = attemptCount.value + 1
+    attemptCount.value = nextAttempts
+    tapAttemptsByHazard.value = {
+      ...tapAttemptsByHazard.value,
+      [trackingHazardId.value]: nextAttempts,
+    }
+  } else {
+    nextAttempts = 1
+    attemptCount.value = nextAttempts
   }
 
   const marker: ClickMarker = {
@@ -981,6 +1000,8 @@ function onTap(clientX: number, clientY: number): void {
   } else {
     playMissTapSound()
   }
+
+  if (!target) return
 
   if (isHit) {
     celebrating.value = true
@@ -1282,7 +1303,7 @@ onBeforeUnmount(() => {
           role="status"
           aria-live="polite"
         >
-          <p>Out of attempts</p>
+          <p>No attempts remain</p>
         </div>
         <Transition
           name="see-clip-intro"

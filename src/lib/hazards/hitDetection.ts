@@ -60,11 +60,20 @@ export function activeHazardAtTime<T extends Hazard>(
   )
 }
 
-/** Hazard a click should count toward — only while that hazard is on screen. */
+/**
+ * Hazard a click should count toward.
+ * Prefers the hazard currently on screen; otherwise the next unresolved hazard
+ * that has not ended yet so taps before/outside its window still count as misses.
+ */
 export function targetHazardForClick<T extends Hazard>(
   hazards: T[],
   resolvedIds: Set<string>,
   time: number,
 ): T | null {
-  return activeHazardAtTime(hazards, resolvedIds, time)
+  const active = activeHazardAtTime(hazards, resolvedIds, time)
+  if (active) return active
+
+  return (
+    hazards.find((hazard) => !resolvedIds.has(hazard.id) && time <= hazard.endTime) ?? null
+  )
 }
