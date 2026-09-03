@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { catalogCoverAt } from '@/app/catalogCovers'
 import { services } from '@/app/container'
+import { canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
 import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
 import { useActivityStore } from '@/stores/activityStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -17,6 +18,7 @@ const auth = useAuthStore()
 const catalogLoading = ref(false)
 const localeById = ref(new Map<string, { language: string; country: string }>())
 const selectedByGroup = ref<Record<string, string>>({})
+const userSelectedByGroup = ref<Record<string, boolean>>({})
 
 const published = computed(() =>
   activities.summaries.filter(
@@ -59,7 +61,12 @@ const demoGroups = computed((): DemoLessonGroup[] => {
           language: locale?.language.trim() || 'Default',
         }
       })
-      .sort((left, right) => left.language.localeCompare(right.language))
+      .sort((left, right) => {
+        const leftEnglish = isEnglishLanguage(left.language) ? 0 : 1
+        const rightEnglish = isEnglishLanguage(right.language) ? 0 : 1
+        if (leftEnglish !== rightEnglish) return leftEnglish - rightEnglish
+        return left.language.localeCompare(right.language)
+      })
 
     return {
       key,
@@ -92,13 +99,19 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
   localeById.value = next
 }
 
+function isEnglishLanguage(language: string): boolean {
+  return canonicalizeLessonLanguage(language) === 'English'
+}
+
 function syncGroupSelection(groups: DemoLessonGroup[]): void {
   const next = { ...selectedByGroup.value }
   for (const group of groups) {
-    if (next[group.key] && group.versions.some((version) => version.id === next[group.key])) {
+    const currentId = next[group.key]
+    const currentStillExists = group.versions.some((version) => version.id === currentId)
+    if (userSelectedByGroup.value[group.key] && currentStillExists) {
       continue
     }
-    const english = group.versions.find((version) => version.language === 'English')
+    const english = group.versions.find((version) => isEnglishLanguage(version.language))
     next[group.key] = english?.id ?? group.versions[0]?.id ?? ''
   }
   selectedByGroup.value = next
@@ -150,6 +163,7 @@ function selectedId(groupKey: string): string {
 
 function setSelected(groupKey: string, id: string): void {
   selectedByGroup.value = { ...selectedByGroup.value, [groupKey]: id }
+  userSelectedByGroup.value = { ...userSelectedByGroup.value, [groupKey]: true }
 }
 </script>
 
