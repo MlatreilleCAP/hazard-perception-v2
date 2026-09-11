@@ -15,6 +15,7 @@ import SeeResultsPassCard from '@/components/see/SeeResultsPassCard.vue'
 import { playHitTapSound, playMissTapSound, stopHitTapSound, unlockTapAudio } from '@/lib/audio/tapFeedback'
 import {
   landscapeVideoDisplaySize,
+  mapClientToPannedPlane,
   mapClientToVideo,
   SEE_INITIAL_PAN_OFFSET_X,
   VIDEO_PAN_SLOP_PX,
@@ -29,7 +30,7 @@ import {
 import {
   activeHazardAtTime,
   closedHazardIds,
-  isClickOnHazard,
+  hazardHitByClick,
   targetHazardForClick,
 } from '@/lib/hazards/hitDetection'
 import type { ActivityDefinition } from '@/types/activity'
@@ -86,6 +87,7 @@ const src = ref<string | null>(null)
 const error = ref<string | null>(null)
 const video = ref<HTMLVideoElement | null>(null)
 const stage = ref<HTMLElement | null>(null)
+const plane = ref<HTMLElement | null>(null)
 const phase = ref<Phase>('ready')
 const currentTime = ref(0)
 /** Null until the first frame is ready so layout does not flash the wrong aspect. */
@@ -921,9 +923,14 @@ function onTap(clientX: number, clientY: number): void {
   if (!clicksEnabled.value || !video.value) return
 
   const time = playbackTime()
-  const { x, y, frame } = mapClientToVideo(clientX, clientY, video.value)
+  const { x, y, frame } =
+    stage.value && plane.value
+      ? mapClientToPannedPlane(clientX, clientY, stage.value, plane.value, panX.value)
+      : mapClientToVideo(clientX, clientY, video.value)
   const closed = closedIds()
-  const target = targetHazardForClick(sortedHazards.value, closed, time)
+  const click = { x, y, time }
+  const hitHazard = hazardHitByClick(sortedHazards.value, closed, click, time, frame)
+  const target = hitHazard ?? targetHazardForClick(sortedHazards.value, closed, time)
 
   const targetAlreadyMissed = target != null && deferredMissIds.value.has(target.id)
   const attemptsUsedOnTarget =
@@ -937,11 +944,7 @@ function onTap(clientX: number, clientY: number): void {
     return
   }
 
-  const activeAtClick = activeHazardAtTime(sortedHazards.value, closed, time)
-  const isHit =
-    target != null &&
-    activeAtClick?.id === target.id &&
-    isClickOnHazard({ x, y, time }, target, time, frame)
+  const isHit = hitHazard != null
 
   let nextAttempts = attemptCount.value
   if (target) {
@@ -1249,6 +1252,7 @@ onBeforeUnmount(() => {
         class="see-stage"
       >
         <div
+          ref="plane"
           class="see-video-plane"
           :class="{ 'is-interactive': clicksEnabled, 'is-layout-ready': planeReady }"
           :style="planeStyle"

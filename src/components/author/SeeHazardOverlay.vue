@@ -6,15 +6,20 @@ import {
   type ContentRect,
 } from '@/lib/hazards/coordinates'
 import { hazardMarkerDiameterPercent } from '@/lib/hazards/constants'
-import { getHazardStateAtTime } from '@/lib/hazards/interpolate'
+import {
+  getHazardStatesAtTime,
+  interpolateTrajectoryAtTime,
+} from '@/lib/hazards/interpolate'
 import {
   addTrajectoryPoint,
+  isStaticTrajectory,
   removeTrajectoryPoint,
+  repositionTriggerAtTime,
   sampleTrajectoryPath,
   trajectoryToPolyline,
   updateTrajectoryPoint,
 } from '@/lib/hazards/trajectory-path'
-import type { TrajectoryPoint } from '@/types/hazard'
+import { hazardTriggerTrajectories, trajectoryWindow, type TrajectoryPoint } from '@/types/hazard'
 import type { SeeHazard } from '@/types/see'
 
 const props = withDefaults(
@@ -23,27 +28,49 @@ const props = withDefaults(
     currentTime: number
     hazards: SeeHazard[]
     selectedHazardId: string | null
+    selectedTriggerIndex?: number
     readonly?: boolean
   }>(),
-  { readonly: false },
+  { readonly: false, selectedTriggerIndex: 0 },
 )
 
 const emit = defineEmits<{
-  trajectoryChange: [hazard: SeeHazard, trajectory: TrajectoryPoint[]]
+  trajectoryChange: [hazard: SeeHazard, trajectory: TrajectoryPoint[], triggerIndex: number]
+  selectTrigger: [index: number]
 }>()
 
 const container = ref<HTMLElement | null>(null)
 const contentRect = ref<ContentRect | null>(null)
 const selectedPointIndex = ref<number | null>(null)
 const previewTrajectory = ref<TrajectoryPoint[] | null>(null)
+const previewTriggerIndex = ref<number | null>(null)
 const dragIndex = ref<number | null>(null)
+const dragTriggerIndex = ref<number | null>(null)
+const dragOrigin = ref<{ x: number; y: number } | null>(null)
+const dragBase = ref<TrajectoryPoint[] | null>(null)
 
 const selectedHazard = computed(
   () => props.hazards.find((hazard) => hazard.id === props.selectedHazardId) ?? null,
 )
-const activeTrajectory = computed(
-  () => previewTrajectory.value ?? selectedHazard.value?.trajectory ?? null,
+const triggerTrajectories = computed(() =>
+  selectedHazard.value ? hazardTriggerTrajectories(selectedHazard.value) : [],
 )
+const selectedTriggerIndex = computed(() => {
+  const last = Math.max(0, triggerTrajectories.value.length - 1)
+  return Math.min(Math.max(0, props.selectedTriggerIndex), last)
+})
+const storedSelectedTrajectory = computed(
+  () => triggerTrajectories.value[selectedTriggerIndex.value] ?? null,
+)
+const editingTriggerIndex = computed(
+  () => previewTriggerIndex.value ?? selectedTriggerIndex.value,
+)
+const activeTrajectory = computed(() => {
+  if (previewTrajectory.value && previewTriggerIndex.value === selectedTriggerIndex.value) {
+    return previewTrajectory.value
+  }
+  return storedSelectedTrajectory.value
+})
 
 function refreshRect(): void {
   if (!props.video || !container.value) {
@@ -53,10 +80,9 @@ function refreshRect(): void {
   contentRect.value = videoContentRectRelative(props.video, container.value)
 }
 
-function inactiveStyle(hazard: SeeHazard) {
-  const state = getHazardStateAtTime(hazard, props.currentTime)
+function markerStyle(state: { x: number; y: number; radius: number }) {
   const rect = contentRect.value
-  if (!state || !rect) return { display: 'none' }
+  if (!rect) return { display: 'none' }
   const diameter = hazardMarkerDiameterPercent(state.radius)
   return {
     left: `${rect.left + (state.x / 100) * rect.width}px`,
@@ -66,11 +92,25 @@ function inactiveStyle(hazard: SeeHazard) {
   }
 }
 
+const inactiveMarkers = computed(() => {
+  if (!contentRect.value) return []
+  return props.hazards
+    .filter((hazard) => hazard.id !== props.selectedHazardId)
+    .flatMap((hazard) =>
+      getHazardStatesAtTime(hazard, props.currentTime).map((state, index) => ({
+        key: `${hazard.id}-${index}`,
+        style: markerStyle(state),
+      })),
+    )
+})
+
 watch(
-  () => props.selectedHazardId,
+  () => [props.selectedHazardId, props.selectedTriggerIndex] as const,
   () => {
+    if (dragTriggerIndex.value != null) return
     selectedPointIndex.value = null
     previewTrajectory.value = null
+    previewTriggerIndex.value = null
   },
 )
 
@@ -96,6 +136,11 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeyDown)
 })
 
+function commitTrajectory(trajectory: TrajectoryPoint[], triggerIndex = editingTriggerIndex.value): void {
+  if (!selectedHazard.value) return
+  emit('trajectoryChange', selectedHazard.value, trajectory, triggerIndex)
+}
+
 function onKeyDown(event: KeyboardEvent): void {
   if (
     (event.key !== 'Delete' && event.key !== 'Backspace') ||
@@ -114,102 +159,175 @@ function onKeyDown(event: KeyboardEvent): void {
   if (!next) return
   previewTrajectory.value = null
   selectedPointIndex.value = null
-  emit('trajectoryChange', selectedHazard.value, next)
+  commitTrajectory(next)
+}
+
+function triggerTimeBounds(trajectory: TrajectoryPoint[]): { startTime: number; endTime: number } {
+  return (
+    trajectoryWindow(trajectory) ?? {
+      startTime: selectedHazard.value?.startTime ?? 0,
+      endTime: selectedHazard.value?.endTime ?? 0,
+    }
+  )
 }
 
 function handleCanvasClick(event: MouseEvent): void {
   if (props.readonly || !selectedHazard.value || !props.video) return
-  if ((event.target as HTMLElement).dataset.keyframe) return
+  const target = event.target as HTMLElement
+  if (target.dataset.keyframe || target.dataset.triggerMarker) return
 
   const { x, y } = clientToPercent(event.clientX, event.clientY, props.video)
-  if (
-    props.currentTime < selectedHazard.value.startTime ||
-    props.currentTime > selectedHazard.value.endTime
-  ) {
+  const base = activeTrajectory.value ?? selectedHazard.value.trajectory
+  const bounds = triggerTimeBounds(base)
+  if (props.currentTime < bounds.startTime || props.currentTime > bounds.endTime) {
     return
   }
 
-  const state = getHazardStateAtTime(selectedHazard.value, props.currentTime)
+  const state = interpolateTrajectoryAtTime(selectedHazard.value, base, props.currentTime)
   const next = addTrajectoryPoint(
-    activeTrajectory.value ?? selectedHazard.value.trajectory,
+    base,
     {
       time: props.currentTime,
       x,
       y,
       radius: state?.radius ?? selectedHazard.value.radius,
     },
-    selectedHazard.value.startTime,
-    selectedHazard.value.endTime,
+    bounds.startTime,
+    bounds.endTime,
   )
   previewTrajectory.value = null
-  emit('trajectoryChange', selectedHazard.value, next)
+  commitTrajectory(next)
 }
 
-function handlePointPointerDown(event: PointerEvent, index: number): void {
+function selectTrigger(index: number): void {
+  emit('selectTrigger', index)
+}
+
+function beginTrajectoryDrag(event: PointerEvent, triggerIndex: number): void {
+  if (props.readonly || !selectedHazard.value || !props.video) return
+  const trajectory = triggerTrajectories.value[triggerIndex]
+  if (!trajectory) return
+  dragTriggerIndex.value = triggerIndex
+  previewTriggerIndex.value = triggerIndex
+  if (triggerIndex !== selectedTriggerIndex.value) selectTrigger(triggerIndex)
+  dragBase.value = trajectory.map((point) => ({ ...point }))
+  dragOrigin.value = clientToPercent(event.clientX, event.clientY, props.video)
+  event.preventDefault()
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+}
+
+function handleMarkerPointerDown(event: PointerEvent, triggerIndex: number): void {
+  event.stopPropagation()
+  beginTrajectoryDrag(event, triggerIndex)
+}
+
+function handlePointPointerDown(event: PointerEvent, index: number, triggerIndex: number): void {
   event.stopPropagation()
   if (props.readonly || !selectedHazard.value) return
+  if (triggerIndex !== selectedTriggerIndex.value) {
+    selectTrigger(triggerIndex)
+  }
   selectedPointIndex.value = index
   dragIndex.value = index
+  previewTriggerIndex.value = triggerIndex
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
 }
 
 function handlePointPointerMove(event: PointerEvent): void {
-  const index = dragIndex.value
-  if (index == null || !selectedHazard.value || !props.video) return
+  if (!selectedHazard.value || !props.video) return
   const { x, y } = clientToPercent(event.clientX, event.clientY, props.video)
-  const base = previewTrajectory.value ?? selectedHazard.value.trajectory
-  previewTrajectory.value = updateTrajectoryPoint(base, index, { x, y })
+  if (dragTriggerIndex.value != null && dragOrigin.value && dragBase.value) {
+    previewTriggerIndex.value = dragTriggerIndex.value
+    const origin = interpolateTrajectoryAtTime(
+      selectedHazard.value,
+      dragBase.value,
+      props.currentTime,
+    ) ?? dragBase.value[0]
+    if (!origin) return
+    const bounds = triggerTimeBounds(dragBase.value)
+    previewTrajectory.value = repositionTriggerAtTime(
+      dragBase.value,
+      origin.x + (x - dragOrigin.value.x),
+      origin.y + (y - dragOrigin.value.y),
+      props.currentTime,
+      bounds.startTime,
+      bounds.endTime,
+      origin.radius,
+    )
+    return
+  }
+  const index = dragIndex.value
+  if (index == null) return
+  previewTriggerIndex.value = previewTriggerIndex.value ?? selectedTriggerIndex.value
+  const base =
+    previewTrajectory.value ??
+    triggerTrajectories.value[previewTriggerIndex.value] ??
+    selectedHazard.value.trajectory
+  previewTrajectory.value = isStaticTrajectory(base)
+    ? base.map((point) => ({
+        ...point,
+        x: Math.min(100, Math.max(0, x)),
+        y: Math.min(100, Math.max(0, y)),
+      }))
+    : updateTrajectoryPoint(base, index, { x, y })
 }
 
 function handlePointPointerUp(event: PointerEvent): void {
-  if (dragIndex.value == null || !selectedHazard.value) return
+  if (!selectedHazard.value) return
+  const triggerIndex = previewTriggerIndex.value ?? selectedTriggerIndex.value
   dragIndex.value = null
+  dragTriggerIndex.value = null
+  dragOrigin.value = null
+  dragBase.value = null
   ;(event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId)
   if (previewTrajectory.value) {
-    emit('trajectoryChange', selectedHazard.value, previewTrajectory.value)
+    commitTrajectory(previewTrajectory.value, triggerIndex)
     previewTrajectory.value = null
+    previewTriggerIndex.value = null
   }
 }
 
-const pathPoints = computed(() =>
-  selectedHazard.value && activeTrajectory.value
-    ? sampleTrajectoryPath({
-        id: selectedHazard.value.id,
-        startTime: selectedHazard.value.startTime,
-        endTime: selectedHazard.value.endTime,
-        trajectory: activeTrajectory.value,
-        radius: selectedHazard.value.radius,
-      })
-    : [],
-)
+function trajectoryForIndex(index: number): TrajectoryPoint[] {
+  if (previewTrajectory.value && previewTriggerIndex.value === index) {
+    return previewTrajectory.value
+  }
+  return triggerTrajectories.value[index] ?? []
+}
 
-const previewState = computed(() => {
-  if (!selectedHazard.value || !activeTrajectory.value) return null
-  return getHazardStateAtTime(
-    {
-      id: selectedHazard.value.id,
-      startTime: selectedHazard.value.startTime,
-      endTime: selectedHazard.value.endTime,
-      trajectory: activeTrajectory.value,
-      radius: selectedHazard.value.radius,
-    },
-    props.currentTime,
-  )
+const allTriggers = computed(() => {
+  if (!selectedHazard.value) return []
+  return triggerTrajectories.value.map((_, index) => {
+    const trajectory = trajectoryForIndex(index)
+    const bounds = triggerTimeBounds(trajectory)
+    return {
+      index,
+      selected: index === selectedTriggerIndex.value,
+      points: trajectory,
+      path: sampleTrajectoryPath({
+        id: selectedHazard.value!.id,
+        startTime: bounds.startTime,
+        endTime: bounds.endTime,
+        trajectory,
+        radius: selectedHazard.value!.radius,
+      }),
+      state: interpolateTrajectoryAtTime(
+        selectedHazard.value!,
+        trajectory,
+        props.currentTime,
+      ),
+    }
+  })
 })
-
-const inactiveHazards = computed(() =>
-  props.hazards.filter((hazard) => hazard.id !== props.selectedHazardId),
-)
 </script>
 
 <template>
   <div ref="container" class="see-overlay">
     <template v-if="contentRect">
       <div
-        v-for="hazard in inactiveHazards"
-        :key="hazard.id"
+        v-for="marker in inactiveMarkers"
+        :key="marker.key"
         class="see-overlay-marker is-inactive"
-        :style="inactiveStyle(hazard)"
+        :style="marker.style"
         aria-hidden="true"
       />
 
@@ -225,9 +343,12 @@ const inactiveHazards = computed(() =>
       >
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="see-overlay-path" aria-hidden="true">
           <polyline
-            :points="trajectoryToPolyline(pathPoints)"
+            v-for="trigger in allTriggers"
+            :key="`path-${trigger.index}`"
+            :points="trajectoryToPolyline(trigger.path)"
             fill="none"
             stroke="white"
+            :stroke-opacity="trigger.selected ? 1 : 0.35"
             stroke-width="0.4"
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -236,31 +357,53 @@ const inactiveHazards = computed(() =>
         </svg>
 
         <div
-          v-if="previewState"
-          class="see-overlay-marker"
-          :style="{
-            left: `${previewState.x}%`,
-            top: `${previewState.y}%`,
-            width: `${hazardMarkerDiameterPercent(previewState.radius)}%`,
-          }"
-          aria-hidden="true"
-        />
-
-        <div class="see-overlay-hit" aria-label="Click to add trajectory point at current time" @click="handleCanvasClick">
+          class="see-overlay-hit"
+          aria-label="Click to add trajectory point at current time"
+          @click="handleCanvasClick"
+        >
           <div
-            v-for="(point, index) in activeTrajectory ?? []"
-            :key="`${point.time}-${index}`"
-            class="see-overlay-keyframe"
-            :class="{ selected: selectedPointIndex === index }"
-            data-keyframe="true"
-            :style="{ left: `${point.x}%`, top: `${point.y}%` }"
-            :title="`${point.time.toFixed(2)}s · (${point.x.toFixed(0)}, ${point.y.toFixed(0)})`"
-            @click.stop="selectedPointIndex = index"
-            @pointerdown="handlePointPointerDown($event, index)"
-            @pointermove="handlePointPointerMove"
-            @pointerup="handlePointPointerUp"
-          />
+            v-for="trigger in allTriggers"
+            :key="`keys-${trigger.index}`"
+          >
+            <div
+              v-for="(point, index) in trigger.points"
+              :key="`${trigger.index}-${point.time}-${index}`"
+              class="see-overlay-keyframe"
+              :class="{ selected: trigger.selected && selectedPointIndex === index, 'is-other': !trigger.selected }"
+              data-keyframe="true"
+              :style="{ left: `${point.x}%`, top: `${point.y}%` }"
+              :title="`Trigger ${trigger.index + 1} · ${point.time.toFixed(2)}s`"
+              @click.stop="selectTrigger(trigger.index)"
+              @pointerdown="handlePointPointerDown($event, index, trigger.index)"
+              @pointermove="handlePointPointerMove"
+              @pointerup="handlePointPointerUp"
+            />
+          </div>
         </div>
+
+        <button
+          v-for="trigger in allTriggers"
+          :key="`marker-${trigger.index}`"
+          v-show="trigger.state"
+          type="button"
+          class="see-overlay-marker"
+          :class="{ 'is-other-trigger': !trigger.selected }"
+          data-trigger-marker="true"
+          :aria-label="`Move trigger ${trigger.index + 1}`"
+          :style="
+            trigger.state
+              ? {
+                  left: `${trigger.state.x}%`,
+                  top: `${trigger.state.y}%`,
+                  width: `${hazardMarkerDiameterPercent(trigger.state.radius)}%`,
+                }
+              : undefined
+          "
+          @click.stop="selectTrigger(trigger.index)"
+          @pointerdown="handleMarkerPointerDown($event, trigger.index)"
+          @pointermove="handlePointPointerMove"
+          @pointerup="handlePointPointerUp"
+        />
       </div>
     </template>
   </div>

@@ -33,6 +33,59 @@ export function updateTrajectoryPoint(
   return trajectory.map((point, i) => (i === index ? { ...point, ...patch } : point))
 }
 
+export function translateTrajectory(
+  trajectory: TrajectoryPoint[],
+  dx: number,
+  dy: number,
+): TrajectoryPoint[] {
+  return trajectory.map((point) => ({
+    ...point,
+    x: Math.min(100, Math.max(0, point.x + dx)),
+    y: Math.min(100, Math.max(0, point.y + dy)),
+  }))
+}
+
+function samePosition(a: TrajectoryPoint, b: TrajectoryPoint): boolean {
+  return Math.abs(a.x - b.x) < 0.05 && Math.abs(a.y - b.y) < 0.05
+}
+
+export function isStaticTrajectory(trajectory: TrajectoryPoint[]): boolean {
+  const first = trajectory[0]
+  return Boolean(first && trajectory.every((point) => samePosition(point, first)))
+}
+
+/** Move one trigger: a static zone as a whole, otherwise only the key at `time`. */
+export function repositionTriggerAtTime(
+  trajectory: TrajectoryPoint[],
+  x: number,
+  y: number,
+  time: number,
+  startTime: number,
+  endTime: number,
+  radius?: number,
+): TrajectoryPoint[] {
+  const nextX = Math.min(100, Math.max(0, x))
+  const nextY = Math.min(100, Math.max(0, y))
+  if (isStaticTrajectory(trajectory)) {
+    return trajectory.map((point) => ({ ...point, x: nextX, y: nextY }))
+  }
+
+  const clamped = clampTrajectoryTime(time, startTime, endTime)
+  const existing = trajectory.find((point) => Math.abs(point.time - clamped) <= 0.01)
+  return addTrajectoryPoint(
+    trajectory,
+    {
+      time: clamped,
+      x: nextX,
+      y: nextY,
+      radius: radius ?? existing?.radius,
+    },
+    startTime,
+    endTime,
+  )
+}
+
+
 export function removeTrajectoryPoint(
   trajectory: TrajectoryPoint[],
   index: number,

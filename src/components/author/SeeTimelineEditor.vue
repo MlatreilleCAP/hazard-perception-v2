@@ -10,14 +10,17 @@ import SeeHazardDetailsForm from '@/components/author/SeeHazardDetailsForm.vue'
 import SeeHazardOverlay from '@/components/author/SeeHazardOverlay.vue'
 import SeeTimelineTrack from '@/components/author/SeeTimelineTrack.vue'
 import { DEFAULT_HAZARD_RADIUS } from '@/lib/hazards/constants'
-import { getHazardStateAtTime } from '@/lib/hazards/interpolate'
-import type { TrajectoryPoint } from '@/types/hazard'
+import { interpolateTrajectoryAtTime } from '@/lib/hazards/interpolate'
+import { hazardTriggerTrajectories, type TrajectoryPoint } from '@/types/hazard'
 import type { MediaRef } from '@/types/media'
 import type { ProcessQuestionBank } from '@/types/questions'
 import {
-  adjustTrajectoryTimes,
+  appendTriggerAtPlayhead,
+  applyHazardTriggerTrajectory,
+  applyTriggerTimes,
   createEmptySeeHazard,
   DEFAULT_SEE_INSTRUCTION_PILL,
+  removeHazardTrigger,
   type SeeHazard,
 } from '@/types/see'
 
@@ -46,6 +49,7 @@ const duration = ref(props.duration)
 const videoAspect = ref<number | null>(null)
 const isPlaying = ref(false)
 const selectedHazardId = ref<string | null>(null)
+const selectedTriggerIndex = ref(0)
 const newHazardRadius = ref(DEFAULT_HAZARD_RADIUS)
 const replacing = ref(false)
 const replaceError = ref<string | null>(null)
@@ -91,19 +95,38 @@ watch(
   (hazards) => {
     if (hazards.length === 0) {
       selectedHazardId.value = null
+      selectedTriggerIndex.value = 0
       if (!draftHazard.value) draftHazard.value = createDraftHazard()
       return
     }
     draftHazard.value = null
     if (hazards.length === 1) {
-      selectedHazardId.value = hazards[0]?.id ?? null
+      const onlyId = hazards[0]?.id ?? null
+      if (selectedHazardId.value !== onlyId) selectedHazardId.value = onlyId
       return
     }
     if (!selectedHazardId.value || !hazards.some((hazard) => hazard.id === selectedHazardId.value)) {
       selectedHazardId.value = null
+      selectedTriggerIndex.value = 0
     }
   },
   { immediate: true },
+)
+
+watch(selectedHazardId, (id, previous) => {
+  if (id !== previous) selectedTriggerIndex.value = 0
+})
+
+watch(
+  selectedHazard,
+  (hazard) => {
+    if (!hazard) {
+      selectedTriggerIndex.value = 0
+      return
+    }
+    const last = Math.max(0, hazardTriggerTrajectories(hazard).length - 1)
+    if (selectedTriggerIndex.value > last) selectedTriggerIndex.value = last
+  },
 )
 
 watch(
@@ -117,7 +140,9 @@ watch(
     ) {
       return
     }
-    const state = getHazardStateAtTime(selected, currentTime.value)
+    const trajectories = hazardTriggerTrajectories(selected)
+    const trajectory = trajectories[selectedTriggerIndex.value] ?? selected.trajectory
+    const state = interpolateTrajectoryAtTime(selected, trajectory, currentTime.value)
     if (state) newHazardRadius.value = state.radius
   },
 )
@@ -218,16 +243,51 @@ function removeHazard(): void {
   selectedHazardId.value = null
 }
 
-function onHazardTimesChange(hazard: SeeHazard, startTime: number, endTime: number): void {
-  updateHazard(hazard.id, {
-    startTime,
-    endTime,
-    trajectory: adjustTrajectoryTimes(hazard.trajectory, startTime, endTime),
-  })
+function onHazardTimesChange(
+  hazard: SeeHazard,
+  startTime: number,
+  endTime: number,
+  triggerIndex: number,
+): void {
+  updateHazard(hazard.id, applyTriggerTimes(hazard, triggerIndex, startTime, endTime))
 }
 
-function onTrajectoryChange(hazard: SeeHazard, trajectory: TrajectoryPoint[]): void {
-  updateHazard(hazard.id, { trajectory })
+function onTrajectoryChange(
+  hazard: SeeHazard,
+  trajectory: TrajectoryPoint[],
+  triggerIndex: number,
+): void {
+  updateHazard(hazard.id, applyHazardTriggerTrajectory(hazard, triggerIndex, trajectory))
+}
+
+function addTriggerPoint(): void {
+  if (props.readonly || !selectedHazard.value) return
+  const hazard = selectedHazard.value
+  const source =
+    interpolateTrajectoryAtTime(
+      hazard,
+      hazardTriggerTrajectories(hazard)[selectedTriggerIndex.value] ?? hazard.trajectory,
+      currentTime.value,
+      { ignoreStartTime: true },
+    ) ?? { x: 50, y: 50, radius: hazard.radius }
+  const nextIndex = (hazard.extraTrajectories?.length ?? 0) + 1
+  updateHazard(
+    hazard.id,
+    appendTriggerAtPlayhead(hazard, currentTime.value, duration.value, source),
+  )
+  selectedTriggerIndex.value = nextIndex
+}
+
+function removeTriggerPoint(): void {
+  if (props.readonly || !selectedHazard.value) return
+  const patch = removeHazardTrigger(selectedHazard.value, selectedTriggerIndex.value)
+  if (!patch) return
+  updateHazard(selectedHazard.value.id, patch)
+  selectedTriggerIndex.value = Math.max(0, selectedTriggerIndex.value - 1)
+}
+
+function selectHazard(id: string | null): void {
+  selectedHazardId.value = id
 }
 
 function commitEditingHazard(patch: Partial<SeeHazard> | SeeHazard): void {
@@ -348,8 +408,10 @@ watch(previewUrl, () => {
         :current-time="currentTime"
         :hazards="hazards"
         :selected-hazard-id="selectedHazardId"
+        :selected-trigger-index="selectedTriggerIndex"
         :readonly="readonly"
         @trajectory-change="onTrajectoryChange"
+        @select-trigger="selectedTriggerIndex = $event"
       />
     </div>
   </section>
@@ -360,15 +422,19 @@ watch(previewUrl, () => {
       :current-time="currentTime"
       :hazards="hazards"
       :selected-hazard-id="selectedHazardId"
+      :selected-trigger-index="selectedTriggerIndex"
       :add-disabled="readonly || duration <= 0"
       :remove-disabled="readonly"
       :is-playing="isPlaying"
-      @select-hazard="selectedHazardId = $event"
+      @select-hazard="selectHazard"
+      @select-trigger="selectedTriggerIndex = $event"
       @seek="seek"
       @hazard-times-change="onHazardTimesChange"
       @trajectory-change="onTrajectoryChange"
       @add-hazard="addHazard"
       @remove-hazard="removeHazard"
+      @add-trigger="addTriggerPoint"
+      @remove-trigger="removeTriggerPoint"
       @toggle-play="togglePlay"
     />
   </section>

@@ -7,6 +7,8 @@ import { MIN_HAZARD_DURATION } from '@/lib/timeline/format'
 import type { MediaRef } from '@/types/media'
 import {
   defaultHazardDetails,
+  hazardTriggerTrajectories,
+  hazardWindowFromTriggers,
   type HazardDetails,
   type HazardSeverity,
   type TrajectoryPoint,
@@ -134,6 +136,7 @@ export interface SeeHazard extends HazardDetails {
   startTime: number
   endTime: number
   trajectory: TrajectoryPoint[]
+  extraTrajectories?: TrajectoryPoint[][]
   radius: number
   explanation: string
   explanationImage: MediaRef | null
@@ -200,16 +203,150 @@ export interface SeeDefinition {
   resultCopy: ObserveResultCopy
 }
 
+const TRIGGER_OFFSETS = [
+  { x: -12, y: 0 },
+  { x: 12, y: 0 },
+  { x: 0, y: -12 },
+  { x: 0, y: 12 },
+] as const
+
 export function createDefaultTrajectory(
   startTime: number,
   endTime: number,
   radius: number = DEFAULT_HAZARD_RADIUS,
+  position: { x: number; y: number } = { x: 50, y: 50 },
 ): TrajectoryPoint[] {
   const r = clampHazardRadius(radius)
   return [
-    { time: startTime, x: 50, y: 50, radius: r },
-    { time: endTime, x: 50, y: 50, radius: r },
+    { time: startTime, x: position.x, y: position.y, radius: r },
+    { time: endTime, x: position.x, y: position.y, radius: r },
   ]
+}
+
+export function createExtraTriggerTrajectory(
+  startTime: number,
+  endTime: number,
+  radius: number,
+  existingCount: number,
+  origin?: { x: number; y: number; radius?: number },
+): TrajectoryPoint[] {
+  const offset = TRIGGER_OFFSETS[(Math.max(1, existingCount) - 1) % TRIGGER_OFFSETS.length] ?? {
+    x: -12,
+    y: 0,
+  }
+  const r = clampHazardRadius(origin?.radius ?? radius)
+  const x = Math.min(100, Math.max(0, (origin?.x ?? 50) + offset.x))
+  const y = Math.min(100, Math.max(0, (origin?.y ?? 50) + offset.y))
+  return createDefaultTrajectory(startTime, endTime, r, { x, y })
+}
+
+function cloneTrajectory(trajectory: TrajectoryPoint[]): TrajectoryPoint[] {
+  return trajectory.map((point) => ({ ...point }))
+}
+
+export function applyHazardTriggerTrajectory(
+  hazard: SeeHazard,
+  triggerIndex: number,
+  trajectory: TrajectoryPoint[],
+): Partial<SeeHazard> {
+  const all = hazardTriggerTrajectories(hazard).map(cloneTrajectory)
+  const index = Math.max(0, triggerIndex)
+  const next = cloneTrajectory(trajectory)
+  if (all.length === 0) return { trajectory: next }
+  if (index >= all.length) all.push(next)
+  else all[index] = next
+  const [primary, ...extras] = all
+  const applied = {
+    trajectory: primary ?? next,
+    extraTrajectories: extras.length > 0 ? extras : undefined,
+  }
+  const union = hazardWindowFromTriggers({ ...hazard, ...applied })
+  return { ...applied, startTime: union.startTime, endTime: union.endTime }
+}
+
+export function applyTriggerTimes(
+  hazard: SeeHazard,
+  triggerIndex: number,
+  startTime: number,
+  endTime: number,
+): Partial<SeeHazard> {
+  const current =
+    hazardTriggerTrajectories(hazard)[Math.max(0, triggerIndex)] ?? hazard.trajectory
+  return applyHazardTriggerTrajectory(
+    hazard,
+    triggerIndex,
+    adjustTrajectoryTimes(current, startTime, endTime),
+  )
+}
+
+export function appendTriggerAtPlayhead(
+  hazard: SeeHazard,
+  currentTime: number,
+  videoDuration: number,
+  origin?: { x: number; y: number; radius?: number },
+): Partial<SeeHazard> {
+  const extras = [...(hazard.extraTrajectories ?? [])].map(cloneTrajectory)
+  const startTime = Math.max(0, currentTime)
+  const limit = videoDuration > 0 ? videoDuration : startTime + 2
+  const endTime = Math.min(limit, startTime + 2)
+  const safeEnd =
+    endTime <= startTime ? Math.min(limit, startTime + MIN_HAZARD_DURATION) : endTime
+  extras.push(
+    createExtraTriggerTrajectory(
+      startTime,
+      safeEnd,
+      hazard.radius,
+      extras.length + 1,
+      origin,
+    ),
+  )
+  const applied = { extraTrajectories: extras }
+  const union = hazardWindowFromTriggers({ ...hazard, ...applied })
+  return { ...applied, startTime: union.startTime, endTime: union.endTime }
+}
+
+export function removeHazardTrigger(
+  hazard: SeeHazard,
+  triggerIndex: number,
+): Partial<SeeHazard> | null {
+  const extras = [...(hazard.extraTrajectories ?? [])]
+  let applied: Partial<SeeHazard>
+  if (triggerIndex <= 0) {
+    const [promoted, ...rest] = extras
+    if (!promoted) return null
+    applied = { trajectory: promoted, extraTrajectories: rest }
+  } else {
+    if (!extras[triggerIndex - 1]) return null
+    extras.splice(triggerIndex - 1, 1)
+    applied = { extraTrajectories: extras }
+  }
+  const union = hazardWindowFromTriggers({ ...hazard, ...applied })
+  return { ...applied, startTime: union.startTime, endTime: union.endTime }
+}
+
+export function fitTrajectoryToWindow(
+  trajectory: TrajectoryPoint[],
+  startTime: number,
+  endTime: number,
+  radius: number = DEFAULT_HAZARD_RADIUS,
+): TrajectoryPoint[] {
+  const sorted = [...trajectory].sort((a, b) => a.time - b.time)
+  if (sorted.length === 0) return createDefaultTrajectory(startTime, endTime, radius)
+  if (sorted.length === 1) {
+    const point = sorted[0]
+    if (!point) return createDefaultTrajectory(startTime, endTime, radius)
+    return [
+      { ...point, time: startTime },
+      { time: endTime, x: point.x, y: point.y, radius: point.radius },
+    ]
+  }
+  const first = sorted[0]
+  const last = sorted[sorted.length - 1]
+  if (!first || !last) return createDefaultTrajectory(startTime, endTime, radius)
+  const middle = sorted
+    .slice(1, -1)
+    .filter((point) => point.time >= startTime && point.time <= endTime)
+  return [{ ...first, time: startTime }, ...middle, { ...last, time: endTime }]
 }
 
 export function adjustTrajectoryTimes(
@@ -230,10 +367,18 @@ export function adjustTrajectoryTimes(
     ]
   }
 
-  return trajectory.map((point, index) => {
+  const sorted = [...trajectory].sort((a, b) => a.time - b.time)
+  const first = sorted[0]
+  const last = sorted[sorted.length - 1]
+  if (!first || !last) return createDefaultTrajectory(startTime, endTime)
+  const oldSpan = last.time - first.time
+  const nextSpan = endTime - startTime
+
+  return sorted.map((point, index) => {
     if (index === 0) return { ...point, time: startTime }
-    if (index === trajectory.length - 1) return { ...point, time: endTime }
-    return point
+    if (index === sorted.length - 1) return { ...point, time: endTime }
+    const t = oldSpan <= 0 ? index / (sorted.length - 1) : (point.time - first.time) / oldSpan
+    return { ...point, time: startTime + t * nextSpan }
   })
 }
 
@@ -325,18 +470,31 @@ function readSeverity(value: unknown): HazardSeverity {
 }
 
 export function normalizeSeeHazard(hazard: Partial<SeeHazard> | undefined): SeeHazard {
-  const startTime = typeof hazard?.startTime === 'number' ? Math.max(0, hazard.startTime) : 0
-  const endTime =
-    typeof hazard?.endTime === 'number'
-      ? Math.max(startTime + MIN_HAZARD_DURATION, hazard.endTime)
-      : startTime + 2
   const radius = clampHazardRadius(hazard?.radius ?? DEFAULT_HAZARD_RADIUS)
-  const trajectory = readTrajectory(hazard?.trajectory)
+  const fallbackStart = typeof hazard?.startTime === 'number' ? Math.max(0, hazard.startTime) : 0
+  const fallbackEnd =
+    typeof hazard?.endTime === 'number'
+      ? Math.max(fallbackStart + MIN_HAZARD_DURATION, hazard.endTime)
+      : fallbackStart + 2
+  let trajectory = readTrajectory(hazard?.trajectory)
+  const extras = (Array.isArray(hazard?.extraTrajectories) ? hazard.extraTrajectories : [])
+    .map((item) => readTrajectory(item))
+    .filter((item) => item.length >= 2)
+  if (trajectory.length < 2) {
+    trajectory = createDefaultTrajectory(fallbackStart, fallbackEnd, radius)
+  }
+  const union = hazardWindowFromTriggers({
+    startTime: fallbackStart,
+    endTime: fallbackEnd,
+    trajectory,
+    extraTrajectories: extras,
+  })
   return {
     id: hazard?.id || crypto.randomUUID(),
-    startTime,
-    endTime,
-    trajectory: trajectory.length >= 2 ? trajectory : createDefaultTrajectory(startTime, endTime, radius),
+    startTime: union.startTime,
+    endTime: Math.max(union.endTime, union.startTime + MIN_HAZARD_DURATION),
+    trajectory,
+    extraTrajectories: extras.length > 0 ? extras : undefined,
     radius,
     name: typeof hazard?.name === 'string' ? hazard.name : '',
     hazardType: typeof hazard?.hazardType === 'string' ? hazard.hazardType : '',

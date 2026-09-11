@@ -9,10 +9,9 @@ export type ContentRect = {
 export const VIDEO_PAN_SLOP_PX = 10
 
 /**
- * Original hazard player: shift the centered landscape pan so more of the
- * left side of the clip is visible (forward roadway).
+ * Landscape clips start centered in the portrait viewport.
  */
-export const SEE_INITIAL_PAN_OFFSET_X = 92
+export const SEE_INITIAL_PAN_OFFSET_X = 0
 
 export function videoAspectRatio(
   videoWidth: number,
@@ -74,18 +73,55 @@ export function getVideoContentRect(video: HTMLVideoElement): ContentRect {
   }
 }
 
+export function mapClientToRect(
+  clientX: number,
+  clientY: number,
+  rect: ContentRect,
+): { x: number; y: number; frame: { width: number; height: number } } {
+  const width = Math.max(1, rect.width)
+  const height = Math.max(1, rect.height)
+  return {
+    x: Math.min(100, Math.max(0, ((clientX - rect.left) / width) * 100)),
+    y: Math.min(100, Math.max(0, ((clientY - rect.top) / height) * 100)),
+    frame: { width, height },
+  }
+}
+
 /** Map a client point into video percent space using one shared rect for hit testing. */
 export function mapClientToVideo(
   clientX: number,
   clientY: number,
   video: HTMLVideoElement,
 ): { x: number; y: number; frame: { width: number; height: number } } {
-  const rect = getVideoContentRect(video)
-  const width = Math.max(1, rect.width)
-  const height = Math.max(1, rect.height)
+  return mapClientToRect(clientX, clientY, getVideoContentRect(video))
+}
+
+export function mapClientToElement(
+  clientX: number,
+  clientY: number,
+  element: HTMLElement,
+): { x: number; y: number; frame: { width: number; height: number } } {
+  return mapClientToRect(clientX, clientY, element.getBoundingClientRect())
+}
+
+/** Map a tap on the clipped viewport onto the full panned video plane. */
+export function mapClientToPannedPlane(
+  clientX: number,
+  clientY: number,
+  stage: HTMLElement,
+  plane: HTMLElement,
+  panX: number,
+): { x: number; y: number; frame: { width: number; height: number } } {
+  const stageRect = stage.getBoundingClientRect()
+  const scaleX = stageRect.width / Math.max(1, stage.offsetWidth)
+  const scaleY = stageRect.height / Math.max(1, stage.offsetHeight)
+  const xPx = (clientX - stageRect.left) / scaleX + panX
+  const yPx = (clientY - stageRect.top) / scaleY
+  const width = Math.max(1, plane.offsetWidth)
+  const height = Math.max(1, plane.offsetHeight)
   return {
-    x: Math.min(100, Math.max(0, ((clientX - rect.left) / width) * 100)),
-    y: Math.min(100, Math.max(0, ((clientY - rect.top) / height) * 100)),
+    x: Math.min(100, Math.max(0, (xPx / width) * 100)),
+    y: Math.min(100, Math.max(0, (yPx / height) * 100)),
     frame: { width, height },
   }
 }

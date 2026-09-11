@@ -1,4 +1,5 @@
-import { getHazardStateAtTime } from '@/lib/hazards/interpolate'
+import { DEFAULT_HAZARD_RADIUS } from '@/lib/hazards/constants'
+import { getHazardStatesAtTime, type HazardState } from '@/lib/hazards/interpolate'
 import type { Hazard } from '@/types/hazard'
 
 export type ClickPoint = {
@@ -12,28 +13,53 @@ export type VideoFrameSize = {
   height: number
 }
 
-export function isClickOnHazard(
+function isClickOnState(
   click: ClickPoint,
-  hazard: Hazard,
-  currentTime: number,
+  state: HazardState,
   frame?: VideoFrameSize,
 ): boolean {
-  const state = getHazardStateAtTime(hazard, currentTime)
-  if (!state) return false
-
   const dx = click.x - state.x
   const dy = click.y - state.y
+  const radius = Math.max(state.radius, DEFAULT_HAZARD_RADIUS)
 
   // Overlay circles are sized from video width. Convert percent offsets into
   // pixels so a tap on the visible circle hits on non-square frames.
   if (frame && frame.width > 0 && frame.height > 0) {
     const dxPx = (dx / 100) * frame.width
     const dyPx = (dy / 100) * frame.height
-    const radiusPx = (state.radius / 100) * frame.width
+    const radiusPx = (radius / 100) * frame.width
     return Math.sqrt(dxPx * dxPx + dyPx * dyPx) <= radiusPx
   }
 
-  return Math.sqrt(dx * dx + dy * dy) <= state.radius
+  return Math.sqrt(dx * dx + dy * dy) <= radius
+}
+
+export function isClickOnHazard(
+  click: ClickPoint,
+  hazard: Hazard,
+  currentTime: number,
+  frame?: VideoFrameSize,
+): boolean {
+  return getHazardStatesAtTime(hazard, currentTime).some((state) =>
+    isClickOnState(click, state, frame),
+  )
+}
+
+export function hazardHitByClick<T extends Hazard>(
+  hazards: T[],
+  resolvedIds: Set<string>,
+  click: ClickPoint,
+  currentTime: number,
+  frame?: VideoFrameSize,
+): T | null {
+  return (
+    hazards.find(
+      (hazard) =>
+        !resolvedIds.has(hazard.id) &&
+        currentTime <= hazard.endTime + 0.05 &&
+        isClickOnHazard(click, hazard, currentTime, frame),
+    ) ?? null
+  )
 }
 
 export function closedHazardIds(

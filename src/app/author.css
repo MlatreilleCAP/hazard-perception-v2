@@ -1426,27 +1426,44 @@ fieldset.author-stack {
 
 .see-overlay-marker {
   position: absolute;
+  z-index: 5;
   aspect-ratio: 1;
   translate: -50% -50%;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
   background: rgb(255 255 255 / 60%);
-  box-shadow: 0 8px 16px rgb(0 0 0 / 18%);
   box-shadow: 0 0 0 2px rgb(64 59 59 / 60%), 0 8px 16px rgb(0 0 0 / 18%);
+  cursor: grab;
+}
+
+.see-overlay-marker:active {
+  cursor: grabbing;
 }
 
 .see-overlay-marker.is-inactive {
   pointer-events: none;
 }
 
+.see-overlay-marker.is-other-trigger {
+  background: rgb(255 255 255 / 28%);
+  box-shadow: 0 0 0 2px rgb(64 59 59 / 35%), 0 8px 16px rgb(0 0 0 / 12%);
+}
+
+.see-overlay-keyframe.is-other {
+  opacity: 0.55;
+}
+
 .see-overlay-hit {
   position: absolute;
   inset: 0;
+  z-index: 1;
   cursor: crosshair;
 }
 
 .see-overlay-keyframe {
   position: absolute;
-  z-index: 2;
+  z-index: 4;
   width: 14px;
   height: 14px;
   translate: -50% -50%;
@@ -1536,28 +1553,70 @@ fieldset.author-stack {
 
 .see-track {
   position: relative;
-  height: 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 56px;
+  padding: 6px 0 6px 0;
   cursor: pointer;
   border-radius: 6px;
   background: #f5f5f5;
 }
 
+.see-track-lane {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: stretch;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.see-track-lane.is-selected {
+  height: 56px;
+}
+
+.see-track-lane-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--editor-quiet);
+}
+
+.see-track-lane-body {
+  position: relative;
+  min-width: 0;
+}
+
 .see-clip {
   position: absolute;
-  top: 8px;
+  top: 50%;
   z-index: 2;
   display: flex;
-  height: 40px;
+  height: 32px;
   overflow: hidden;
   border-radius: 4px;
   border: 1px solid rgb(255 47 148 / 35%);
   background: rgb(255 47 148 / 18%);
+  translate: 0 -50%;
+}
+
+.see-track-lane.is-selected .see-clip {
+  height: 40px;
 }
 
 .see-clip.selected {
   z-index: 3;
   border-color: #ff2f94;
   background: rgb(255 47 148 / 28%);
+}
+
+.see-clip.is-other-trigger:not(.selected) {
+  z-index: 1;
+  border-color: rgb(255 47 148 / 22%);
+  background: rgb(255 47 148 / 10%);
 }
 
 .see-clip-handle {
