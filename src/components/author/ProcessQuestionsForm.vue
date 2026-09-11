@@ -8,8 +8,10 @@ import {
   ANSWER_LABELS,
   answersWithFixedPoints,
   createAnswerOption,
+  createBranchingSurveyQuestion,
   createSeveritySurveyQuestion,
   createTheorySurveyQuestion,
+  isBranchingKind,
   questionKindLabel,
   surveyQuestionIsConfigured,
   type ProcessQuestionBank,
@@ -27,7 +29,7 @@ const props = withDefaults(
   {
     title: 'Theory',
     description:
-      'Add severity and theory questions from the dropdown. Theory questions are optional — if one is configured it is asked; otherwise it is skipped. Customize the text, answers, and correct answer. The correct answer is always worth 10 points. Use Up/Down to set the learner order.',
+      'Add severity, theory, or branching logic questions from the dropdown. Theory and branching questions are optional — if one is configured it is asked; otherwise it is skipped. Customize the text, answers, and correct answer. The correct answer is always worth 10 points. Use Up/Down to set the learner order.',
   },
 )
 
@@ -77,7 +79,11 @@ defineExpose({ snapshot })
 function addQuestion(kind: ProcessQuestionKind | ''): void {
   if (!kind) return
   const question =
-    kind === 'severity' ? createSeveritySurveyQuestion() : createTheorySurveyQuestion()
+    kind === 'severity'
+      ? createSeveritySurveyQuestion()
+      : kind === 'branching'
+        ? createBranchingSurveyQuestion()
+        : createTheorySurveyQuestion()
   commit([...questions.value, question])
   addKind.value = ''
   // Remount so the same kind can be chosen again without a second click.
@@ -143,6 +149,7 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
           <option value="">Add question</option>
           <option value="severity">Severity question</option>
           <option value="theory">Theory question</option>
+          <option value="branching">Branching logic question</option>
         </select>
       </template>
     </AuthorSectionHeader>
@@ -152,7 +159,7 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
     </p>
 
     <p v-if="questions.length === 0" class="author-list-empty author-muted" style="border: 1px dashed var(--editor-border); border-radius: 6px">
-      No questions yet. Use “Add question” to create a severity or theory question.
+      No questions yet. Use “Add question” to create a severity, theory, or branching logic question.
     </p>
 
     <div v-else class="author-stack-sm">
@@ -271,10 +278,35 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
           :id="`${question.id}-show-explanation`"
           :model-value="question.showExplanation !== false"
           label="Show explanation"
-          description="When on, learners see the explanation and Continue only after an incorrect answer. Correct answers skip the explanation. It still appears on the results screen for incorrect answers."
+          :description="
+            isBranchingKind(question.kind)
+              ? 'When on, learners see the matching explanation and Continue after any answer — correct or incorrect.'
+              : 'When on, learners see the explanation and Continue only after an incorrect answer. Correct answers skip the explanation. It still appears on the results screen for incorrect answers.'
+          "
           @update:model-value="updateQuestion(question.id, { ...question, showExplanation: $event })"
         />
+        <template v-if="isBranchingKind(question.kind)">
+          <AuthorField
+            :id="`${question.id}-correct-explanation`"
+            :model-value="question.correctExplanation ?? ''"
+            label="Correct explanation"
+            multiline
+            :rows="2"
+            @update:model-value="
+              updateQuestion(question.id, { ...question, correctExplanation: $event })
+            "
+          />
+          <AuthorField
+            :id="`${question.id}-incorrect-explanation`"
+            :model-value="question.explanation"
+            label="Incorrect explanation"
+            multiline
+            :rows="2"
+            @update:model-value="updateQuestion(question.id, { ...question, explanation: $event })"
+          />
+        </template>
         <AuthorField
+          v-else
           :id="`${question.id}-explanation`"
           :model-value="question.explanation"
           label="Explanation text"

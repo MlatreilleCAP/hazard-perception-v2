@@ -109,7 +109,7 @@ export type ImportPackageReport = {
 
 function toQuestion(row: ImportedQuestionRow): ProcessSurveyQuestion {
   const answerOptions = row.answers.map((answer) => createAnswerOption(answer.text, 0))
-  if (row.kind === 'theory') {
+  if (row.kind === 'theory' || row.kind === 'branching') {
     while (answerOptions.length < 3) answerOptions.push(createAnswerOption('', 0))
   }
   const answers = answersWithFixedPoints(answerOptions, row.correctIndex)
@@ -120,6 +120,7 @@ function toQuestion(row: ImportedQuestionRow): ProcessSurveyQuestion {
     answers,
     correctIndex: row.correctIndex,
     explanation: row.explanation,
+    correctExplanation: row.correctExplanation,
     showExplanation: row.showExplanation ?? (row.kind === 'severity' ? false : true),
     showCorrectIncorrect: row.showCorrectIncorrect ?? true,
   }

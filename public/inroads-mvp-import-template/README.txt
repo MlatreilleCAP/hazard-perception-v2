@@ -48,11 +48,14 @@ Copy: header row, then section | field | text
                    Danger Zones | Scanning | Other Motorists
 
 Questions: one row per Observe, Process, or Anticipate question
-  Visible: section | kind | question_text | explanation | correct | a_text | b_text | c_text
+  Visible: section | kind | question_text | explanation | correct_explanation |
+           correct | a_text | b_text | c_text
   Hidden/locked: segment, show_explanation, show_correct_incorrect,
                  a–c points, and D–F answers
   section: observe | process | anticipate
-  kind: severity | theory
+  kind: severity | theory | branching
+  explanation = incorrect / standard explanation
+  correct_explanation = branching logic only: shown after a correct answer
   correct: A-C
   Correct answers are always worth 10 points.
   Observe questions attach to the first Observe hazard.

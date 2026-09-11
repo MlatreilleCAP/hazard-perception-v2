@@ -4,7 +4,9 @@ import questionPassIcon from '@/assets/lesson/question-pass.svg'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import {
   configuredAnswerEntries,
+  explanationForOutcome,
   isAnswerCorrect,
+  isBranchingKind,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 
@@ -32,11 +34,14 @@ let advanceTimer = 0
 let revealTimer = 0
 
 const answers = computed(() => configuredAnswerEntries(props.question))
+const isBranching = computed(() => isBranchingKind(props.question.kind))
 const showExplanation = computed(() => props.question.showExplanation !== false)
 const showCorrectIncorrect = computed(() => props.question.showCorrectIncorrect !== false)
-const explanationText = computed(() => props.question.explanation.trim())
 const answeredCorrectly = computed(
   () => selectedIndex.value != null && isAnswerCorrect(props.question, selectedIndex.value),
+)
+const explanationText = computed(() =>
+  explanationForOutcome(props.question, answeredCorrectly.value),
 )
 const feedback = computed(() => {
   if (!showCorrectIncorrect.value || !locked.value || selectedIndex.value == null) {
@@ -45,7 +50,10 @@ const feedback = computed(() => {
   return answeredCorrectly.value ? 'correct' : 'incorrect'
 })
 const needsExplanation = computed(
-  () => locked.value && showExplanation.value && !answeredCorrectly.value,
+  () =>
+    locked.value &&
+    showExplanation.value &&
+    (isBranching.value || !answeredCorrectly.value),
 )
 const awaitingContinue = computed(() => needsExplanation.value && revealExplanation.value)
 
@@ -178,7 +186,13 @@ function select(index: number): void {
   selectedIndex.value = index
   locked.value = true
   emit('answer', index)
-  if (showExplanation.value && !isAnswerCorrect(props.question, index)) {
+  const correct = isAnswerCorrect(props.question, index)
+  if (showExplanation.value && (isBranching.value || !correct)) {
+    if (isBranching.value && correct) {
+      showCorrectHighlight.value = true
+      revealTimer = window.setTimeout(runFadeAndSlide, ANIMATION_PAUSE_MS)
+      return
+    }
     revealTimer = window.setTimeout(() => {
       showCorrectHighlight.value = true
       revealTimer = window.setTimeout(runFadeAndSlide, ANIMATION_PAUSE_MS)
@@ -208,7 +222,7 @@ onBeforeUnmount(() => {
     class="process-question-card is-theory"
     :class="{ 'is-explained': awaitingContinue }"
     role="dialog"
-    aria-label="Theory question"
+    :aria-label="isBranching ? 'Branching logic question' : 'Theory question'"
   >
     <img
       v-if="feedback"

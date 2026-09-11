@@ -1,7 +1,15 @@
 export const ANSWER_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'] as const
 
-export const PROCESS_QUESTION_KINDS = ['severity', 'theory'] as const
+export const PROCESS_QUESTION_KINDS = ['severity', 'theory', 'branching'] as const
 export type ProcessQuestionKind = (typeof PROCESS_QUESTION_KINDS)[number]
+
+export function isTheoryStyleKind(kind: ProcessQuestionKind): boolean {
+  return kind === 'theory' || kind === 'branching'
+}
+
+export function isBranchingKind(kind: ProcessQuestionKind): boolean {
+  return kind === 'branching'
+}
 
 export interface ProcessAnswerOption {
   text: string
@@ -14,7 +22,10 @@ export interface ProcessSurveyQuestion {
   questionText: string
   answers: ProcessAnswerOption[]
   correctIndex: number
+  /** Shown after an incorrect answer. For branching, this is the incorrect explanation. */
   explanation: string
+  /** Branching logic only: shown after a correct answer. */
+  correctExplanation?: string
   /**
    * When true, show explanation text and Continue after an incorrect answer.
    * Correct answers skip the explanation and advance without that step.
@@ -86,6 +97,38 @@ export function createTheorySurveyQuestion(): ProcessSurveyQuestion {
   }
 }
 
+export function createBranchingSurveyQuestion(): ProcessSurveyQuestion {
+  return {
+    id: newQuestionId(),
+    kind: 'branching',
+    questionText: '',
+    answers: [
+      createAnswerOption('', DEFAULT_ANSWER_POINTS),
+      createAnswerOption('', 0),
+      createAnswerOption('', 0),
+      createAnswerOption('', 0),
+    ],
+    correctIndex: 0,
+    explanation: '',
+    correctExplanation: '',
+    showExplanation: true,
+    showCorrectIncorrect: true,
+  }
+}
+
+export function explanationForOutcome(
+  question: ProcessSurveyQuestion,
+  correct: boolean,
+): string {
+  if (question.kind === 'branching') {
+    if (correct) {
+      return (question.correctExplanation ?? '').trim()
+    }
+    return question.explanation.trim()
+  }
+  return correct ? '' : question.explanation.trim()
+}
+
 export function emptyQuestionBank(): ProcessQuestionBank {
   return { version: 2, questions: [] }
 }
@@ -129,7 +172,10 @@ export function answersWithFixedPoints(
 function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
   if (!value || typeof value !== 'object') return null
   const raw = value as Partial<ProcessSurveyQuestion> & { answers?: unknown }
-  const kind = raw.kind === 'severity' || raw.kind === 'theory' ? raw.kind : 'theory'
+  const kind =
+    raw.kind === 'severity' || raw.kind === 'theory' || raw.kind === 'branching'
+      ? raw.kind
+      : 'theory'
   const answersRaw = Array.isArray(raw.answers) ? raw.answers : []
   const correctIndexRaw =
     typeof raw.correctIndex === 'number' ? Math.floor(raw.correctIndex) : 0
@@ -146,7 +192,14 @@ function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
     questionText,
     answers,
     correctIndex,
-    explanation: typeof raw.explanation === 'string' ? raw.explanation : '',
+    explanation:
+      typeof raw.explanation === 'string'
+        ? raw.explanation
+        : typeof (raw as { incorrectExplanation?: unknown }).incorrectExplanation === 'string'
+          ? (raw as { incorrectExplanation: string }).incorrectExplanation
+          : '',
+    correctExplanation:
+      typeof raw.correctExplanation === 'string' ? raw.correctExplanation : '',
     showExplanation:
       typeof raw.showExplanation === 'boolean' ? raw.showExplanation : kind !== 'severity',
     showCorrectIncorrect:
@@ -245,7 +298,7 @@ export function processQuestionResults(
       label: `Question ${index + 1}`,
       text: question.questionText.trim(),
       correct,
-      explanation: !correct ? question.explanation.trim() : '',
+      explanation: explanationForOutcome(question, correct),
     }
   })
 }
@@ -255,5 +308,7 @@ export function questionBankMaxPoints(bank: ProcessQuestionBank): number {
 }
 
 export function questionKindLabel(kind: ProcessQuestionKind): string {
-  return kind === 'severity' ? 'Severity' : 'Theory'
+  if (kind === 'severity') return 'Severity'
+  if (kind === 'branching') return 'Branching logic'
+  return 'Theory'
 }

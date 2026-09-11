@@ -161,7 +161,7 @@ export const COPY_FIELDS = [
 ] as const
 export type CopyField = (typeof COPY_FIELDS)[number]
 
-export const QUESTION_KIND_VALUES = ['severity', 'theory'] as const
+export const QUESTION_KIND_VALUES = ['severity', 'theory', 'branching'] as const
 export const QUESTION_SECTIONS = ['observe', 'process', 'anticipate'] as const
 export const ANSWER_COLUMNS = ['a', 'b', 'c', 'd', 'e', 'f'] as const
 
@@ -171,6 +171,7 @@ export const QUESTION_HEADERS = [
   'kind',
   'question_text',
   'explanation',
+  'correct_explanation',
   'show_explanation',
   'show_correct_incorrect',
   'correct',
@@ -383,11 +384,14 @@ Metadata: header row, then Video Folder | Metadata Name | Metadata text
                    Danger Zones | Scanning | Other Motorists
 
 Questions: one row per Observe, Process, or Anticipate question
-  Visible: section | kind | question_text | explanation | correct | a_text | b_text | c_text
+  Visible: section | kind | question_text | explanation | correct_explanation |
+           correct | a_text | b_text | c_text
   Hidden/locked: segment, show_explanation, show_correct_incorrect,
                  a–c points, and D–F answers
   section: observe | process | anticipate
-  kind: severity | theory
+  kind: severity | theory | branching
+  explanation = incorrect / standard explanation
+  correct_explanation = branching logic only: shown after a correct answer
   correct: A-C
   Correct answers are always worth 10 points.
   Observe questions attach to the first Observe hazard.

@@ -59,6 +59,7 @@ export type ImportedQuestionRow = {
   kind: ProcessQuestionKind
   questionText: string
   explanation: string
+  correctExplanation: string
   showExplanation: boolean | null
   showCorrectIncorrect: boolean | null
   correctIndex: number
@@ -203,6 +204,7 @@ function parseQuestionKind(raw: string): ProcessQuestionKind | null {
   const value = normalizeHeader(raw)
   if (!value) return null
   if (value === 'severity' || value.includes('severity')) return 'severity'
+  if (value === 'branching' || value.includes('branching')) return 'branching'
   if (value === 'theory' || value.includes('theory')) return 'theory'
   return null
 }
@@ -340,7 +342,7 @@ function parseQuestionsSheet(
           ? 'theory'
           : null)
     if (!inferredKind) {
-      warnings.push(`Questions row ${line}: kind must be severity or theory.`)
+      warnings.push(`Questions row ${line}: kind must be severity, theory, or branching.`)
       return
     }
 
@@ -376,6 +378,7 @@ function parseQuestionsSheet(
       kind: inferredKind,
       questionText,
       explanation: record.explanation ?? '',
+      correctExplanation: record.correct_explanation ?? '',
       showExplanation: parseBoolean(record.show_explanation ?? ''),
       showCorrectIncorrect: parseBoolean(record.show_correct_incorrect ?? ''),
       correctIndex,
