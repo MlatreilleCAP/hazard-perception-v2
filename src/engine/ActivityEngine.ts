@@ -1,3 +1,4 @@
+import { cloneJson } from '@/app/clone'
 import type { ActivityDefinition } from '@/types/activity'
 import type { ActivityEvent, NewActivityEvent } from '@/types/event'
 import type { RuntimeAdapter, RuntimeState } from '@/types/runtime'
@@ -40,7 +41,7 @@ export class ActivityEngine {
     if (errors.length > 0) {
       throw new Error(`Invalid activity definition:\n${errors.join('\n')}`)
     }
-    this.definition = structuredClone(definition)
+    this.definition = cloneJson(definition)
     this.state = createIdleRuntimeState(this.definition, this.adapter.kind)
   }
 
@@ -114,7 +115,7 @@ export class ActivityEngine {
   }
 
   getState(): RuntimeState {
-    return structuredClone(this.requireState())
+    return cloneJson(this.requireState())
   }
 
   getDefinition(): Readonly<ActivityDefinition> {

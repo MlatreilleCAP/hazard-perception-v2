@@ -24,7 +24,7 @@ const router = useRouter()
 const activities = useActivityStore()
 const runtime = useRuntimeStore()
 const definition = ref<ActivityDefinition | null>(null)
-const loading = ref(false)
+const loading = ref(typeof route.query.activity === 'string')
 
 const published = computed(() =>
   activities.summaries.filter(
@@ -107,7 +107,7 @@ async function loadActivity(id: string): Promise<void> {
     } else {
       definition.value = next
     }
-    runtime.playDefinition(definition.value)
+    runtime.playDefinition(cloneJson(definition.value))
   } catch (cause) {
     definition.value = null
     runtime.setError(cause instanceof Error ? cause.message : 'Failed to start activity')
@@ -215,6 +215,15 @@ function onExperienceFinished(): void {
           :definition="definition"
           @finished="onExperienceFinished"
         />
+      </div>
+    </div>
+
+    <div
+      v-else-if="activityId"
+      class="player-phone-slot"
+    >
+      <div class="player-phone" aria-busy="true" aria-label="Loading activity">
+        <p v-if="runtime.error && !loading" class="process-player-message">{{ runtime.error }}</p>
       </div>
     </div>
 

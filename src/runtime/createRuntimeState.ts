@@ -1,3 +1,4 @@
+import { cloneJson } from '@/app/clone'
 import type { ActivityDefinition } from '@/types/activity'
 import type { RuntimeScore } from '@/types/scoring'
 import type { RuntimeAdapterKind, RuntimeState } from '@/types/runtime'
@@ -9,7 +10,7 @@ export function createIdleRuntimeState(
 ): RuntimeState {
   const variables: Record<string, unknown> = {}
   for (const variable of definition.variables) {
-    variables[variable.name] = structuredClone(variable.defaultValue)
+    variables[variable.name] = cloneJson(variable.defaultValue)
   }
 
   const score: RuntimeScore = {
