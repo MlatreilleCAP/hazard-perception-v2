@@ -65,6 +65,10 @@ body:has(.player-page) {
   flex-shrink: 0;
 }
 
+.player-page.is-waiting {
+  background: #fff;
+}
+
 .player-phone {
   --question-card-offset-top: max(16px, calc(20% - 9.5rem + 200px));
   width: var(--iphone-17-pro-width);
@@ -77,6 +81,10 @@ body:has(.player-page) {
     0 24px 80px rgba(28, 28, 30, 0.28);
   transform: scale(var(--phone-fit));
   transform-origin: top left;
+}
+
+.player-phone.is-waiting {
+  background: #fff;
 }
 
 @media (max-width: 767px), (hover: none) and (pointer: coarse) and (max-width: 1024px) {
@@ -97,6 +105,10 @@ body:has(.player-page) {
     align-items: stretch;
     justify-content: stretch;
     overflow: hidden;
+  }
+
+  .player-page.is-waiting {
+    background: #fff;
   }
 
   .player-phone-slot,
@@ -371,6 +383,10 @@ body:has(.player-page) {
   padding: 24px;
   color: #e8e8e8;
   text-align: center;
+}
+
+.player-page.is-waiting .process-player-message {
+  color: #403b3b;
 }
 
 .process-experience {

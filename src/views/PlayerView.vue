@@ -187,7 +187,7 @@ function onExperienceFinished(): void {
 </script>
 
 <template>
-  <div class="player-page">
+  <div class="player-page" :class="{ 'is-waiting': Boolean(activityId) && !(hasExperience && definition) }">
     <div v-if="hasExperience && definition" class="player-phone-slot">
       <div class="player-phone" aria-label="iPhone 17 Pro preview (402 × 874)">
         <LessonExperience
@@ -222,7 +222,7 @@ function onExperienceFinished(): void {
       v-else-if="activityId"
       class="player-phone-slot"
     >
-      <div class="player-phone" aria-busy="true" aria-label="Loading activity">
+      <div class="player-phone is-waiting" aria-busy="true" aria-label="Loading activity">
         <p v-if="runtime.error && !loading" class="process-player-message">{{ runtime.error }}</p>
       </div>
     </div>
