@@ -10,7 +10,6 @@ defineProps<{
   title: string
   percent: number
   passed: boolean
-  summary: string
   sections: LessonResultsSection[]
 }>()
 
@@ -56,17 +55,17 @@ function metricDelay(sectionIndex: number, metricIndex: number): string {
     role="main"
     aria-label="Challenge results"
   >
-    <p class="process-results-announcement is-emphasis">Challenge Complete</p>
+    <p class="process-results-announcement is-emphasis">
+      {{ passed ? 'Challenge Complete' : 'Challenge Failed' }}
+    </p>
 
     <div class="lesson-results-card">
       <header class="lesson-results-hero">
         <div class="lesson-results-hero-copy">
-          <p class="lesson-results-brand">inroads</p>
           <p class="lesson-results-title">{{ title }}</p>
         </div>
         <p class="lesson-results-percent">{{ percent }}%</p>
       </header>
-      <p class="lesson-results-summary">{{ summary }}</p>
 
       <ul v-if="sections.length > 0" class="lesson-results-sections">
         <li

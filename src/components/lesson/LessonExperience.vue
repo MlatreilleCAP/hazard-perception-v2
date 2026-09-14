@@ -359,7 +359,6 @@ onBeforeUnmount(() => {
       :title="resultsModel.title"
       :percent="resultsModel.percent"
       :passed="resultsModel.passed"
-      :summary="resultsModel.summary"
       :sections="resultsModel.sections"
       @continue="emit('finished')"
     />

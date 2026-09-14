@@ -305,7 +305,6 @@ export type LessonResultsModel = {
   title: string
   percent: number
   passed: boolean
-  summary: string
   sections: LessonResultsSection[]
 }
 
@@ -437,14 +436,10 @@ export function buildLessonResultsModel(
   const max = Math.max(1, sections.length * LESSON_SECTION_MAX_PTS)
   const percent = Math.round((earned / max) * 100)
   const passed = percent >= LESSON_PASS_PERCENT
-  const challengeName = title.trim() || 'this'
   return {
     title,
     percent,
     passed,
-    summary: passed
-      ? `You passed the ${challengeName} inroads challenge.\nHere are your detailed scores.`
-      : `You did not pass the ${challengeName} inroads challenge.\nHere are your detailed scores.`,
     sections,
   }
 }
