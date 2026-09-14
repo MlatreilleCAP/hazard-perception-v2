@@ -256,6 +256,7 @@ watch(
     if (nextSlot === 0) srcA.value = next
     else srcB.value = next
   },
+  { immediate: true },
 )
 
 watch(

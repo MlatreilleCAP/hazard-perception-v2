@@ -39,7 +39,7 @@ const error = ref<string | null>(null)
 const phase = ref<Phase>('playing')
 const questionIndex = ref(0)
 const answers = ref<Record<string, number>>({})
-const awaitingSegmentVideo = ref(false)
+const awaitingSegmentVideo = ref(true)
 
 const anticipate = computed(() => readAnticipateDefinition(props.definition))
 const passThreshold = computed(() => anticipate.value.secondSegmentScoreThreshold ?? 100)
@@ -127,8 +127,13 @@ watch(
   activeMediaId,
   (mediaId) => {
     void (async () => {
+      awaitingSegmentVideo.value = true
       const nextSrc = await loadSrcForMediaId(mediaId, segmentIndex.value)
-      if (nextSrc == null) return
+      if (nextSrc == null) {
+        awaitingSegmentVideo.value = false
+        emit('ready')
+        return
+      }
       if (activeMediaId.value === mediaId) {
         src.value = nextSrc
       }
@@ -138,7 +143,7 @@ watch(
 )
 
 async function startSegment(index: AnticipateSegmentIndex): Promise<void> {
-  if (index > 0) awaitingSegmentVideo.value = true
+  awaitingSegmentVideo.value = true
   const mediaId = anticipate.value.segments[index]?.media?.media_asset_id ?? null
   const nextSrc = await loadSrcForMediaId(mediaId, index)
   if (nextSrc == null) {
@@ -259,6 +264,5 @@ async function afterVideo1Questions(): Promise<void> {
         />
       </div>
     </template>
-    <p v-else class="process-player-message">Loading video…</p>
   </div>
 </template>

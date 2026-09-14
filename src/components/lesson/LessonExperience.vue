@@ -50,6 +50,9 @@ const sectionResults = ref<
 
 let loadGeneration = 0
 let readyDismissTimer = 0
+let loaderShownAt = 0
+
+const MIN_SECTION_PRELOAD_MS = 700
 
 const lesson = computed(() => readLessonDefinition(props.definition))
 const orderedItems = computed(() =>
@@ -72,6 +75,7 @@ function clearReadyDismissTimer(): void {
 
 function showSegmentLoader(): void {
   clearReadyDismissTimer()
+  loaderShownAt = performance.now()
   awaitingReady.value = true
   readyDismissTimer = window.setTimeout(() => {
     awaitingReady.value = false
@@ -80,7 +84,14 @@ function showSegmentLoader(): void {
 
 function onSegmentReady(): void {
   clearReadyDismissTimer()
-  awaitingReady.value = false
+  const remaining = MIN_SECTION_PRELOAD_MS - (performance.now() - loaderShownAt)
+  if (remaining <= 0) {
+    awaitingReady.value = false
+    return
+  }
+  readyDismissTimer = window.setTimeout(() => {
+    awaitingReady.value = false
+  }, remaining)
 }
 
 function shouldPlayIntro(): boolean {

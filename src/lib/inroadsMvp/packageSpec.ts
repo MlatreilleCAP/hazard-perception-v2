@@ -393,7 +393,7 @@ Questions: one row per Observe, Process, or Anticipate question
   explanation = incorrect / standard explanation
   show_explanation (hidden): never | incorrect | correct | always
     (legacy true/false still accepted: false = never; true = incorrect for theory,
-     always for branching)
+     always for severity and branching)
   correct_explanation = branching logic only: shown after a correct answer
   correct: A-C
   Correct answers are always worth 10 points.

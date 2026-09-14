@@ -120,7 +120,7 @@ function parseExplanationWhenCell(
   const flag = parseBoolean(value)
   if (flag === false) return 'never'
   if (flag === true) {
-    if (kind === 'branching') return 'always'
+    if (kind === 'branching' || kind === 'severity') return 'always'
     return 'incorrect'
   }
   return null

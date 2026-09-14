@@ -40,20 +40,20 @@ export interface ProcessSurveyQuestion {
   /** Branching logic only: shown after a correct answer. */
   correctExplanation?: string
   /**
-   * When to show explanation text in the question (theory). Legacy boolean
-   * `showExplanation` is kept in sync: false maps to never, true to incorrect-only
-   * for theory/severity and always for branching.
+   * When to show explanation text after an answer (theory and severity).
+   * Legacy boolean `showExplanation` is kept in sync: false maps to never;
+   * true maps to incorrect-only for theory, always for severity and branching.
    */
   explanationWhen?: ExplanationWhen
   /**
-   * When true, show explanation text and Continue after an incorrect answer.
-   * Correct answers skip the explanation and advance without that step.
-   * Prefer `explanationWhen` for theory questions.
+   * When true, show explanation text after an answer (see `explanationWhen`).
+   * Learners always tap Continue before the next question.
+   * Prefer `explanationWhen` for theory and severity questions.
    */
   showExplanation?: boolean
   /**
    * When false, hide correct/incorrect answer styling and the score pill.
-   * If explanation is also off (or the answer was correct), complete after the answer.
+   * Learners still tap Continue to proceed.
    */
   showCorrectIncorrect?: boolean
 }
@@ -164,7 +164,7 @@ function explanationWhenFromLegacyBoolean(
   show: boolean,
 ): ExplanationWhen {
   if (!show) return 'never'
-  if (kind === 'branching') return 'always'
+  if (kind === 'branching' || kind === 'severity') return 'always'
   return 'incorrect'
 }
 

@@ -7,8 +7,6 @@ import {
   explanationForOutcome,
   isAnswerCorrect,
   isBranchingKind,
-  resolveExplanationWhen,
-  showExplanationForOutcome,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 
@@ -23,21 +21,21 @@ const emit = defineEmits<{
 
 const CORRECT_HIGHLIGHT_DELAY_MS = 1000
 const ANIMATION_PAUSE_MS = 1000
+const COLLAPSE_MS = 850
+const COLLAPSE_EASE = 'cubic-bezier(0.33, 0, 0.2, 1)'
 
 const selectedIndex = ref<number | null>(null)
 const locked = ref(false)
 const revealExplanation = ref(false)
 const showRevealContent = ref(false)
 const showCorrectHighlight = ref(false)
-const revealEl = ref<HTMLButtonElement | null>(null)
 const cardEl = ref<HTMLElement | null>(null)
+const answersEl = ref<HTMLElement | null>(null)
 const answerBtnRefs = ref<HTMLButtonElement[]>([])
-let advanceTimer = 0
 let revealTimer = 0
 
 const answers = computed(() => configuredAnswerEntries(props.question))
 const isBranching = computed(() => isBranchingKind(props.question.kind))
-const explanationWhen = computed(() => resolveExplanationWhen(props.question))
 const showCorrectIncorrect = computed(() => props.question.showCorrectIncorrect !== false)
 const answeredCorrectly = computed(
   () => selectedIndex.value != null && isAnswerCorrect(props.question, selectedIndex.value),
@@ -52,16 +50,9 @@ const feedback = computed(() => {
   return answeredCorrectly.value ? 'correct' : 'incorrect'
 })
 
-function shouldHoldForContinue(correct: boolean): boolean {
-  if (showExplanationForOutcome(explanationWhen.value, correct)) return true
-  if (!isBranching.value && correct) return showCorrectIncorrect.value
-  return false
-}
-
-const holdsForContinue = computed(() => {
-  if (!locked.value || selectedIndex.value == null) return false
-  return shouldHoldForContinue(answeredCorrectly.value)
-})
+const holdsForContinue = computed(
+  () => locked.value && selectedIndex.value != null,
+)
 const awaitingContinue = computed(() => holdsForContinue.value && revealExplanation.value)
 
 watch(
@@ -73,6 +64,17 @@ watch(
       btn.style.transform = ''
       btn.style.transition = ''
       btn.style.pointerEvents = ''
+      btn.style.maxHeight = ''
+      btn.style.minHeight = ''
+      btn.style.paddingTop = ''
+      btn.style.paddingBottom = ''
+      btn.style.borderWidth = ''
+      btn.style.overflow = ''
+      btn.style.margin = ''
+    }
+    if (answersEl.value) {
+      answersEl.value.style.gap = ''
+      answersEl.value.style.transition = ''
     }
     if (cardEl.value) {
       cardEl.value.style.height = ''
@@ -84,16 +86,9 @@ watch(
     revealExplanation.value = false
     showRevealContent.value = false
     showCorrectHighlight.value = false
-    window.clearTimeout(advanceTimer)
     window.clearTimeout(revealTimer)
   },
 )
-
-watch(awaitingContinue, async (open) => {
-  if (!open) return
-  await nextTick()
-  revealEl.value?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-})
 
 function answerState(index: number): 'default' | 'correct' | 'incorrect' {
   if (!locked.value || !showCorrectIncorrect.value) return 'default'
@@ -110,82 +105,71 @@ function answerState(index: number): 'default' | 'correct' | 'incorrect' {
   return 'default'
 }
 
-function runFadeAndSlide(): void {
+async function runFadeAndSlide(): Promise<void> {
   const btns = answerBtnRefs.value
   if (!btns.length) {
     revealExplanation.value = true
+    showRevealContent.value = true
     return
   }
 
   const correctIdx = props.question.correctIndex
-  let correctBtnI = -1
+  let keepIndex = -1
   for (let i = 0; i < btns.length; i++) {
-    if (answers.value[i]?.index === correctIdx) { correctBtnI = i; break }
+    if (answers.value[i]?.index === correctIdx) {
+      keepIndex = i
+      break
+    }
   }
-  if (correctBtnI === -1) {
+  if (keepIndex === -1) {
     revealExplanation.value = true
+    showRevealContent.value = true
     return
   }
 
-  const correctBtn = btns[correctBtnI]
-  const firstBtn = btns[0]
-  const dy = correctBtn.getBoundingClientRect().top - firstBtn.getBoundingClientRect().top
-  const needsSlide = dy !== 0
+  const list = answersEl.value
+  const dismissing = btns.filter((_, index) => index !== keepIndex)
+  const collapse = `${COLLAPSE_MS}ms ${COLLAPSE_EASE}`
 
-  for (let i = 0; i < btns.length; i++) {
-    const btn = btns[i]
-    if (i === correctBtnI) {
-      if (needsSlide) {
-        btn.style.transition = 'none'
-        btn.style.transform = 'translateY(0)'
-        btn.offsetHeight
-        btn.style.transition = 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)'
-        btn.style.transform = `translateY(${-dy}px)`
-      }
-    } else {
-      btn.style.transition = 'opacity 0.3s ease, transform 0.3s ease'
-      btn.style.opacity = '0'
-      btn.style.transform = 'scale(0.96)'
-      btn.style.pointerEvents = 'none'
-    }
+  revealExplanation.value = true
+  await nextTick()
+
+  for (const btn of dismissing) {
+    btn.style.maxHeight = `${btn.offsetHeight}px`
+    btn.style.overflow = 'hidden'
+  }
+  if (list) {
+    list.style.transition = `gap ${collapse}`
+  }
+  void list?.offsetHeight
+
+  if (list) list.style.gap = '0px'
+  for (const btn of dismissing) {
+    btn.style.transition = [
+      `opacity 0.5s ${COLLAPSE_EASE}`,
+      `max-height ${collapse}`,
+      `min-height ${collapse}`,
+      `padding ${collapse}`,
+      `border-width ${collapse}`,
+    ].join(', ')
+    btn.style.opacity = '0'
+    btn.style.maxHeight = '0'
+    btn.style.minHeight = '0'
+    btn.style.paddingTop = '0'
+    btn.style.paddingBottom = '0'
+    btn.style.borderWidth = '0'
+    btn.style.pointerEvents = 'none'
   }
 
-  const swapDelay = needsSlide ? 450 : 350
-  revealTimer = window.setTimeout(async () => {
-    const card = cardEl.value
-    const fromH = card ? card.offsetHeight : 0
-
-    for (let i = 0; i < btns.length; i++) {
-      if (i !== correctBtnI) btns[i].style.display = 'none'
+  revealTimer = window.setTimeout(() => {
+    for (const btn of dismissing) {
+      btn.style.display = 'none'
     }
-    btns[correctBtnI].style.transition = 'none'
-    btns[correctBtnI].style.transform = ''
-    revealExplanation.value = true
-
-    if (!card) {
-      showRevealContent.value = true
-      return
+    if (list) {
+      list.style.transition = ''
     }
-    await nextTick()
-    const toH = card.scrollHeight
-    if (fromH && toH && fromH !== toH) {
-      card.style.height = `${fromH}px`
-      card.style.overflow = 'hidden'
-      card.offsetHeight
-      card.style.transition = 'height 0.35s cubic-bezier(0.22, 1, 0.36, 1)'
-      card.style.height = `${toH}px`
-      const onEnd = () => {
-        card.style.height = ''
-        card.style.overflow = ''
-        card.style.transition = ''
-        card.removeEventListener('transitionend', onEnd)
-        showRevealContent.value = true
-      }
-      card.addEventListener('transitionend', onEnd)
-    } else {
-      showRevealContent.value = true
-    }
-  }, swapDelay)
+    showRevealContent.value = true
+  }, COLLAPSE_MS)
 }
 
 function select(index: number): void {
@@ -194,23 +178,22 @@ function select(index: number): void {
   locked.value = true
   emit('answer', index)
   const correct = isAnswerCorrect(props.question, index)
-  if (shouldHoldForContinue(correct)) {
-    if (correct) {
-      showCorrectHighlight.value = true
-      revealTimer = window.setTimeout(runFadeAndSlide, ANIMATION_PAUSE_MS)
-      return
-    }
-    revealTimer = window.setTimeout(() => {
-      showCorrectHighlight.value = true
-      revealTimer = window.setTimeout(runFadeAndSlide, ANIMATION_PAUSE_MS)
-    }, CORRECT_HIGHLIGHT_DELAY_MS)
-    return
-  }
   if (!showCorrectIncorrect.value) {
-    emit('complete')
+    revealTimer = window.setTimeout(() => {
+      revealExplanation.value = true
+      showRevealContent.value = true
+    }, ANIMATION_PAUSE_MS)
     return
   }
-  advanceTimer = window.setTimeout(() => emit('complete'), 1600)
+  if (correct) {
+    showCorrectHighlight.value = true
+    revealTimer = window.setTimeout(runFadeAndSlide, ANIMATION_PAUSE_MS)
+    return
+  }
+  revealTimer = window.setTimeout(() => {
+    showCorrectHighlight.value = true
+    revealTimer = window.setTimeout(runFadeAndSlide, ANIMATION_PAUSE_MS)
+  }, CORRECT_HIGHLIGHT_DELAY_MS)
 }
 
 function continueToNext(): void {
@@ -218,7 +201,6 @@ function continueToNext(): void {
 }
 
 onBeforeUnmount(() => {
-  window.clearTimeout(advanceTimer)
   window.clearTimeout(revealTimer)
 })
 </script>
@@ -227,7 +209,10 @@ onBeforeUnmount(() => {
   <div
     ref="cardEl"
     class="process-question-card is-theory"
-    :class="{ 'is-explained': awaitingContinue }"
+    :class="{
+      'is-explained': awaitingContinue,
+      'is-continue-only': awaitingContinue && !explanationText,
+    }"
     role="dialog"
     :aria-label="isBranching ? 'Branching logic question' : 'Theory question'"
   >
@@ -241,7 +226,7 @@ onBeforeUnmount(() => {
       height="31"
     />
     <p class="process-question-prompt">{{ question.questionText }}</p>
-    <div class="process-theory-answers">
+    <div ref="answersEl" class="process-theory-answers">
       <button
         v-for="(answer, i) in answers"
         :ref="(el) => { if (el) answerBtnRefs[i] = el as HTMLButtonElement }"
@@ -263,7 +248,6 @@ onBeforeUnmount(() => {
           {{ explanationText }}
         </p>
         <button
-          ref="revealEl"
           type="button"
           class="process-question-continue"
           :class="{ 'is-visible': showRevealContent }"

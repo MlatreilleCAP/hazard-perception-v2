@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import questionPassIcon from '@/assets/lesson/question-pass.svg'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import sliderFaceIcon from '@/assets/severity-slider-face.svg'
 import { HAZARD_SEVERITIES, type HazardSeverity } from '@/types/hazard'
 import {
   configuredAnswerEntries,
+  explanationForOutcome,
   isAnswerCorrect,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
@@ -34,8 +35,6 @@ const submitted = ref(false)
 const revealExplanation = ref(false)
 const dragging = ref(false)
 const trackEl = ref<HTMLElement | null>(null)
-const revealEl = ref<HTMLElement | null>(null)
-let advanceTimer = 0
 let revealTimer = 0
 
 const optionLabels = computed(() => {
@@ -54,18 +53,18 @@ const position = computed(() => SEVERITY_POSITION[severity.value])
 const isCorrect = computed(
   () => submitted.value && isAnswerCorrect(props.question, draftIndex.value),
 )
-const showExplanation = computed(() => props.question.showExplanation === true)
 const showCorrectIncorrect = computed(() => props.question.showCorrectIncorrect !== false)
-const explanationText = computed(() => props.question.explanation.trim())
-const needsExplanation = computed(
-  () => submitted.value && showExplanation.value && !isCorrect.value,
+const explanationText = computed(() =>
+  explanationForOutcome(props.question, isCorrect.value),
 )
-const awaitingContinue = computed(() => needsExplanation.value && revealExplanation.value)
+const awaitingContinue = computed(
+  () => submitted.value && revealExplanation.value,
+)
 const revealAnswerFeedback = computed(
   () => submitted.value && showCorrectIncorrect.value,
 )
 const feedback = computed(() => {
-  if (!submitted.value) return null
+  if (!revealAnswerFeedback.value) return null
   return isCorrect.value ? 'correct' : 'incorrect'
 })
 const fillWidth = computed(
@@ -82,16 +81,9 @@ watch(
     submitted.value = false
     revealExplanation.value = false
     draftIndex.value = Math.min(1, Math.max(0, answers.value.length - 1))
-    window.clearTimeout(advanceTimer)
     window.clearTimeout(revealTimer)
   },
 )
-
-watch(awaitingContinue, async (open) => {
-  if (!open) return
-  await nextTick()
-  revealEl.value?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-})
 
 function snapIndexFromRatio(ratio: number): number {
   if (ratio < 0.33) return 0
@@ -150,13 +142,9 @@ function submit(): void {
   if (submitted.value) return
   submitted.value = true
   emit('answer', draftIndex.value)
-  if (showExplanation.value && !isAnswerCorrect(props.question, draftIndex.value)) {
-    revealTimer = window.setTimeout(() => {
-      revealExplanation.value = true
-    }, REVEAL_DELAY_MS)
-    return
-  }
-  advanceTimer = window.setTimeout(() => emit('complete'), 1600)
+  revealTimer = window.setTimeout(() => {
+    revealExplanation.value = true
+  }, REVEAL_DELAY_MS)
 }
 
 function continueToNext(): void {
@@ -169,7 +157,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  window.clearTimeout(advanceTimer)
   window.clearTimeout(revealTimer)
   window.removeEventListener('pointermove', onWindowPointerMove)
   window.removeEventListener('pointerup', onWindowPointerUp)
@@ -244,11 +231,11 @@ onBeforeUnmount(() => {
             'is-end': option.index === optionLabels.length - 1,
             'is-active': draftIndex === option.index && !revealAnswerFeedback,
             'is-correct':
-              revealAnswerFeedback &&
-              option.index === question.correctIndex &&
-              (isCorrect || awaitingContinue),
+              revealAnswerFeedback && option.index === question.correctIndex,
             'is-incorrect':
-              revealAnswerFeedback && !isCorrect && draftIndex === option.index,
+              revealAnswerFeedback &&
+              !isCorrect &&
+              draftIndex === option.index,
           }"
           :disabled="submitted"
           @click="selectLevel(option.index)"
@@ -281,7 +268,6 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      ref="revealEl"
       class="process-question-reveal"
       :class="{ 'is-open': awaitingContinue }"
       :aria-hidden="!awaitingContinue"

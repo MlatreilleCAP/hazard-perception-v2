@@ -286,11 +286,11 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
           :id="`${question.id}-show-correct`"
           :model-value="question.showCorrectIncorrect !== false"
           label="Show correct / incorrect"
-          description="When off, learners do not see correct or incorrect feedback or the score pill. If explanation is also off, the question advances immediately."
+          description="When off, learners do not see correct or incorrect feedback or the score pill."
           @update:model-value="updateQuestion(question.id, { ...question, showCorrectIncorrect: $event })"
         />
         <AuthorSelectField
-          v-if="question.kind === 'theory'"
+          v-if="question.kind === 'theory' || question.kind === 'severity'"
           :id="`${question.id}-show-explanation`"
           :model-value="resolveExplanationWhen(question)"
           label="Show explanation text"
@@ -302,20 +302,12 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
           :id="`${question.id}-show-explanation`"
           :model-value="question.showExplanation !== false"
           label="Show explanation"
-          :description="
-            isBranchingKind(question.kind)
-              ? 'When on, learners see the matching explanation and Continue after any answer — correct or incorrect.'
-              : 'When on, learners see the explanation and Continue only after an incorrect answer. Correct answers skip the explanation. It still appears on the results screen for incorrect answers.'
-          "
+          description="When on, learners see the matching explanation after any answer. They always tap Continue to proceed."
           @update:model-value="
             updateQuestion(question.id, {
               ...question,
               showExplanation: $event,
-              explanationWhen: $event
-                ? question.kind === 'branching'
-                  ? 'always'
-                  : 'incorrect'
-                : 'never',
+              explanationWhen: $event ? 'always' : 'never',
             })
           "
         />
