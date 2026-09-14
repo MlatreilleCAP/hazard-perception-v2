@@ -240,6 +240,8 @@ onBeforeUnmount(() => {
           type="button"
           class="process-severity-label"
           :class="{
+            'is-start': option.index === 0,
+            'is-end': option.index === optionLabels.length - 1,
             'is-active': draftIndex === option.index && !revealAnswerFeedback,
             'is-correct':
               revealAnswerFeedback &&
@@ -251,7 +253,12 @@ onBeforeUnmount(() => {
           :disabled="submitted"
           @click="selectLevel(option.index)"
         >
-          {{ option.label }}
+          <template
+            v-for="(word, wordIndex) in option.label.trim().split(/\s+/)"
+            :key="`${option.level}-${wordIndex}`"
+          >
+            <br v-if="wordIndex > 0" />{{ word }}
+          </template>
         </button>
       </div>
     </div>

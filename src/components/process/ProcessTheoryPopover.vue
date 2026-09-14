@@ -49,13 +49,17 @@ const feedback = computed(() => {
   }
   return answeredCorrectly.value ? 'correct' : 'incorrect'
 })
-const needsExplanation = computed(
-  () =>
-    locked.value &&
-    showExplanation.value &&
-    (isBranching.value || !answeredCorrectly.value),
-)
-const awaitingContinue = computed(() => needsExplanation.value && revealExplanation.value)
+
+function shouldHoldForContinue(correct: boolean): boolean {
+  if (isBranching.value || !correct) return showExplanation.value
+  return showCorrectIncorrect.value
+}
+
+const holdsForContinue = computed(() => {
+  if (!locked.value || selectedIndex.value == null) return false
+  return shouldHoldForContinue(answeredCorrectly.value)
+})
+const awaitingContinue = computed(() => holdsForContinue.value && revealExplanation.value)
 
 watch(
   () => props.question.id,
@@ -90,7 +94,7 @@ watch(awaitingContinue, async (open) => {
 
 function answerState(index: number): 'default' | 'correct' | 'incorrect' {
   if (!locked.value || !showCorrectIncorrect.value) return 'default'
-  if (needsExplanation.value) {
+  if (holdsForContinue.value) {
     if (index === props.question.correctIndex) {
       return showCorrectHighlight.value ? 'correct' : 'default'
     }
@@ -187,8 +191,8 @@ function select(index: number): void {
   locked.value = true
   emit('answer', index)
   const correct = isAnswerCorrect(props.question, index)
-  if (showExplanation.value && (isBranching.value || !correct)) {
-    if (isBranching.value && correct) {
+  if (shouldHoldForContinue(correct)) {
+    if (correct) {
       showCorrectHighlight.value = true
       revealTimer = window.setTimeout(runFadeAndSlide, ANIMATION_PAUSE_MS)
       return

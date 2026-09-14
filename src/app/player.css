@@ -548,11 +548,15 @@ body:has(.player-page) {
 
 .process-severity-labels {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 8px;
   margin-top: 12px;
 }
 
 .process-severity-label {
+  flex: 1;
+  min-width: 0;
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -561,8 +565,22 @@ body:has(.player-page) {
   font-size: 14px;
   font-weight: 400;
   letter-spacing: -0.5px;
+  line-height: 1.25;
   color: rgb(64 59 59 / 70%);
   cursor: pointer;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.process-severity-label.is-start {
+  text-align: left;
+  padding-left: 0;
+}
+
+.process-severity-label.is-end {
+  text-align: right;
+  padding-right: 0;
 }
 
 .process-severity-label.is-active {
@@ -619,8 +637,11 @@ body:has(.player-page) {
 
 .process-severity-option {
   flex: 1;
+  min-width: 0;
   justify-content: center;
   text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .process-theory-answer:hover:not(.correct):not(.incorrect),
