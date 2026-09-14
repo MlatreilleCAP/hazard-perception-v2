@@ -62,6 +62,7 @@ let nextWarmPool = new MediaWarmPool()
 let nextWarmAbort: AbortController | null = null
 let nextWarmIndex: number | null = null
 let nextWarmPromise: Promise<void> | null = null
+let nextWarmReady = false
 
 const MIN_SECTION_PRELOAD_MS = 700
 
@@ -119,6 +120,7 @@ function disposeNextPool(): void {
   nextWarmAbort = null
   nextWarmPromise = null
   nextWarmIndex = null
+  nextWarmReady = false
   nextWarmPool.dispose()
 }
 
@@ -163,25 +165,13 @@ async function warmUpcomingSection(generation: number): Promise<void> {
       pool: nextWarmPool,
       signal,
     })
+    if (generation !== loadGeneration || signal.aborted) return
+    nextWarmReady = true
   })()
-
-  try {
-    await nextWarmPromise
-  } catch {
-    /* enterSection still warms if this background pass fails */
-  }
 }
 
 async function adoptWarmedSection(index: number): Promise<boolean> {
-  if (nextWarmIndex !== index) return false
-  if (nextWarmPromise) {
-    try {
-      await nextWarmPromise
-    } catch {
-      return false
-    }
-  }
-  if (nextWarmIndex !== index) return false
+  if (nextWarmIndex !== index || !nextWarmReady) return false
 
   disposeCurrentPool()
   warmPool = nextWarmPool
@@ -189,6 +179,7 @@ async function adoptWarmedSection(index: number): Promise<boolean> {
   nextWarmAbort = null
   nextWarmPromise = null
   nextWarmIndex = null
+  nextWarmReady = false
   return true
 }
 

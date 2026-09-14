@@ -62,14 +62,15 @@ export async function signAndWarmLessonMedia(params: {
   getSignedUrl: (mediaId: string) => Promise<string>
   pool: MediaWarmPool
   signal?: AbortSignal
-  /** When false, only the opening clip blocks start. Defaults to false. */
-  awaitSecondary?: boolean
 }): Promise<void> {
-  const { targets, getSignedUrl, pool, signal, awaitSecondary = false } = params
+  const { targets, getSignedUrl, pool, signal } = params
   if (targets.length === 0) return
 
+  const primary = targets.filter((target) => target.priority === 0)
+  const rest = targets.filter((target) => target.priority !== 0)
   const urls = new Map<string, string>()
-  await runPool(targets, 6, async (target) => {
+
+  await runPool(primary, 4, async (target) => {
     if (signal?.aborted) return
     try {
       urls.set(target.mediaId, await getSignedUrl(target.mediaId))
@@ -78,22 +79,20 @@ export async function signAndWarmLessonMedia(params: {
     }
   })
 
-  const requests = targets.flatMap((target) => {
+  await runPool(primary, 2, async (target) => {
+    if (signal?.aborted) return
     const url = urls.get(target.mediaId)
-    return url ? [{ request: { url, kind: target.kind } satisfies WarmMediaRequest, priority: target.priority }] : []
+    if (!url) return
+    await pool.warm({ url, kind: target.kind } satisfies WarmMediaRequest, 4_000, signal)
   })
 
-  const primary = requests.filter((item) => item.priority === 0)
-  const rest = requests.filter((item) => item.priority !== 0)
-
-  await runPool(primary, 2, async (item) => {
+  void runPool(rest, 4, async (target) => {
     if (signal?.aborted) return
-    await pool.warm(item.request, 12_000, signal)
+    try {
+      const url = await getSignedUrl(target.mediaId)
+      await pool.warm({ url, kind: target.kind } satisfies WarmMediaRequest, 4_000, signal)
+    } catch {
+      /* unused clips can resolve later */
+    }
   })
-
-  const warmRest = runPool(rest, 2, async (item) => {
-    if (signal?.aborted) return
-    await pool.warm(item.request, 8_000, signal)
-  })
-  if (awaitSecondary) await warmRest
 }

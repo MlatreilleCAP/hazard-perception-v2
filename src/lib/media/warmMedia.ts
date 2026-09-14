@@ -5,7 +5,7 @@ export type WarmMediaRequest = {
   kind: WarmMediaKind
 }
 
-const DEFAULT_TIMEOUT_MS = 12_000
+const DEFAULT_TIMEOUT_MS = 4_000
 
 export function prefersHttpMediaWarm(): boolean {
   if (typeof navigator === 'undefined') return false
@@ -28,29 +28,6 @@ function waitForSignal(signal: AbortSignal | undefined): Promise<void> {
       { once: true },
     )
   })
-}
-
-async function primeHttpCache(
-  url: string,
-  timeoutMs: number,
-  signal?: AbortSignal,
-): Promise<void> {
-  const controller = new AbortController()
-  const onAbort = () => controller.abort()
-  signal?.addEventListener('abort', onAbort, { once: true })
-  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    await fetch(url, {
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'force-cache',
-      signal: controller.signal,
-    })
-  } catch {
-    /* Visible players still load the signed URL. */
-  }
-  window.clearTimeout(timer)
-  signal?.removeEventListener('abort', onAbort)
 }
 
 export class MediaWarmPool {
@@ -77,12 +54,9 @@ export class MediaWarmPool {
       await this.warmImage(request.url, timeoutMs, signal)
       return
     }
-    // iPhone has one or two hardware decoders. Hidden <video> elements steal
-    // them and leave the visible Observe player on a black frame.
-    if (prefersHttpMediaWarm()) {
-      await primeHttpCache(request.url, Math.min(timeoutMs, 6000), signal)
-      return
-    }
+    // iPhone: do not download the full file or occupy a decoder. Signed URLs
+    // plus the visible player are enough and stay as fast as per-section load.
+    if (prefersHttpMediaWarm()) return
     await this.warmPlayback(request.kind, request.url, timeoutMs, signal)
   }
 
