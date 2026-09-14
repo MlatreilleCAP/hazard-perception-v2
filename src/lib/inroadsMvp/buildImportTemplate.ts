@@ -13,6 +13,7 @@ import {
   answersWithFixedPoints,
   createAnswerOption,
   DEFAULT_ANSWER_POINTS,
+  resolveExplanationWhen,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 
@@ -159,7 +160,7 @@ function questionRow(
     question.questionText,
     question.explanation,
     question.correctExplanation ?? '',
-    String(question.showExplanation ?? (question.kind === 'severity' ? false : true)),
+    resolveExplanationWhen(question),
     String(question.showCorrectIncorrect ?? true),
     correct,
   ]
@@ -245,6 +246,7 @@ function sampleQuestion(
     correctIndex,
     explanation,
     showExplanation: kind !== 'severity',
+    explanationWhen: kind === 'severity' ? 'never' : kind === 'branching' ? 'always' : 'incorrect',
     showCorrectIncorrect: true,
   }
 }

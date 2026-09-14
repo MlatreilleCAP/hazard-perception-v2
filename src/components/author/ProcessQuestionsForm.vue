@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { cloneJson } from '@/app/clone'
 import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
+import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import {
   ANSWER_LABELS,
@@ -11,9 +12,13 @@ import {
   createBranchingSurveyQuestion,
   createSeveritySurveyQuestion,
   createTheorySurveyQuestion,
+  EXPLANATION_WHEN_OPTIONS,
   isBranchingKind,
+  isExplanationWhen,
   questionKindLabel,
+  resolveExplanationWhen,
   surveyQuestionIsConfigured,
+  type ExplanationWhen,
   type ProcessQuestionBank,
   type ProcessQuestionKind,
   type ProcessSurveyQuestion,
@@ -92,6 +97,16 @@ function addQuestion(kind: ProcessQuestionKind | ''): void {
 
 function updateQuestion(id: string, next: ProcessSurveyQuestion): void {
   commit(questions.value.map((item) => (item.id === id ? next : item)))
+}
+
+function setExplanationWhen(question: ProcessSurveyQuestion, value: string): void {
+  if (!isExplanationWhen(value)) return
+  const explanationWhen: ExplanationWhen = value
+  updateQuestion(question.id, {
+    ...question,
+    explanationWhen,
+    showExplanation: explanationWhen !== 'never',
+  })
 }
 
 function removeQuestion(id: string): void {
@@ -274,7 +289,16 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
           description="When off, learners do not see correct or incorrect feedback or the score pill. If explanation is also off, the question advances immediately."
           @update:model-value="updateQuestion(question.id, { ...question, showCorrectIncorrect: $event })"
         />
+        <AuthorSelectField
+          v-if="question.kind === 'theory'"
+          :id="`${question.id}-show-explanation`"
+          :model-value="resolveExplanationWhen(question)"
+          label="Show explanation text"
+          :options="EXPLANATION_WHEN_OPTIONS"
+          @update:model-value="setExplanationWhen(question, $event)"
+        />
         <AuthorToggle
+          v-else
           :id="`${question.id}-show-explanation`"
           :model-value="question.showExplanation !== false"
           label="Show explanation"
@@ -283,7 +307,17 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
               ? 'When on, learners see the matching explanation and Continue after any answer — correct or incorrect.'
               : 'When on, learners see the explanation and Continue only after an incorrect answer. Correct answers skip the explanation. It still appears on the results screen for incorrect answers.'
           "
-          @update:model-value="updateQuestion(question.id, { ...question, showExplanation: $event })"
+          @update:model-value="
+            updateQuestion(question.id, {
+              ...question,
+              showExplanation: $event,
+              explanationWhen: $event
+                ? question.kind === 'branching'
+                  ? 'always'
+                  : 'incorrect'
+                : 'never',
+            })
+          "
         />
         <template v-if="isBranchingKind(question.kind)">
           <AuthorField

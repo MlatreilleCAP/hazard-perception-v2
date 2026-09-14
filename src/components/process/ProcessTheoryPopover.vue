@@ -7,6 +7,8 @@ import {
   explanationForOutcome,
   isAnswerCorrect,
   isBranchingKind,
+  resolveExplanationWhen,
+  showExplanationForOutcome,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 
@@ -35,7 +37,7 @@ let revealTimer = 0
 
 const answers = computed(() => configuredAnswerEntries(props.question))
 const isBranching = computed(() => isBranchingKind(props.question.kind))
-const showExplanation = computed(() => props.question.showExplanation !== false)
+const explanationWhen = computed(() => resolveExplanationWhen(props.question))
 const showCorrectIncorrect = computed(() => props.question.showCorrectIncorrect !== false)
 const answeredCorrectly = computed(
   () => selectedIndex.value != null && isAnswerCorrect(props.question, selectedIndex.value),
@@ -51,8 +53,9 @@ const feedback = computed(() => {
 })
 
 function shouldHoldForContinue(correct: boolean): boolean {
-  if (isBranching.value || !correct) return showExplanation.value
-  return showCorrectIncorrect.value
+  if (showExplanationForOutcome(explanationWhen.value, correct)) return true
+  if (!isBranching.value && correct) return showCorrectIncorrect.value
+  return false
 }
 
 const holdsForContinue = computed(() => {

@@ -48,6 +48,7 @@ import {
   answersWithFixedPoints,
   createAnswerOption,
   emptyQuestionBank,
+  explanationWhenFromUnknown,
   type ProcessQuestionBank,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
@@ -113,6 +114,11 @@ function toQuestion(row: ImportedQuestionRow): ProcessSurveyQuestion {
     while (answerOptions.length < 3) answerOptions.push(createAnswerOption('', 0))
   }
   const answers = answersWithFixedPoints(answerOptions, row.correctIndex)
+  const explanationWhen = explanationWhenFromUnknown(
+    row.explanationWhen,
+    row.kind,
+    row.showExplanation ?? undefined,
+  )
   return {
     id: crypto.randomUUID(),
     kind: row.kind,
@@ -121,7 +127,8 @@ function toQuestion(row: ImportedQuestionRow): ProcessSurveyQuestion {
     correctIndex: row.correctIndex,
     explanation: row.explanation,
     correctExplanation: row.correctExplanation,
-    showExplanation: row.showExplanation ?? (row.kind === 'severity' ? false : true),
+    explanationWhen,
+    showExplanation: explanationWhen !== 'never',
     showCorrectIncorrect: row.showCorrectIncorrect ?? true,
   }
 }

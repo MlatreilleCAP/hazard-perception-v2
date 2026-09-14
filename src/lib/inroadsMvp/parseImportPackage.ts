@@ -28,7 +28,11 @@ import {
   type CopySection,
   type VideoSlotId,
 } from '@/lib/inroadsMvp/packageSpec'
-import type { ProcessQuestionKind } from '@/types/questions'
+import {
+  parseExplanationWhenString,
+  type ExplanationWhen,
+  type ProcessQuestionKind,
+} from '@/types/questions'
 import {
   parseMediaClipMetadata,
   type MediaClipMetadata,
@@ -61,6 +65,7 @@ export type ImportedQuestionRow = {
   explanation: string
   correctExplanation: string
   showExplanation: boolean | null
+  explanationWhen: ExplanationWhen | null
   showCorrectIncorrect: boolean | null
   correctIndex: number
   answers: Array<{ text: string }>
@@ -103,6 +108,21 @@ function parseBoolean(value: string): boolean | null {
   if (!raw) return null
   if (['true', 'yes', 'y', '1'].includes(raw)) return true
   if (['false', 'no', 'n', '0'].includes(raw)) return false
+  return null
+}
+
+function parseExplanationWhenCell(
+  value: string,
+  kind: ProcessQuestionKind,
+): ExplanationWhen | null {
+  const parsed = parseExplanationWhenString(value)
+  if (parsed) return parsed
+  const flag = parseBoolean(value)
+  if (flag === false) return 'never'
+  if (flag === true) {
+    if (kind === 'branching') return 'always'
+    return 'incorrect'
+  }
   return null
 }
 
@@ -380,6 +400,7 @@ function parseQuestionsSheet(
       explanation: record.explanation ?? '',
       correctExplanation: record.correct_explanation ?? '',
       showExplanation: parseBoolean(record.show_explanation ?? ''),
+      explanationWhen: parseExplanationWhenCell(record.show_explanation ?? '', inferredKind),
       showCorrectIncorrect: parseBoolean(record.show_correct_incorrect ?? ''),
       correctIndex,
       answers,

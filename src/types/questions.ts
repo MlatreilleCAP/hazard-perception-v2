@@ -3,6 +3,19 @@ export const ANSWER_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'] as const
 export const PROCESS_QUESTION_KINDS = ['severity', 'theory', 'branching'] as const
 export type ProcessQuestionKind = (typeof PROCESS_QUESTION_KINDS)[number]
 
+export const EXPLANATION_WHEN = ['never', 'incorrect', 'correct', 'always'] as const
+export type ExplanationWhen = (typeof EXPLANATION_WHEN)[number]
+
+export const EXPLANATION_WHEN_OPTIONS: ReadonlyArray<{
+  value: ExplanationWhen
+  label: string
+}> = [
+  { value: 'never', label: 'Never' },
+  { value: 'incorrect', label: 'On incorrect only' },
+  { value: 'correct', label: 'On correct only' },
+  { value: 'always', label: 'Always (incorrect and correct)' },
+]
+
 export function isTheoryStyleKind(kind: ProcessQuestionKind): boolean {
   return kind === 'theory' || kind === 'branching'
 }
@@ -27,8 +40,15 @@ export interface ProcessSurveyQuestion {
   /** Branching logic only: shown after a correct answer. */
   correctExplanation?: string
   /**
+   * When to show explanation text in the question (theory). Legacy boolean
+   * `showExplanation` is kept in sync: false maps to never, true to incorrect-only
+   * for theory/severity and always for branching.
+   */
+  explanationWhen?: ExplanationWhen
+  /**
    * When true, show explanation text and Continue after an incorrect answer.
    * Correct answers skip the explanation and advance without that step.
+   * Prefer `explanationWhen` for theory questions.
    */
   showExplanation?: boolean
   /**
@@ -74,6 +94,7 @@ export function createSeveritySurveyQuestion(
     answers,
     correctIndex,
     explanation: '',
+    explanationWhen: 'never',
     showExplanation: false,
     showCorrectIncorrect: true,
   }
@@ -92,6 +113,7 @@ export function createTheorySurveyQuestion(): ProcessSurveyQuestion {
     ],
     correctIndex: 0,
     explanation: '',
+    explanationWhen: 'incorrect',
     showExplanation: true,
     showCorrectIncorrect: true,
   }
@@ -111,22 +133,95 @@ export function createBranchingSurveyQuestion(): ProcessSurveyQuestion {
     correctIndex: 0,
     explanation: '',
     correctExplanation: '',
+    explanationWhen: 'always',
     showExplanation: true,
     showCorrectIncorrect: true,
   }
+}
+
+export function isExplanationWhen(value: string): value is ExplanationWhen {
+  return (EXPLANATION_WHEN as readonly string[]).includes(value)
+}
+
+export function parseExplanationWhenString(raw: string): ExplanationWhen | null {
+  const key = raw.trim().toLowerCase()
+  if (!key) return null
+  if (isExplanationWhen(key)) return key
+  if (key === 'incorrect only' || key === 'on incorrect only') return 'incorrect'
+  if (key === 'correct only' || key === 'on correct only') return 'correct'
+  if (
+    key === 'always (incorrect and correct)' ||
+    key === 'incorrect and correct' ||
+    key === 'both'
+  ) {
+    return 'always'
+  }
+  return null
+}
+
+function explanationWhenFromLegacyBoolean(
+  kind: ProcessQuestionKind,
+  show: boolean,
+): ExplanationWhen {
+  if (!show) return 'never'
+  if (kind === 'branching') return 'always'
+  return 'incorrect'
+}
+
+export function explanationWhenFromUnknown(
+  raw: unknown,
+  kind: ProcessQuestionKind,
+  showExplanation?: boolean,
+): ExplanationWhen {
+  if (typeof raw === 'string') {
+    const parsed = parseExplanationWhenString(raw)
+    if (parsed) return parsed
+    const lowered = raw.trim().toLowerCase()
+    if (['true', 'yes', 'y', '1'].includes(lowered)) {
+      return explanationWhenFromLegacyBoolean(kind, true)
+    }
+    if (['false', 'no', 'n', '0'].includes(lowered)) {
+      return explanationWhenFromLegacyBoolean(kind, false)
+    }
+  }
+  if (typeof raw === 'boolean') {
+    return explanationWhenFromLegacyBoolean(kind, raw)
+  }
+  if (typeof showExplanation === 'boolean') {
+    return explanationWhenFromLegacyBoolean(kind, showExplanation)
+  }
+  return kind === 'severity' ? 'never' : kind === 'branching' ? 'always' : 'incorrect'
+}
+
+export function resolveExplanationWhen(question: ProcessSurveyQuestion): ExplanationWhen {
+  return explanationWhenFromUnknown(
+    question.explanationWhen,
+    question.kind,
+    question.showExplanation,
+  )
+}
+
+export function showExplanationForOutcome(
+  when: ExplanationWhen,
+  correct: boolean,
+): boolean {
+  if (when === 'never') return false
+  if (when === 'always') return true
+  if (when === 'correct') return correct
+  return !correct
 }
 
 export function explanationForOutcome(
   question: ProcessSurveyQuestion,
   correct: boolean,
 ): string {
-  if (question.kind === 'branching') {
-    if (correct) {
-      return (question.correctExplanation ?? '').trim()
-    }
-    return question.explanation.trim()
+  if (!showExplanationForOutcome(resolveExplanationWhen(question), correct)) {
+    return ''
   }
-  return correct ? '' : question.explanation.trim()
+  if (question.kind === 'branching' && correct) {
+    return (question.correctExplanation ?? '').trim()
+  }
+  return question.explanation.trim()
 }
 
 export function emptyQuestionBank(): ProcessQuestionBank {
@@ -186,6 +281,11 @@ function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
   const correctIndex = Math.min(parsedAnswers.length - 1, Math.max(0, correctIndexRaw))
   const answers = answersWithFixedPoints(parsedAnswers, correctIndex)
   const questionText = typeof raw.questionText === 'string' ? raw.questionText : ''
+  const explanationWhen = explanationWhenFromUnknown(
+    raw.explanationWhen,
+    kind,
+    typeof raw.showExplanation === 'boolean' ? raw.showExplanation : undefined,
+  )
   return {
     id: typeof raw.id === 'string' && raw.id ? raw.id : newQuestionId(),
     kind,
@@ -200,8 +300,8 @@ function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
           : '',
     correctExplanation:
       typeof raw.correctExplanation === 'string' ? raw.correctExplanation : '',
-    showExplanation:
-      typeof raw.showExplanation === 'boolean' ? raw.showExplanation : kind !== 'severity',
+    explanationWhen,
+    showExplanation: explanationWhen !== 'never',
     showCorrectIncorrect:
       typeof raw.showCorrectIncorrect === 'boolean' ? raw.showCorrectIncorrect : true,
   }
