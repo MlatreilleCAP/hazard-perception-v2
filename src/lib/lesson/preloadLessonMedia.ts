@@ -84,12 +84,12 @@ export async function signAndWarmLessonMedia(params: {
   const primary = requests.filter((item) => item.priority === 0)
   const rest = requests.filter((item) => item.priority !== 0)
 
-  await runPool(primary, 3, async (item) => {
+  await runPool(primary, 2, async (item) => {
     if (signal?.aborted) return
     await pool.warm(item.request, 12_000, signal)
   })
 
-  void runPool(rest, 2, async (item) => {
+  await runPool(rest, 2, async (item) => {
     if (signal?.aborted) return
     await pool.warm(item.request, 10_000, signal)
   })

@@ -9,7 +9,6 @@ import ProcessExperience from '@/components/process/ProcessExperience.vue'
 import ProcessResultsLottie from '@/components/process/ProcessResultsLottie.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
 import SeeExperience from '@/components/see/SeeExperience.vue'
-import lessonPreloadAnimation from '@/assets/lottie/lesson-preload.json'
 import segmentLoadAnimation from '@/assets/lottie/lesson-segment-load.json'
 import {
   collectLessonWarmTargets,
@@ -49,7 +48,6 @@ const sectionIndex = ref(0)
 const sectionDefinition = ref<ActivityDefinition | null>(null)
 const sectionCache = ref<Map<string, ActivityDefinition>>(new Map())
 const awaitingReady = ref(false)
-const initialPreload = ref(true)
 
 const sectionResults = ref<
   Partial<Record<'see' | 'process' | 'anticipate', LessonSectionResult>>
@@ -92,7 +90,6 @@ function showSegmentLoader(): void {
 }
 
 function onSegmentReady(): void {
-  initialPreload.value = false
   clearReadyDismissTimer()
   const remaining = MIN_SECTION_PRELOAD_MS - (performance.now() - loaderShownAt)
   if (remaining <= 0) {
@@ -115,20 +112,16 @@ function resetWarmPool(): void {
   warmPool = new MediaWarmPool()
 }
 
-async function preloadAllSections(generation: number): Promise<void> {
-  const items = orderedItems.value
-  await Promise.all(items.map((item) => loadSectionDefinition(item)))
+async function warmCurrentTargets(
+  generation: number,
+  introMediaId: string | null,
+  sections: Array<{
+    kind: LessonCompositionItem['kind']
+    definition: ActivityDefinition
+  }>,
+): Promise<void> {
   if (generation !== loadGeneration) return
-
-  const sections = items.flatMap((item) => {
-    const definition = sectionCache.value.get(item.refId)
-    return definition ? [{ kind: item.kind, definition }] : []
-  })
-  const introMediaId = shouldPlayIntro()
-    ? lesson.value.introMedia?.media_asset_id ?? null
-    : null
-
-  preloadAbort?.abort()
+  resetWarmPool()
   preloadAbort = new AbortController()
   await signAndWarmLessonMedia({
     targets: collectLessonWarmTargets(introMediaId, sections),
@@ -165,16 +158,20 @@ async function startIntro(): Promise<boolean> {
   const mediaId = lesson.value.introMedia?.media_asset_id
   if (!mediaId) return false
 
+  const generation = loadGeneration
   showSegmentLoader()
   sectionDefinition.value = null
   introSrc.value = null
   error.value = null
 
   try {
+    await warmCurrentTargets(generation, mediaId, [])
+    if (generation !== loadGeneration) return true
     introSrc.value = await services.media.getSignedUrl(mediaId)
     phase.value = 'intro'
     return true
   } catch (cause) {
+    if (generation !== loadGeneration) return true
     error.value = cause instanceof Error ? cause.message : 'Failed to load intro video'
     phase.value = 'error'
     onSegmentReady()
@@ -199,6 +196,8 @@ async function enterSection(index: number): Promise<void> {
 
   try {
     const definition = await loadSectionDefinition(item)
+    if (generation !== loadGeneration) return
+    await warmCurrentTargets(generation, null, [{ kind: item.kind, definition }])
     if (generation !== loadGeneration) return
     sectionDefinition.value = definition
     sectionIndex.value = index
@@ -230,25 +229,16 @@ function onIntroEnded(): void {
 
 async function startLesson(): Promise<void> {
   loadGeneration += 1
-  const generation = loadGeneration
   clearReadyDismissTimer()
-  resetWarmPool()
+  disposeWarmPool()
+  warmPool = new MediaWarmPool()
   sectionResults.value = {}
   sectionIndex.value = 0
   introSrc.value = null
   sectionDefinition.value = null
   sectionCache.value = new Map()
   error.value = null
-  initialPreload.value = true
   showSegmentLoader()
-
-  try {
-    await preloadAllSections(generation)
-  } catch (cause) {
-    if (generation !== loadGeneration) return
-    if (cause instanceof DOMException && cause.name === 'AbortError') return
-  }
-  if (generation !== loadGeneration) return
 
   if (orderedItems.value.length === 0) {
     const showingIntro = await startIntro()
@@ -375,10 +365,7 @@ onBeforeUnmount(() => {
       aria-label="Loading"
     >
       <div class="lesson-preloader-lottie" aria-hidden="true">
-        <ProcessResultsLottie
-          :animation-data="initialPreload ? lessonPreloadAnimation : segmentLoadAnimation"
-          loop
-        />
+        <ProcessResultsLottie :animation-data="segmentLoadAnimation" loop />
       </div>
     </div>
     <p v-if="phase === 'error'" class="process-player-message">{{ error }}</p>
