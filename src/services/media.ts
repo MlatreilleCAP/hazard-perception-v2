@@ -87,11 +87,10 @@ export class MediaService {
     expiresInSeconds = 3600,
   ): Promise<Record<string, string>> {
     const ids = collectMediaAssetIds(definition)
-    const urls: Record<string, string> = {}
-    for (const id of ids) {
-      urls[id] = await this.getSignedUrl(id, expiresInSeconds)
-    }
-    return urls
+    const resolved = await Promise.all(
+      ids.map(async (id) => [id, await this.getSignedUrl(id, expiresInSeconds)] as const),
+    )
+    return Object.fromEntries(resolved)
   }
 
   async listVideoAssets(): Promise<MediaAsset[]> {

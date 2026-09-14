@@ -99,6 +99,22 @@ watch(
   },
 )
 
+watch(
+  () =>
+    process.value.segments
+      .map((segment) => segment.media?.media_asset_id ?? '')
+      .join(','),
+  () => {
+    void Promise.all(
+      process.value.segments.map((segment) => {
+        const mediaId = segment.media?.media_asset_id
+        return mediaId ? services.media.getSignedUrl(mediaId) : Promise.resolve(null)
+      }),
+    )
+  },
+  { immediate: true },
+)
+
 async function loadSrcForMediaId(mediaId: string | null, segment: ProcessSegmentIndex): Promise<string | null> {
   error.value = null
   if (!mediaId) {

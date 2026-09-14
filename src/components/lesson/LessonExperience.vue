@@ -9,7 +9,13 @@ import ProcessExperience from '@/components/process/ProcessExperience.vue'
 import ProcessResultsLottie from '@/components/process/ProcessResultsLottie.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
 import SeeExperience from '@/components/see/SeeExperience.vue'
+import lessonPreloadAnimation from '@/assets/lottie/lesson-preload.json'
 import segmentLoadAnimation from '@/assets/lottie/lesson-segment-load.json'
+import {
+  collectLessonWarmTargets,
+  signAndWarmLessonMedia,
+} from '@/lib/lesson/preloadLessonMedia'
+import { MediaWarmPool } from '@/lib/media/warmMedia'
 import type { ActivityDefinition } from '@/types/activity'
 import {
   buildLessonResultsModel,
@@ -43,6 +49,7 @@ const sectionIndex = ref(0)
 const sectionDefinition = ref<ActivityDefinition | null>(null)
 const sectionCache = ref<Map<string, ActivityDefinition>>(new Map())
 const awaitingReady = ref(false)
+const initialPreload = ref(true)
 
 const sectionResults = ref<
   Partial<Record<'see' | 'process' | 'anticipate', LessonSectionResult>>
@@ -51,6 +58,8 @@ const sectionResults = ref<
 let loadGeneration = 0
 let readyDismissTimer = 0
 let loaderShownAt = 0
+let warmPool = new MediaWarmPool()
+let preloadAbort: AbortController | null = null
 
 const MIN_SECTION_PRELOAD_MS = 700
 
@@ -83,6 +92,7 @@ function showSegmentLoader(): void {
 }
 
 function onSegmentReady(): void {
+  initialPreload.value = false
   clearReadyDismissTimer()
   const remaining = MIN_SECTION_PRELOAD_MS - (performance.now() - loaderShownAt)
   if (remaining <= 0) {
@@ -92,6 +102,40 @@ function onSegmentReady(): void {
   readyDismissTimer = window.setTimeout(() => {
     awaitingReady.value = false
   }, remaining)
+}
+
+function disposeWarmPool(): void {
+  preloadAbort?.abort()
+  preloadAbort = null
+  warmPool.dispose()
+}
+
+function resetWarmPool(): void {
+  disposeWarmPool()
+  warmPool = new MediaWarmPool()
+}
+
+async function preloadAllSections(generation: number): Promise<void> {
+  const items = orderedItems.value
+  await Promise.all(items.map((item) => loadSectionDefinition(item)))
+  if (generation !== loadGeneration) return
+
+  const sections = items.flatMap((item) => {
+    const definition = sectionCache.value.get(item.refId)
+    return definition ? [{ kind: item.kind, definition }] : []
+  })
+  const introMediaId = shouldPlayIntro()
+    ? lesson.value.introMedia?.media_asset_id ?? null
+    : null
+
+  preloadAbort?.abort()
+  preloadAbort = new AbortController()
+  await signAndWarmLessonMedia({
+    targets: collectLessonWarmTargets(introMediaId, sections),
+    getSignedUrl: (mediaId) => services.media.getSignedUrl(mediaId),
+    pool: warmPool,
+    signal: preloadAbort.signal,
+  })
 }
 
 function shouldPlayIntro(): boolean {
@@ -186,14 +230,25 @@ function onIntroEnded(): void {
 
 async function startLesson(): Promise<void> {
   loadGeneration += 1
+  const generation = loadGeneration
   clearReadyDismissTimer()
+  resetWarmPool()
   sectionResults.value = {}
   sectionIndex.value = 0
   introSrc.value = null
   sectionDefinition.value = null
   sectionCache.value = new Map()
   error.value = null
+  initialPreload.value = true
   showSegmentLoader()
+
+  try {
+    await preloadAllSections(generation)
+  } catch (cause) {
+    if (generation !== loadGeneration) return
+    if (cause instanceof DOMException && cause.name === 'AbortError') return
+  }
+  if (generation !== loadGeneration) return
 
   if (orderedItems.value.length === 0) {
     const showingIntro = await startIntro()
@@ -299,6 +354,7 @@ watch(
 onBeforeUnmount(() => {
   loadGeneration += 1
   clearReadyDismissTimer()
+  disposeWarmPool()
 })
 </script>
 
@@ -319,7 +375,10 @@ onBeforeUnmount(() => {
       aria-label="Loading"
     >
       <div class="lesson-preloader-lottie" aria-hidden="true">
-        <ProcessResultsLottie :animation-data="segmentLoadAnimation" loop />
+        <ProcessResultsLottie
+          :animation-data="initialPreload ? lessonPreloadAnimation : segmentLoadAnimation"
+          loop
+        />
       </div>
     </div>
     <p v-if="phase === 'error'" class="process-player-message">{{ error }}</p>
