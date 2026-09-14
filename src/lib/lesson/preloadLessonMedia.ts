@@ -62,8 +62,10 @@ export async function signAndWarmLessonMedia(params: {
   getSignedUrl: (mediaId: string) => Promise<string>
   pool: MediaWarmPool
   signal?: AbortSignal
+  /** When false, only the opening clip blocks start. Defaults to false. */
+  awaitSecondary?: boolean
 }): Promise<void> {
-  const { targets, getSignedUrl, pool, signal } = params
+  const { targets, getSignedUrl, pool, signal, awaitSecondary = false } = params
   if (targets.length === 0) return
 
   const urls = new Map<string, string>()
@@ -89,8 +91,9 @@ export async function signAndWarmLessonMedia(params: {
     await pool.warm(item.request, 12_000, signal)
   })
 
-  await runPool(rest, 2, async (item) => {
+  const warmRest = runPool(rest, 2, async (item) => {
     if (signal?.aborted) return
-    await pool.warm(item.request, 10_000, signal)
+    await pool.warm(item.request, 8_000, signal)
   })
+  if (awaitSecondary) await warmRest
 }

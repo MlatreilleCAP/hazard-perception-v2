@@ -7,6 +7,14 @@ export type WarmMediaRequest = {
 
 const DEFAULT_TIMEOUT_MS = 12_000
 
+export function prefersHttpMediaWarm(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return (
+    /iP(hone|ad|od)/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  )
+}
+
 function waitForSignal(signal: AbortSignal | undefined): Promise<void> {
   return new Promise((_, reject) => {
     if (!signal) return
@@ -22,8 +30,27 @@ function waitForSignal(signal: AbortSignal | undefined): Promise<void> {
   })
 }
 
-function attachHidden(host: HTMLElement, node: HTMLElement): void {
-  host.appendChild(node)
+async function primeHttpCache(
+  url: string,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  const controller = new AbortController()
+  const onAbort = () => controller.abort()
+  signal?.addEventListener('abort', onAbort, { once: true })
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    await fetch(url, {
+      mode: 'cors',
+      credentials: 'omit',
+      cache: 'force-cache',
+      signal: controller.signal,
+    })
+  } catch {
+    /* Visible players still load the signed URL. */
+  }
+  window.clearTimeout(timer)
+  signal?.removeEventListener('abort', onAbort)
 }
 
 export class MediaWarmPool {
@@ -45,22 +72,37 @@ export class MediaWarmPool {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     signal?: AbortSignal,
   ): Promise<void> {
-    if (!this.host || signal?.aborted) return
+    if (signal?.aborted) return
     if (request.kind === 'image') {
       await this.warmImage(request.url, timeoutMs, signal)
+      return
+    }
+    // iPhone has one or two hardware decoders. Hidden <video> elements steal
+    // them and leave the visible Observe player on a black frame.
+    if (prefersHttpMediaWarm()) {
+      await primeHttpCache(request.url, Math.min(timeoutMs, 6000), signal)
       return
     }
     await this.warmPlayback(request.kind, request.url, timeoutMs, signal)
   }
 
-  dispose(): void {
+  releaseDecoders(): void {
+    const kept: HTMLElement[] = []
     for (const node of this.nodes) {
       if (node instanceof HTMLMediaElement) {
         node.removeAttribute('src')
         node.load()
+        node.remove()
+        continue
       }
-      node.remove()
+      kept.push(node)
     }
+    this.nodes = kept
+  }
+
+  dispose(): void {
+    this.releaseDecoders()
+    for (const node of this.nodes) node.remove()
     this.nodes = []
     this.host?.remove()
     this.host = null
@@ -74,7 +116,7 @@ export class MediaWarmPool {
     const image = new Image()
     image.decoding = 'async'
     this.nodes.push(image)
-    this.host && attachHidden(this.host, image)
+    this.host?.appendChild(image)
 
     await Promise.race([
       new Promise<void>((resolve) => {
@@ -101,14 +143,16 @@ export class MediaWarmPool {
     el.muted = true
     if (el instanceof HTMLVideoElement) {
       el.playsInline = true
+      el.setAttribute('playsinline', '')
+      el.setAttribute('webkit-playsinline', '')
     }
     this.nodes.push(el)
-    this.host && attachHidden(this.host, el)
+    this.host?.appendChild(el)
 
     await Promise.race([
       new Promise<void>((resolve) => {
         const done = () => resolve()
-        el.addEventListener('canplaythrough', done, { once: true })
+        el.addEventListener('loadeddata', done, { once: true })
         el.addEventListener('error', done, { once: true })
         el.src = url
         el.load()
@@ -118,5 +162,10 @@ export class MediaWarmPool {
       }),
       waitForSignal(signal).catch(() => undefined),
     ])
+
+    el.removeAttribute('src')
+    el.load()
+    el.remove()
+    this.nodes = this.nodes.filter((node) => node !== el)
   }
 }

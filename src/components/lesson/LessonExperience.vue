@@ -283,6 +283,7 @@ async function enterSection(index: number): Promise<void> {
       await warmCurrentTargets(generation, null, [{ kind: item.kind, definition }])
       if (generation !== loadGeneration) return
     }
+    warmPool.releaseDecoders()
     sectionDefinition.value = definition
     sectionIndex.value = index
     phase.value = 'playing'

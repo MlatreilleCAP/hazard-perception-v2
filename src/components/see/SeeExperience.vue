@@ -215,43 +215,20 @@ async function startPlayback(el: HTMLVideoElement): Promise<boolean> {
 
 async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
   configureInlinePlayback(el)
-  // iOS will not paint a paused frame without muted playback during load.
   el.muted = true
   el.setAttribute('muted', '')
 
-  if (el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-    await waitForEvent(el, 'loadeddata', 8000)
-  }
-
-  try {
-    if (el.currentTime < 0.001) el.currentTime = 0.001
-  } catch {
-    // Seek can fail before metadata is ready.
-  }
-
-  if (el.seeking) {
-    await waitForEvent(el, 'seeked', 1500)
-  }
-
-  // Force a decoded frame: muted play is allowed without a user gesture on mobile.
+  // Decode immediately. Waiting on loadeddata can sit on a black frame on iPhone.
   try {
     await el.play()
-    await waitForEvent(el, 'playing', 2000)
-    await waitForAnimationPaint()
+    await waitForEvent(el, 'playing', 1500)
   } catch {
-    // Still try to settle on whatever frame is available.
+    if (el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      await waitForEvent(el, 'loadeddata', 1500)
+    }
   }
 
   el.pause()
-  try {
-    if (el.currentTime > 0.01) {
-      el.currentTime = 0.001
-      if (el.seeking) await waitForEvent(el, 'seeked', 1500)
-    }
-  } catch {
-    // Keep whatever frame decoded.
-  }
-
   await waitForAnimationPaint()
 }
 
@@ -1250,6 +1227,7 @@ onBeforeUnmount(() => {
         v-else-if="phase === 'ready' || phase === 'playing'"
         ref="stage"
         class="see-stage"
+        :class="{ 'is-awaiting-frame': !frameReady }"
       >
         <div
           ref="plane"
@@ -1395,6 +1373,11 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </template>
-    <div v-else class="see-stage" aria-busy="true" aria-label="Loading video" />
+    <div
+      v-else
+      class="see-stage is-awaiting-frame"
+      aria-busy="true"
+      aria-label="Loading video"
+    />
   </div>
 </template>
