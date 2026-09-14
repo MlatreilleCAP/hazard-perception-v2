@@ -58,6 +58,10 @@ let readyDismissTimer = 0
 let loaderShownAt = 0
 let warmPool = new MediaWarmPool()
 let preloadAbort: AbortController | null = null
+let nextWarmPool = new MediaWarmPool()
+let nextWarmAbort: AbortController | null = null
+let nextWarmIndex: number | null = null
+let nextWarmPromise: Promise<void> | null = null
 
 const MIN_SECTION_PRELOAD_MS = 700
 
@@ -94,22 +98,98 @@ function onSegmentReady(): void {
   const remaining = MIN_SECTION_PRELOAD_MS - (performance.now() - loaderShownAt)
   if (remaining <= 0) {
     awaitingReady.value = false
-    return
+  } else {
+    readyDismissTimer = window.setTimeout(() => {
+      awaitingReady.value = false
+    }, remaining)
   }
-  readyDismissTimer = window.setTimeout(() => {
-    awaitingReady.value = false
-  }, remaining)
+  if (phase.value !== 'error') {
+    void warmUpcomingSection(loadGeneration)
+  }
 }
 
-function disposeWarmPool(): void {
+function disposeCurrentPool(): void {
   preloadAbort?.abort()
   preloadAbort = null
   warmPool.dispose()
 }
 
+function disposeNextPool(): void {
+  nextWarmAbort?.abort()
+  nextWarmAbort = null
+  nextWarmPromise = null
+  nextWarmIndex = null
+  nextWarmPool.dispose()
+}
+
+function disposeWarmPool(): void {
+  disposeCurrentPool()
+  disposeNextPool()
+}
+
 function resetWarmPool(): void {
-  disposeWarmPool()
+  disposeCurrentPool()
   warmPool = new MediaWarmPool()
+}
+
+function upcomingSectionIndex(): number | null {
+  if (phase.value === 'intro') {
+    return orderedItems.value.length > 0 ? 0 : null
+  }
+  if (phase.value !== 'playing') return null
+  const next = sectionIndex.value + 1
+  return next < orderedItems.value.length ? next : null
+}
+
+async function warmUpcomingSection(generation: number): Promise<void> {
+  const nextIndex = upcomingSectionIndex()
+  if (nextIndex == null || generation !== loadGeneration) return
+  if (nextWarmIndex === nextIndex && nextWarmPromise) return
+
+  disposeNextPool()
+  nextWarmPool = new MediaWarmPool()
+  nextWarmIndex = nextIndex
+  nextWarmAbort = new AbortController()
+  const item = orderedItems.value[nextIndex]
+  if (!item) return
+
+  const signal = nextWarmAbort.signal
+  nextWarmPromise = (async () => {
+    const definition = await loadSectionDefinition(item)
+    if (generation !== loadGeneration || signal.aborted) return
+    await signAndWarmLessonMedia({
+      targets: collectLessonWarmTargets(null, [{ kind: item.kind, definition }]),
+      getSignedUrl: (mediaId) => services.media.getSignedUrl(mediaId),
+      pool: nextWarmPool,
+      signal,
+    })
+  })()
+
+  try {
+    await nextWarmPromise
+  } catch {
+    /* enterSection still warms if this background pass fails */
+  }
+}
+
+async function adoptWarmedSection(index: number): Promise<boolean> {
+  if (nextWarmIndex !== index) return false
+  if (nextWarmPromise) {
+    try {
+      await nextWarmPromise
+    } catch {
+      return false
+    }
+  }
+  if (nextWarmIndex !== index) return false
+
+  disposeCurrentPool()
+  warmPool = nextWarmPool
+  nextWarmPool = new MediaWarmPool()
+  nextWarmAbort = null
+  nextWarmPromise = null
+  nextWarmIndex = null
+  return true
 }
 
 async function warmCurrentTargets(
@@ -197,8 +277,12 @@ async function enterSection(index: number): Promise<void> {
   try {
     const definition = await loadSectionDefinition(item)
     if (generation !== loadGeneration) return
-    await warmCurrentTargets(generation, null, [{ kind: item.kind, definition }])
+    const adopted = await adoptWarmedSection(index)
     if (generation !== loadGeneration) return
+    if (!adopted) {
+      await warmCurrentTargets(generation, null, [{ kind: item.kind, definition }])
+      if (generation !== loadGeneration) return
+    }
     sectionDefinition.value = definition
     sectionIndex.value = index
     phase.value = 'playing'
@@ -232,6 +316,7 @@ async function startLesson(): Promise<void> {
   clearReadyDismissTimer()
   disposeWarmPool()
   warmPool = new MediaWarmPool()
+  nextWarmPool = new MediaWarmPool()
   sectionResults.value = {}
   sectionIndex.value = 0
   introSrc.value = null
