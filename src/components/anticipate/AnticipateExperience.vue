@@ -266,7 +266,6 @@ async function afterVideo1Questions(): Promise<void> {
         :src="src"
         :instruction-text="instructionText"
         :instruction-pill="instructionPill"
-        :allow-pan="segmentIndex === 0"
         :hold-end="phase !== 'playing'"
         @ready="onStageReady"
         @ended="onVideoEnded"
