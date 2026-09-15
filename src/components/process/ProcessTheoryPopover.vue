@@ -6,7 +6,6 @@ import {
   configuredAnswerEntries,
   explanationForOutcome,
   isAnswerCorrect,
-  showAnswerFeedback,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 
@@ -39,10 +38,7 @@ const answeredCorrectly = computed(
   () => selectedIndex.value != null && isAnswerCorrect(props.question, selectedIndex.value),
 )
 const showFeedback = computed(
-  () =>
-    locked.value &&
-    selectedIndex.value != null &&
-    showAnswerFeedback(props.question, answeredCorrectly.value),
+  () => locked.value && selectedIndex.value != null,
 )
 const explanationText = computed(() =>
   explanationForOutcome(props.question, answeredCorrectly.value),
@@ -180,13 +176,6 @@ function select(index: number): void {
   locked.value = true
   emit('answer', index)
   const correct = isAnswerCorrect(props.question, index)
-  if (!showAnswerFeedback(props.question, correct)) {
-    revealTimer = window.setTimeout(() => {
-      revealExplanation.value = true
-      showRevealContent.value = true
-    }, ANIMATION_PAUSE_MS)
-    return
-  }
   if (correct) {
     showCorrectHighlight.value = true
     revealTimer = window.setTimeout(runFadeAndSlide, ANIMATION_PAUSE_MS)

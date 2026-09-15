@@ -180,14 +180,6 @@ export function showExplanationForOutcome(
   return !correct
 }
 
-/** Correct/incorrect styling follows the same timing as explanation text. */
-export function showAnswerFeedback(
-  question: ProcessSurveyQuestion,
-  correct: boolean,
-): boolean {
-  return showExplanationForOutcome(resolveExplanationWhen(question), correct)
-}
-
 export function explanationForOutcome(
   question: ProcessSurveyQuestion,
   correct: boolean,

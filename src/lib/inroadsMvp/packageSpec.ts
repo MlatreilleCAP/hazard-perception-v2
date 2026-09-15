@@ -390,7 +390,8 @@ Questions: one row per Observe, Process, or Anticipate question
   show_explanation: never | incorrect | correct | always
     (legacy true/false still accepted: false = never; true = incorrect for theory,
      always for severity)
-    Also controls when correct/incorrect answer styling is shown.
+    Controls when explanation text is shown after an answer.
+    The correct answer is always revealed and incorrect answers are removed.
   correct_explanation = unused
   correct: A-C
   Correct answers are always worth 10 points.
