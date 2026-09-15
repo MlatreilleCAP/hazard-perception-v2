@@ -22,7 +22,7 @@ const savedMessage = ref<string | null>(null)
 
 const pointOptions = INROADS_SCORING_POINT_OPTIONS.map((value) => ({
   value: String(value),
-  label: value === 1 ? '1 pt' : `${value} pts`,
+  label: `${value} pts`,
 }))
 
 const groups = computed(() => {
@@ -73,8 +73,8 @@ async function setSlotPoints(id: InroadsScoringSlotId, value: string): Promise<v
         <div>
           <h1>Inroads Scoring</h1>
           <p>
-            Set points for each Inroads question type. The same values are used for every Inroads
-            lesson.
+            Set points for each Inroads question type and Observe hazard detection
+            attempt. The same values are used for every Inroads lesson.
           </p>
         </div>
         <AuthorPillButton v-if="saving" variant="white" disabled>Saving…</AuthorPillButton>

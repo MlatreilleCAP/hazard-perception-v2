@@ -1,4 +1,6 @@
 import { createId } from '@/app/id'
+import { getInroadsScoringPoints } from '@/services/inroadsScoring'
+import { scoreObserveHazards } from '@/types/inroadsScoring'
 import type { MediaRef } from '@/types/media'
 
 export const LESSON_TAG = 'lesson'
@@ -389,8 +391,18 @@ export function buildLessonResultsModel(
 
   const see = sectionResults.see
   if (see?.kind === 'see') {
-    const fill = see.total > 0 ? see.spotted / see.total : 0
-    const percent = Math.round(fill * 100)
+    const scored =
+      see.hazards.length > 0
+        ? scoreObserveHazards(getInroadsScoringPoints(), see.hazards)
+        : null
+    const fill = scored
+      ? scored.max > 0
+        ? scored.earned / scored.max
+        : 0
+      : see.total > 0
+        ? see.spotted / see.total
+        : 0
+    const percent = scored ? scored.percent : Math.round(fill * 100)
     const metrics =
       see.metrics.length > 0
         ? see.metrics
