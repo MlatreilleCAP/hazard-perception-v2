@@ -104,6 +104,47 @@ export function mapClientToElement(
   return mapClientToRect(clientX, clientY, element.getBoundingClientRect())
 }
 
+function accumulatedCssZoom(start: Element): number {
+  let zoom = 1
+  let node: Element | null = start
+  while (node instanceof HTMLElement) {
+    const raw = getComputedStyle(node).getPropertyValue('zoom').trim()
+    if (raw && raw !== 'normal') {
+      const value = raw.endsWith('%') ? Number.parseFloat(raw) / 100 : Number.parseFloat(raw)
+      if (Number.isFinite(value) && value > 0) zoom *= value
+    }
+    node = node.parentElement
+  }
+  return zoom
+}
+
+/**
+ * Screen px per layout px. Chrome’s CSS zoom does not scale getBoundingClientRect
+ * the way transform: scale does, so a 1:1 rect/layout ratio still needs zoom.
+ */
+export function elementScreenScale(el: HTMLElement): { x: number; y: number } {
+  const rect = el.getBoundingClientRect()
+  const layoutW = Math.max(1, el.clientWidth)
+  const layoutH = Math.max(1, el.clientHeight)
+  const rectScaleX = rect.width / layoutW
+  const rectScaleY = rect.height / layoutH
+  const zoom = accumulatedCssZoom(el)
+  return {
+    x: Math.abs(rectScaleX - 1) < 0.02 && Math.abs(zoom - 1) > 0.02 ? zoom : rectScaleX,
+    y: Math.abs(rectScaleY - 1) < 0.02 && Math.abs(zoom - 1) > 0.02 ? zoom : rectScaleY,
+  }
+}
+
+function planeLayoutPanX(plane: HTMLElement, panX: number): number {
+  const leftPx = Number.parseFloat(getComputedStyle(plane).left)
+  if (Number.isFinite(leftPx) && Math.abs(leftPx) > 0.5) return -leftPx
+  return panX
+}
+
+function clampPercent(value: number): number {
+  return Math.min(100, Math.max(0, value))
+}
+
 /** Map a tap on the clipped viewport onto the full panned video plane. */
 export function mapClientToPannedPlane(
   clientX: number,
@@ -112,27 +153,20 @@ export function mapClientToPannedPlane(
   plane: HTMLElement,
   panX = 0,
 ): { x: number; y: number; frame: { width: number; height: number } } {
-  // Use the plane’s visual box so CSS zoom on the phone frame (production) and
-  // transform: scale (Safari) both map onto the same percent space as the
-  // rendered video. Mixing getBoundingClientRect with offsetWidth + panX drifts
-  // when zoom changes layout metrics.
-  const planeRect = plane.getBoundingClientRect()
-  if (planeRect.width > 1 && planeRect.height > 1) {
-    return mapClientToRect(clientX, clientY, planeRect)
-  }
-
+  // Convert screen taps into plane layout percent. Production scales the phone
+  // with CSS zoom, which Chromium does not bake into descendant bounding rects,
+  // so using the plane’s getBoundingClientRect() as percent space drifts off
+  // the authored hazard. Safari’s transform: scale is already in the rect.
   const stageRect = stage.getBoundingClientRect()
-  const stageWidth = Math.max(1, stageRect.width)
-  const stageHeight = Math.max(1, stageRect.height)
-  const layoutWidth = Math.max(1, stage.clientWidth)
-  const layoutHeight = Math.max(1, stage.clientHeight)
-  const xPx = ((clientX - stageRect.left) / stageWidth) * layoutWidth + panX
-  const yPx = ((clientY - stageRect.top) / stageHeight) * layoutHeight
+  const { x: scaleX, y: scaleY } = elementScreenScale(stage)
+  const layoutPan = planeLayoutPanX(plane, panX)
+  const xPx = (clientX - stageRect.left) / Math.max(0.01, scaleX) + layoutPan
+  const yPx = (clientY - stageRect.top) / Math.max(0.01, scaleY)
   const width = Math.max(1, plane.offsetWidth)
   const height = Math.max(1, plane.offsetHeight)
   return {
-    x: Math.min(100, Math.max(0, (xPx / width) * 100)),
-    y: Math.min(100, Math.max(0, (yPx / height) * 100)),
+    x: clampPercent((xPx / width) * 100),
+    y: clampPercent((yPx / height) * 100),
     frame: { width, height },
   }
 }

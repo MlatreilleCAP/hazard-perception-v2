@@ -14,6 +14,7 @@ import SeeMissedVideoOverlay from '@/components/see/SeeMissedVideoOverlay.vue'
 import SeeResultsPassCard from '@/components/see/SeeResultsPassCard.vue'
 import { playHitTapSound, playMissTapSound, stopHitTapSound, unlockTapAudio } from '@/lib/audio/tapFeedback'
 import {
+  elementScreenScale,
   landscapeVideoDisplaySize,
   mapClientToPannedPlane,
   mapClientToVideo,
@@ -1077,15 +1078,13 @@ function onPointerDown(event: PointerEvent): void {
   panSamples = []
   recordPanSample(panX.value)
   const target = event.currentTarget as HTMLElement
-  const rect = target.getBoundingClientRect()
-  const layoutWidth = Math.max(1, target.offsetWidth)
   pointerStart = {
     x: event.clientX,
     y: event.clientY,
     pan: panX.value,
     pointerId: event.pointerId,
     // Convert screen deltas into plane layout px when the phone is CSS-scaled.
-    scaleX: rect.width / layoutWidth,
+    scaleX: elementScreenScale(target).x,
   }
   try {
     target.setPointerCapture(event.pointerId)
