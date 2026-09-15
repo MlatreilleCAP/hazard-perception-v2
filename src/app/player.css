@@ -451,9 +451,9 @@ body:has(.player-page) {
 .process-question-prompt {
   margin: 0 0 18px;
   font-family: var(--font-poppins, inherit);
-  font-size: 15.2px;
+  font-size: 14.44px;
   font-weight: 500;
-  line-height: 23px;
+  line-height: 21.85px;
   text-align: center;
   color: #403b3b;
 }
@@ -598,11 +598,7 @@ body:has(.player-page) {
 .process-severity-label.is-incorrect:disabled {
   font-weight: 500;
   color: #eb5e95;
-}
-
-.process-severity-label.is-dimmed,
-.process-severity-label.is-dimmed:disabled {
-  opacity: 0.35;
+  opacity: 1;
 }
 
 .process-severity-label:hover:not(:disabled) {
@@ -613,7 +609,7 @@ body:has(.player-page) {
   cursor: default;
 }
 
-.process-severity-label:disabled:not(.is-correct):not(.is-incorrect):not(.is-dimmed) {
+.process-severity-label:disabled:not(.is-correct):not(.is-incorrect) {
   opacity: 0.6;
 }
 

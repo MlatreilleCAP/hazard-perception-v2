@@ -233,8 +233,6 @@ onBeforeUnmount(() => {
               revealAnswerFeedback &&
               !isCorrect &&
               draftIndex === option.index,
-            'is-dimmed':
-              revealAnswerFeedback && option.index !== question.correctIndex,
           }"
           :disabled="submitted"
           @click="selectLevel(option.index)"
