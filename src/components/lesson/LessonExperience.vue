@@ -357,7 +357,7 @@ async function beginFromTitle(): Promise<void> {
 
   if (orderedItems.value.length === 0) {
     const showingIntro = await startIntro()
-    if (showingIntro || phase.value === 'error') return
+    if (showingIntro) return
     error.value = 'This lesson has no Observe, Process, or Anticipate sections yet.'
     phase.value = 'error'
     onSegmentReady()
@@ -365,7 +365,7 @@ async function beginFromTitle(): Promise<void> {
   }
 
   const showingIntro = await startIntro()
-  if (showingIntro || phase.value === 'error') return
+  if (showingIntro) return
   await enterSection(0)
 }
 
