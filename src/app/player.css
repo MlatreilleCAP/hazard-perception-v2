@@ -307,7 +307,7 @@ body:has(.player-page) {
   background: var(--process-pill, #eaecf3);
   padding: 6px 12px;
   font-family: var(--font-poppins, inherit);
-  font-size: calc(12px * 0.95 * 0.97);
+  font-size: calc(12px * 0.95 * 0.97 * 1.15);
   font-weight: 500;
   line-height: normal;
   color: var(--process-charcoal, #403b3b);
@@ -318,9 +318,9 @@ body:has(.player-page) {
   margin: 0;
   width: 100%;
   font-family: var(--font-poppins, inherit);
-  font-size: calc(16px * 0.95 * 0.97 * 0.95);
+  font-size: calc(16px * 0.95 * 0.97 * 0.95 * 1.1);
   font-weight: 400;
-  line-height: calc(16px * 0.95 * 0.97 * 0.95 * 1.5 - 1px);
+  line-height: calc(16px * 0.95 * 0.97 * 0.95 * 1.1 * 1.5 - 1px);
   color: var(--process-charcoal, #403b3b);
   overflow-wrap: anywhere;
 }
@@ -463,9 +463,9 @@ body:has(.player-page) {
 .process-question-prompt {
   margin: 0 0 18px;
   font-family: var(--font-poppins, inherit);
-  font-size: 14.44px;
-  font-weight: 500;
-  line-height: 21.85px;
+  font-size: 15.162px;
+  font-weight: 400;
+  line-height: 22.9425px;
   text-align: center;
   color: #403b3b;
 }
@@ -646,6 +646,11 @@ body:has(.player-page) {
   cursor: pointer;
 }
 
+.process-theory-answer {
+  font-size: 13.923px;
+  line-height: 21.42px;
+}
+
 .process-severity-option {
   flex: 1;
   min-width: 0;
@@ -685,9 +690,9 @@ body:has(.player-page) {
   margin: 21px 0 0;
   padding: 0 4px;
   font-family: var(--font-poppins, inherit);
-  font-size: 13px;
+  font-size: 14.3px;
   font-weight: 400;
-  line-height: 18px;
+  line-height: 19.8px;
   text-align: center;
   color: #403b3b;
   opacity: 0;
@@ -858,9 +863,9 @@ body:has(.player-page) {
   margin: 20px 0 0;
   padding: 0 16px;
   font-family: var(--font-poppins, inherit);
-  font-size: 13px;
+  font-size: 14.3px;
   font-weight: 400;
-  line-height: 18px;
+  line-height: 19.8px;
   text-align: center;
   color: #403b3b;
 }
