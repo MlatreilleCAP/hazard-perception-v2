@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { readLessonDefinition } from '@/activities/lessonDefinition'
+import { catalogCoverForTitle } from '@/app/catalogCovers'
 import { services } from '@/app/container'
 import { cloneJson } from '@/app/clone'
 import AnticipateExperience from '@/components/anticipate/AnticipateExperience.vue'
 import LessonResultsCard from '@/components/lesson/LessonResultsCard.vue'
+import LessonTitleCard from '@/components/lesson/LessonTitleCard.vue'
 import ProcessExperience from '@/components/process/ProcessExperience.vue'
 import ProcessResultsLottie from '@/components/process/ProcessResultsLottie.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
@@ -16,6 +18,7 @@ import {
 } from '@/lib/lesson/preloadLessonMedia'
 import { MediaWarmPool } from '@/lib/media/warmMedia'
 import type { ActivityDefinition } from '@/types/activity'
+import { useActivityStore } from '@/stores/activityStore'
 import {
   buildLessonResultsModel,
   buildObserveMetrics,
@@ -25,6 +28,8 @@ import {
   type LessonCompositionItem,
   type LessonSectionResult,
 } from '@/types/lesson'
+import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
+import { isIntroductionActivity } from '@/types/introduction'
 
 const props = withDefaults(
   defineProps<{
@@ -39,9 +44,10 @@ const emit = defineEmits<{
   finished: []
 }>()
 
-type Phase = 'intro' | 'playing' | 'results' | 'error'
+type Phase = 'title' | 'intro' | 'playing' | 'results' | 'error'
 
-const phase = ref<Phase>('playing')
+const activities = useActivityStore()
+const phase = ref<Phase>('title')
 const error = ref<string | null>(null)
 const introSrc = ref<string | null>(null)
 const sectionIndex = ref(0)
@@ -79,6 +85,19 @@ const currentItem = computed(
 const resultsModel = computed(() =>
   buildLessonResultsModel(props.definition.metadata.title, sectionResults.value),
 )
+const titlePageTitle = computed(() => props.definition.metadata.title.trim() || 'Activity')
+const titlePageDescription = computed(() => 'Interactive driver coaching activity.')
+const titlePageCover = computed(() => {
+  const catalogTitles = activities.summaries
+    .filter(
+      (summary) =>
+        summary.published &&
+        !isInroadsMvpChildActivity(summary.tags) &&
+        !isIntroductionActivity(summary.tags),
+    )
+    .map((summary) => summary.title)
+  return catalogCoverForTitle(titlePageTitle.value, catalogTitles)
+})
 
 function clearReadyDismissTimer(): void {
   window.clearTimeout(readyDismissTimer)
@@ -135,7 +154,7 @@ function resetWarmPool(): void {
 }
 
 function upcomingSectionIndex(): number | null {
-  if (phase.value === 'intro') {
+  if (phase.value === 'title' || phase.value === 'intro') {
     return orderedItems.value.length > 0 ? 0 : null
   }
   if (phase.value !== 'playing') return null
@@ -305,6 +324,7 @@ function onIntroEnded(): void {
 
 async function startLesson(): Promise<void> {
   loadGeneration += 1
+  const generation = loadGeneration
   clearReadyDismissTimer()
   disposeWarmPool()
   warmPool = new MediaWarmPool()
@@ -315,7 +335,25 @@ async function startLesson(): Promise<void> {
   sectionDefinition.value = null
   sectionCache.value = new Map()
   error.value = null
-  showSegmentLoader()
+  awaitingReady.value = false
+  phase.value = 'title'
+
+  try {
+    if (shouldPlayIntro()) {
+      const mediaId = lesson.value.introMedia?.media_asset_id
+      if (mediaId) {
+        await warmCurrentTargets(generation, mediaId, [])
+      }
+    } else {
+      await warmUpcomingSection(generation)
+    }
+  } catch {
+    /* Title page still loads; Start retries media. */
+  }
+}
+
+async function beginFromTitle(): Promise<void> {
+  if (phase.value !== 'title') return
 
   if (orderedItems.value.length === 0) {
     const showingIntro = await startIntro()
@@ -435,6 +473,7 @@ onBeforeUnmount(() => {
     :class="{
       'is-results': phase === 'results',
       'is-loading': awaitingReady,
+      'is-title': phase === 'title',
     }"
   >
     <div
@@ -450,6 +489,13 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <p v-if="phase === 'error'" class="process-player-message">{{ error }}</p>
+    <LessonTitleCard
+      v-else-if="phase === 'title'"
+      :title="titlePageTitle"
+      :description="titlePageDescription"
+      :cover-src="titlePageCover"
+      @start="beginFromTitle"
+    />
     <ProcessVideoStage
       v-else-if="phase === 'intro' && introSrc"
       class="lesson-intro-cover"

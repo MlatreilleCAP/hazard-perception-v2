@@ -26,6 +26,7 @@ const activities = useActivityStore()
 const runtime = useRuntimeStore()
 const definition = ref<ActivityDefinition | null>(null)
 const loading = ref(typeof route.query.activity === 'string')
+const replayNonce = ref(0)
 
 const published = computed(() =>
   activities.summaries.filter(
@@ -126,6 +127,7 @@ onMounted(async () => {
 })
 
 watch([activityId, isPreview], ([id]) => {
+  replayNonce.value = 0
   if (id) void loadActivity(id)
 })
 
@@ -181,9 +183,9 @@ function onExperienceFinished(): void {
     return
   }
 
-  // Demo / published playback: return to the homepage after the final results Continue.
+  // Demo / published playback: start the lesson over from the title page.
   if (isLesson.value) {
-    void router.push('/')
+    replayNonce.value += 1
   }
 }
 </script>
@@ -194,7 +196,7 @@ function onExperienceFinished(): void {
       <div class="player-phone" aria-label="iPhone 17 Pro preview (402 × 874)">
         <LessonExperience
           v-if="isLesson"
-          :key="definition.id"
+          :key="`${definition.id}-${replayNonce}`"
           :definition="definition"
           :preview="isPreview"
           @finished="onExperienceFinished"

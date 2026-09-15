@@ -1155,6 +1155,8 @@ body:has(.player-page) {
 }
 
 .process-results-page .process-instruction-begin {
+  position: relative;
+  z-index: 2;
   flex-shrink: 0;
   margin-top: 32px;
 }
@@ -1232,6 +1234,70 @@ body:has(.player-page) {
 
 .lesson-experience.is-loading {
   background: #fff;
+}
+
+.lesson-experience.is-title {
+  background: #fff;
+}
+
+.lesson-title-page {
+  --editor-ink: #222b3f;
+  --editor-body: #373f51;
+  --editor-quiet: #7b7b7b;
+  --landing-line: #efe6eb;
+  --font-poppins: 'Poppins', system-ui, sans-serif;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  background: #fff;
+  color: var(--editor-ink);
+  font-family: var(--font-poppins);
+  text-align: left;
+}
+
+.lesson-title-page .lesson-title-card {
+  height: 100%;
+  width: 100%;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.lesson-title-page .activity-card:hover,
+.lesson-title-page .activity-card:hover .activity-card-cover img {
+  transform: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.lesson-title-page .activity-card-cover {
+  flex: 1 1 auto;
+  aspect-ratio: auto;
+  min-height: 0;
+}
+
+.lesson-title-page .activity-card-cover img {
+  object-position: calc(50% - 65px) center;
+}
+
+.lesson-title-page .activity-card-body {
+  flex: 0 0 auto;
+  gap: 16px;
+  padding: 24px 20px 28px;
+}
+
+.lesson-title-page .activity-card-copy h3 {
+  font-size: 22px;
+}
+
+.lesson-title-page .activity-card-copy p {
+  -webkit-line-clamp: unset;
+}
+
+.lesson-title-page .demo-primary-button {
+  border: 0;
+  cursor: pointer;
 }
 
 .lesson-intro-cover {
@@ -1957,10 +2023,11 @@ body:has(.player-page) {
 .see-results-hazard-image-frame {
   display: flex;
   width: 100%;
-  height: 100%;
+  height: auto;
   align-items: center;
   justify-content: center;
   padding: 2px 0 14px;
+  pointer-events: none;
 }
 
 .see-results-hazard-token {
