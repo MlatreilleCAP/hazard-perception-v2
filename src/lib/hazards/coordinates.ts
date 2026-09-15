@@ -110,13 +110,24 @@ export function mapClientToPannedPlane(
   clientY: number,
   stage: HTMLElement,
   plane: HTMLElement,
-  panX: number,
+  panX = 0,
 ): { x: number; y: number; frame: { width: number; height: number } } {
+  // Use the plane’s visual box so CSS zoom on the phone frame (production) and
+  // transform: scale (Safari) both map onto the same percent space as the
+  // rendered video. Mixing getBoundingClientRect with offsetWidth + panX drifts
+  // when zoom changes layout metrics.
+  const planeRect = plane.getBoundingClientRect()
+  if (planeRect.width > 1 && planeRect.height > 1) {
+    return mapClientToRect(clientX, clientY, planeRect)
+  }
+
   const stageRect = stage.getBoundingClientRect()
-  const scaleX = stageRect.width / Math.max(1, stage.offsetWidth)
-  const scaleY = stageRect.height / Math.max(1, stage.offsetHeight)
-  const xPx = (clientX - stageRect.left) / scaleX + panX
-  const yPx = (clientY - stageRect.top) / scaleY
+  const stageWidth = Math.max(1, stageRect.width)
+  const stageHeight = Math.max(1, stageRect.height)
+  const layoutWidth = Math.max(1, stage.clientWidth)
+  const layoutHeight = Math.max(1, stage.clientHeight)
+  const xPx = ((clientX - stageRect.left) / stageWidth) * layoutWidth + panX
+  const yPx = ((clientY - stageRect.top) / stageHeight) * layoutHeight
   const width = Math.max(1, plane.offsetWidth)
   const height = Math.max(1, plane.offsetHeight)
   return {
