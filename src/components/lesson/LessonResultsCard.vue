@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import LessonAccuracyIcon from '@/components/lesson/LessonAccuracyIcon.vue'
 import LessonMetricRing from '@/components/lesson/LessonMetricRing.vue'
+import metricCoachingIdleIcon from '@/assets/lesson/metric-coaching-idle.svg'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import metricPassIcon from '@/assets/lesson/metric-pass.svg'
 import type { LessonMetricStatus, LessonMetricToken, LessonResultsSection } from '@/types/lesson'
@@ -25,13 +26,19 @@ onMounted(() => {
   })
 })
 
-function metricIcon(status: Exclude<LessonMetricStatus, 'partial'>): string {
-  return status === 'pass' ? metricPassIcon : metricFailIcon
+function metricIcon(metric: LessonMetricToken): string {
+  if (metric.id === 'coaching') {
+    return metric.status === 'idle' ? metricCoachingIdleIcon : metricFailIcon
+  }
+  return metric.status === 'pass' ? metricPassIcon : metricFailIcon
 }
 
-function metricAlt(status: LessonMetricStatus): string {
-  if (status === 'pass') return 'Correct'
-  if (status === 'fail') return 'Incorrect'
+function metricAlt(metric: LessonMetricToken): string {
+  if (metric.id === 'coaching') {
+    return metric.status === 'idle' ? 'No coaching needed' : 'Coaching required'
+  }
+  if (metric.status === 'pass') return 'Correct'
+  if (metric.status === 'fail') return 'Incorrect'
   return 'Partial'
 }
 
@@ -108,24 +115,29 @@ function metricDelay(sectionIndex: number, metricIndex: number): string {
                   v-else
                   :filled="metric.accuracySegments ?? 0"
                   :animate="visible"
-                  :aria-label="metricAlt(metric.status)"
+                  :aria-label="metricAlt(metric)"
                 />
               </template>
               <LessonMetricRing
                 v-else-if="metric.status === 'partial'"
                 :fill="metric.fill ?? 0.5"
                 :animate="visible"
-                :aria-label="metricAlt(metric.status)"
+                :aria-label="metricAlt(metric)"
               />
               <img
                 v-else
                 class="lesson-results-metric-icon"
-                :src="metricIcon(metric.status)"
-                :alt="metricAlt(metric.status)"
+                :src="metricIcon(metric)"
+                :alt="metricAlt(metric)"
                 width="27"
                 height="27"
               />
-              <p class="lesson-results-metric-label">{{ metric.label }}</p>
+              <p
+                class="lesson-results-metric-label"
+                :class="{ 'is-idle': metric.status === 'idle' }"
+              >
+                {{ metric.label }}
+              </p>
             </li>
           </ul>
         </li>

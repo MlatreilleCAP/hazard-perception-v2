@@ -26,6 +26,7 @@ const emit = defineEmits<{
       percent: number
       correctCount: number
       totalCount: number
+      coachingRequired?: boolean
       questionResults?: Array<{ id: string; label: string; correct: boolean }>
     },
   ]
@@ -184,6 +185,7 @@ function emitFinished(): void {
     percent: score.value.percent,
     correctCount: results.value.filter((item) => item.correct).length,
     totalCount: results.value.length,
+    coachingRequired: !passed.value,
     questionResults: results.value.map((item) => ({
       id: item.id,
       label: item.label,

@@ -237,7 +237,7 @@ export function markLessonIntroSeen(lessonId: string): void {
 export const LESSON_SECTION_MAX_PTS = 40
 export const LESSON_PASS_PERCENT = 70
 
-export type LessonMetricStatus = 'pass' | 'fail' | 'partial'
+export type LessonMetricStatus = 'pass' | 'fail' | 'partial' | 'idle'
 
 export type LessonMetricToken = {
   id: string
@@ -276,6 +276,7 @@ export type LessonProcessSectionResult = {
   percent: number
   correctCount: number
   totalCount: number
+  coachingRequired?: boolean
   metrics: LessonMetricToken[]
 }
 
@@ -284,6 +285,7 @@ export type LessonAnticipateSectionResult = {
   percent: number
   correctCount: number
   totalCount: number
+  coachingRequired?: boolean
   metrics: LessonMetricToken[]
 }
 
@@ -319,6 +321,14 @@ function toneFromScore(score: number): LessonResultsSection['tone'] {
   return 'neutral'
 }
 
+export function coachingMetric(required: boolean): LessonMetricToken {
+  return {
+    id: 'coaching',
+    label: 'Coaching',
+    status: required ? 'fail' : 'idle',
+  }
+}
+
 function metricStatusFromRatio(fill: number): LessonMetricStatus {
   if (fill >= 0.999) return 'pass'
   if (fill <= 0.001) return 'fail'
@@ -331,21 +341,13 @@ export function accuracySegmentsFromAttempts(attempts: number): number {
   return 4 - band
 }
 
-/** Build Detection / Time / Accuracy tokens from Observe hazard outcomes. */
+/** Build Detection / Accuracy / Coaching tokens from Observe hazard outcomes. */
 export function buildObserveMetrics(
   hazards: LessonSeeHazardResult[],
   spotted: number,
   total: number,
 ): LessonMetricToken[] {
   const detectionFill = total > 0 ? spotted / total : 0
-
-  const timeFill =
-    hazards.length === 0
-      ? 0
-      : hazards.reduce((sum, hazard) => {
-          if (!hazard.correct || hazard.identifyRatio == null) return sum
-          return sum + Math.max(0, Math.min(1, 1 - hazard.identifyRatio))
-        }, 0) / hazards.length
 
   const hits = hazards.filter((hazard) => hazard.correct && hazard.attempts > 0)
   let accuracySegments = 0
@@ -369,18 +371,13 @@ export function buildObserveMetrics(
       fill: detectionFill,
     },
     {
-      id: 'time',
-      label: 'Time',
-      status: metricStatusFromRatio(timeFill),
-      fill: timeFill,
-    },
-    {
       id: 'accuracy',
       label: 'Accuracy',
       status: accuracyStatus,
       fill: accuracySegments / 3,
       accuracySegments,
     },
+    coachingMetric(hazards.some((hazard) => !hazard.correct || hazard.attempts !== 1)),
   ]
 }
 
@@ -416,7 +413,7 @@ export function buildLessonResultsModel(
       points: ptsFromPercent(process.percent),
       fill: process.percent / 100,
       tone: toneFromScore(process.percent),
-      metrics: process.metrics,
+      metrics: [...process.metrics, coachingMetric(Boolean(process.coachingRequired))],
     })
   }
 
@@ -428,7 +425,7 @@ export function buildLessonResultsModel(
       points: ptsFromPercent(anticipate.percent),
       fill: anticipate.percent / 100,
       tone: toneFromScore(anticipate.percent),
-      metrics: anticipate.metrics,
+      metrics: [...anticipate.metrics, coachingMetric(Boolean(anticipate.coachingRequired))],
     })
   }
 
