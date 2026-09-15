@@ -98,7 +98,7 @@ body:has(.player-page) {
   background: #fff;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 700px) {
   html:has(.player-page),
   body:has(.player-page),
   #app:has(.player-page) {
@@ -984,7 +984,7 @@ body:has(.player-page) {
   background: #fff;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 700px) {
   .process-results-page {
     padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
       max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
