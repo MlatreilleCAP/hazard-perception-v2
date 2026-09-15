@@ -33,7 +33,6 @@ const REVEAL_DELAY_MS = 1000
 const draftIndex = ref(1)
 const submitted = ref(false)
 const revealExplanation = ref(false)
-const revealCorrectChoice = ref(false)
 const dragging = ref(false)
 const trackEl = ref<HTMLElement | null>(null)
 let revealTimer = 0
@@ -47,11 +46,8 @@ const optionLabels = computed(() => {
   }))
 })
 
-const displayIndex = computed(() =>
-  revealCorrectChoice.value ? props.question.correctIndex : draftIndex.value,
-)
 const severity = computed(
-  (): HazardSeverity => HAZARD_SEVERITIES[displayIndex.value] ?? 'medium',
+  (): HazardSeverity => HAZARD_SEVERITIES[draftIndex.value] ?? 'medium',
 )
 const position = computed(() => SEVERITY_POSITION[severity.value])
 const isCorrect = computed(
@@ -81,7 +77,6 @@ watch(
   () => {
     submitted.value = false
     revealExplanation.value = false
-    revealCorrectChoice.value = false
     draftIndex.value = Math.min(1, Math.max(0, answers.value.length - 1))
     window.clearTimeout(revealTimer)
   },
@@ -145,7 +140,6 @@ function submit(): void {
   submitted.value = true
   emit('answer', draftIndex.value)
   revealTimer = window.setTimeout(() => {
-    revealCorrectChoice.value = true
     revealExplanation.value = true
   }, REVEAL_DELAY_MS)
 }
@@ -192,8 +186,8 @@ onBeforeUnmount(() => {
         role="slider"
         :aria-valuemin="0"
         :aria-valuemax="Math.max(0, answers.length - 1)"
-        :aria-valuenow="displayIndex"
-        :aria-valuetext="optionLabels[displayIndex]?.label ?? ''"
+        :aria-valuenow="draftIndex"
+        :aria-valuetext="optionLabels[draftIndex]?.label ?? ''"
         aria-label="Hazard severity"
         :tabindex="submitted ? -1 : 0"
         @pointerdown="onTrackPointerDown"
@@ -223,27 +217,24 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div
-        class="process-severity-labels"
-        :class="{ 'is-settled': revealCorrectChoice }"
-      >
+      <div class="process-severity-labels">
         <button
           v-for="option in optionLabels"
-          v-show="!revealCorrectChoice || option.index === question.correctIndex"
           :key="option.level"
           type="button"
           class="process-severity-label"
           :class="{
-            'is-start': option.index === 0 && !revealCorrectChoice,
-            'is-end': option.index === optionLabels.length - 1 && !revealCorrectChoice,
+            'is-start': option.index === 0,
+            'is-end': option.index === optionLabels.length - 1,
             'is-active': draftIndex === option.index && !revealAnswerFeedback,
             'is-correct':
               revealAnswerFeedback && option.index === question.correctIndex,
             'is-incorrect':
               revealAnswerFeedback &&
-              !revealCorrectChoice &&
               !isCorrect &&
               draftIndex === option.index,
+            'is-dimmed':
+              revealAnswerFeedback && option.index !== question.correctIndex,
           }"
           :disabled="submitted"
           @click="selectLevel(option.index)"
