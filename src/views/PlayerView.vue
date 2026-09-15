@@ -193,7 +193,7 @@ function onExperienceFinished(): void {
 <template>
   <div class="player-page" :class="{ 'is-waiting': Boolean(activityId) && !(hasExperience && definition) }">
     <div v-if="hasExperience && definition" class="player-phone-slot">
-      <div class="player-phone" aria-label="iPhone 17 Pro preview (402 × 874)">
+      <div class="player-phone" aria-label="iPhone 17 Pro preview (492 × 874)">
         <LessonExperience
           v-if="isLesson"
           :key="`${definition.id}-${replayNonce}`"
