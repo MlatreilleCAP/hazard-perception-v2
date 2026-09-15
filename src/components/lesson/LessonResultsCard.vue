@@ -5,7 +5,7 @@ import LessonMetricRing from '@/components/lesson/LessonMetricRing.vue'
 import metricCoachingIdleIcon from '@/assets/lesson/metric-coaching-idle.svg'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import metricPassIcon from '@/assets/lesson/metric-pass.svg'
-import type { LessonMetricStatus, LessonMetricToken, LessonResultsSection } from '@/types/lesson'
+import type { LessonMetricToken, LessonResultsSection } from '@/types/lesson'
 
 defineProps<{
   title: string
