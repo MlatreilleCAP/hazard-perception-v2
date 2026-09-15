@@ -173,7 +173,6 @@ export const QUESTION_HEADERS = [
   'explanation',
   'correct_explanation',
   'show_explanation',
-  'show_correct_incorrect',
   'correct',
   'a_text',
   'a_points',
@@ -191,7 +190,6 @@ export const QUESTION_HEADERS = [
 
 export const HIDDEN_QUESTION_HEADERS = [
   'segment',
-  'show_correct_incorrect',
   'a_points',
   'b_points',
   'c_points',
@@ -385,7 +383,7 @@ Metadata: header row, then Video Folder | Metadata Name | Metadata text
 Questions: one row per Observe, Process, or Anticipate question
   Visible: section | kind | question_text | explanation | correct_explanation |
            show_explanation | correct | a_text | b_text | c_text
-  Hidden/locked: segment, show_correct_incorrect, a–c points, and D–F answers
+  Hidden/locked: segment, a–c points, and D–F answers
   section: observe | process | anticipate
   kind: severity | theory
   explanation = incorrect / standard explanation

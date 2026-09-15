@@ -50,7 +50,7 @@ Copy: header row, then section | field | text
 Questions: one row per Observe, Process, or Anticipate question
   Visible: section | kind | question_text | explanation | correct_explanation |
            show_explanation | correct | a_text | b_text | c_text
-  Hidden/locked: segment, show_correct_incorrect, a–c points, and D–F answers
+  Hidden/locked: segment, a–c points, and D–F answers
   section: observe | process | anticipate
   kind: severity | theory
   explanation = incorrect / standard explanation

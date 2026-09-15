@@ -165,7 +165,6 @@ function questionRow(
     question.explanation,
     question.correctExplanation ?? '',
     resolveExplanationWhen(question),
-    '',
     correct,
   ]
   for (let index = 0; index < ANSWER_COLUMNS.length; index += 1) {
