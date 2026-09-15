@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import ProcessInstructionCard from '@/components/process/ProcessInstructionCard.vue'
+import { useHorizontalVideoPan } from '@/composables/useHorizontalVideoPan'
 
-const props = defineProps<{
-  src: string
-  instructionText: string
-  instructionPill?: string
-  compact?: boolean
-  holdEnd?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    src: string
+    instructionText: string
+    instructionPill?: string
+    compact?: boolean
+    holdEnd?: boolean
+    allowPan?: boolean
+  }>(),
+  {
+    allowPan: false,
+  },
+)
 
 const emit = defineEmits<{
   ended: []
@@ -25,6 +32,8 @@ const pendingSlot = ref<number | null>(null)
 const started = ref(false)
 const finished = ref(false)
 const showAutoplayPrompt = ref(false)
+const stage = ref<HTMLElement | null>(null)
+const videoAspect = ref<number | null>(null)
 let activateToken = 0
 
 const showInstruction = computed(
@@ -33,6 +42,28 @@ const showInstruction = computed(
 const showControls = computed(
   () => Boolean(props.compact) && !showInstruction.value && !props.holdEnd,
 )
+const panEnabled = computed(
+  () =>
+    Boolean(props.allowPan) &&
+    !props.compact &&
+    !showInstruction.value &&
+    !showAutoplayPrompt.value,
+)
+
+const {
+  planeStyle,
+  planeReady,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  measureStage,
+  resetPan,
+} = useHorizontalVideoPan({
+  enabled: panEnabled,
+  stage,
+  aspect: videoAspect,
+})
 
 function videoAt(slot: number): HTMLVideoElement | null {
   return slot === 0 ? videoA.value : videoB.value
@@ -40,6 +71,14 @@ function videoAt(slot: number): HTMLVideoElement | null {
 
 function activeVideo(): HTMLVideoElement | null {
   return videoAt(active.value)
+}
+
+function readVideoAspect(el: HTMLVideoElement): void {
+  const width = el.videoWidth
+  const height = el.videoHeight
+  if (!width || !height) return
+  videoAspect.value = width / height
+  measureStage()
 }
 
 function fitCompact(el: HTMLVideoElement): void {
@@ -204,6 +243,7 @@ async function activateSlot(slot: number): Promise<void> {
   if (!el) return
   configureInlinePlayback(el)
   fitCompact(el)
+  readVideoAspect(el)
   el.pause()
   const shouldPlay = !props.instructionText.trim() && !props.holdEnd
   await waitForFirstFrame(el, { autoplay: shouldPlay })
@@ -245,6 +285,8 @@ watch(
   () => props.src,
   (next, prev) => {
     if (!next || next === prev) return
+    resetPan()
+    videoAspect.value = null
     if (!prev) {
       srcA.value = next
       active.value = 0
@@ -324,32 +366,48 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="process-video-stage" :class="compact ? 'is-compact' : 'is-fill'">
-    <div class="process-video-frame">
-      <video
-        ref="videoA"
-        class="process-video"
-        :class="{ 'is-active': active === 0 }"
-        :src="srcA || undefined"
-        playsinline
-        preload="auto"
-        :controls="showControls && active === 0"
-        @loadedmetadata="onLoadedMetadata(0)"
-        @timeupdate="onTimeUpdate(0)"
-        @ended="finishPlayback(0)"
-      />
-      <video
-        ref="videoB"
-        class="process-video"
-        :class="{ 'is-active': active === 1 }"
-        :src="srcB || undefined"
-        playsinline
-        preload="auto"
-        :controls="showControls && active === 1"
-        @loadedmetadata="onLoadedMetadata(1)"
-        @timeupdate="onTimeUpdate(1)"
-        @ended="finishPlayback(1)"
-      />
+  <div
+    class="process-video-stage"
+    :class="[
+      compact ? 'is-compact' : 'is-fill',
+      { 'is-panned': allowPan && !compact },
+    ]"
+  >
+    <div ref="stage" class="process-video-frame">
+      <div
+        class="process-video-plane"
+        :class="{ 'is-layout-ready': !allowPan || compact || planeReady }"
+        :style="allowPan && !compact ? planeStyle : undefined"
+        @pointerdown="onPointerDown"
+        @pointermove="onPointerMove"
+        @pointerup="onPointerUp"
+        @pointercancel="onPointerCancel"
+      >
+        <video
+          ref="videoA"
+          class="process-video"
+          :class="{ 'is-active': active === 0 }"
+          :src="srcA || undefined"
+          playsinline
+          preload="auto"
+          :controls="showControls && active === 0"
+          @loadedmetadata="onLoadedMetadata(0)"
+          @timeupdate="onTimeUpdate(0)"
+          @ended="finishPlayback(0)"
+        />
+        <video
+          ref="videoB"
+          class="process-video"
+          :class="{ 'is-active': active === 1 }"
+          :src="srcB || undefined"
+          playsinline
+          preload="auto"
+          :controls="showControls && active === 1"
+          @loadedmetadata="onLoadedMetadata(1)"
+          @timeupdate="onTimeUpdate(1)"
+          @ended="finishPlayback(1)"
+        />
+      </div>
     </div>
     <div v-if="showInstruction || showAutoplayPrompt" class="process-instruction-overlay">
       <ProcessInstructionCard

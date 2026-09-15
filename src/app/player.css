@@ -153,10 +153,37 @@ body:has(.player-page) {
   min-height: 100%;
 }
 
+.process-video-stage.is-fill.is-panned {
+  touch-action: none;
+}
+
 .process-video-stage.is-fill .process-video-frame {
   overflow: hidden;
   width: 100%;
   height: 100%;
+}
+
+.process-video-stage.is-fill .process-video-plane {
+  position: absolute;
+  inset: 0;
+}
+
+.process-video-stage.is-fill.is-panned .process-video-plane {
+  inset: auto;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  will-change: transform;
+}
+
+.process-video-stage.is-fill.is-panned .process-video-plane:active {
+  cursor: grabbing;
+}
+
+.process-video-stage.is-compact .process-video-plane {
+  display: contents;
 }
 
 .process-video-stage.is-compact {
@@ -197,6 +224,12 @@ body:has(.player-page) {
   height: 100%;
   object-fit: cover;
   opacity: 0;
+  pointer-events: none;
+}
+
+.process-video-stage.is-fill.is-panned .process-video,
+.process-video-stage.is-fill.is-panned .process-video.is-active {
+  object-fit: fill;
   pointer-events: none;
 }
 
