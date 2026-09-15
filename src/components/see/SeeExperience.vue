@@ -330,7 +330,7 @@ const maxPan = computed(() => Math.max(0, planeSize.value.width - viewportSize.v
 const planeStyle = computed(() => ({
   width: `${planeSize.value.width}px`,
   height: `${planeSize.value.height}px`,
-  left: `${-panX.value}px`,
+  left: `${Math.round(-panX.value)}px`,
 }))
 
 function clampPan(value: number): number {

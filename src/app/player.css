@@ -1591,12 +1591,10 @@ body:has(.player-page) {
   top: 0;
   left: 0;
   overflow: hidden;
-  opacity: 0;
   pointer-events: none;
 }
 
 .see-video-plane.is-layout-ready {
-  opacity: 1;
   pointer-events: auto;
 }
 
@@ -1615,6 +1613,9 @@ body:has(.player-page) {
   object-fit: fill;
   background: #000;
   pointer-events: none;
+  /* Keep the media layer out of opacity/transform groups so Surface Chrome paints it. */
+  opacity: 1;
+  transform: none;
 }
 
 .see-click-marker {
