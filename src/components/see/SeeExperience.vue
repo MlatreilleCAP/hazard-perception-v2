@@ -133,6 +133,8 @@ let didCenterPan = false
 let didEmitReady = false
 let readyToken = 0
 let firstFrameWarmToken = 0
+let warmingFirstFrame = false
+let scenarioPlaybackAllowed = false
 let resizeObserver: ResizeObserver | null = null
 let instructionCardObserver: ResizeObserver | null = null
 let pointerStart: { x: number; y: number; pan: number; pointerId: number; scaleX: number } | null =
@@ -213,23 +215,38 @@ async function startPlayback(el: HTMLVideoElement): Promise<boolean> {
   }
 }
 
+function holdScenarioUntilStart(): void {
+  if (scenarioPlaybackAllowed || warmingFirstFrame) return
+  const el = video.value
+  if (!el) return
+  el.pause()
+}
+
+function onScenarioVideoPlay(): void {
+  holdScenarioUntilStart()
+}
+
 async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
   configureInlinePlayback(el)
   el.muted = true
   el.setAttribute('muted', '')
-
-  // Decode immediately. Waiting on loadeddata can sit on a black frame on iPhone.
+  warmingFirstFrame = true
   try {
-    await el.play()
-    await waitForEvent(el, 'playing', 1500)
-  } catch {
-    if (el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-      await waitForEvent(el, 'loadeddata', 1500)
+    // Decode immediately. Waiting on loadeddata can sit on a black frame on iPhone.
+    try {
+      await el.play()
+      await waitForEvent(el, 'playing', 1500)
+    } catch {
+      if (el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        await waitForEvent(el, 'loadeddata', 1500)
+      }
     }
+  } finally {
+    el.pause()
+    warmingFirstFrame = false
+    await waitForAnimationPaint()
+    holdScenarioUntilStart()
   }
-
-  el.pause()
-  await waitForAnimationPaint()
 }
 
 const see = computed(() => readSeeDefinition(props.definition))
@@ -722,6 +739,7 @@ function finishScenarioIntro(): void {
 }
 
 function startScenarioPlayback(): void {
+  scenarioPlaybackAllowed = true
   phase.value = 'playing'
   clipEnded.value = false
   const el = video.value
@@ -1024,6 +1042,7 @@ function onVideoMetadata(): void {
       measureStage()
       frameReady.value = true
       emitReadyOnce()
+      holdScenarioUntilStart()
       if (phase.value === 'ready' && !instructionText.value.trim() && !props.suppressAutoplay) {
         begin()
       }
@@ -1162,6 +1181,7 @@ function onQuestionComplete(): void {
 watch(
   [instructionOverlay, () => phase.value === 'ready' && frameReady.value && showScenarioInstruction.value && !introActive.value],
   ([host, visible]) => {
+    if (visible) holdScenarioUntilStart()
     if (!host || !visible) {
       instructionCardObserver?.disconnect()
       instructionCardObserver = null
@@ -1251,6 +1271,8 @@ onBeforeUnmount(() => {
             webkit-playsinline
             @loadedmetadata="onVideoMetadata"
             @loadeddata="onVideoMetadata"
+            @play="onScenarioVideoPlay"
+            @playing="onScenarioVideoPlay"
             @timeupdate="syncTime"
             @ended="finishPlayback"
           />
