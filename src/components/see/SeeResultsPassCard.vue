@@ -24,9 +24,10 @@ defineEmits<{
 const heading = computed(() => observeResultHeading(props.outcome, props.resultCopy))
 const subtext = computed(() => observeResultSubtext(props.outcome, props.resultCopy))
 const isSuccess = computed(() => props.outcome === 'success_first_attempt')
+const isCorrect = computed(() => props.outcome.startsWith('success_'))
 const showExplanation = computed(() => !isSuccess.value)
 const explanationText = computed(() => props.explanation.trim())
-const showImage = computed(() => !isSuccess.value && Boolean(props.imageSrc))
+const showImage = computed(() => Boolean(props.imageSrc))
 const imageReady = ref(false)
 const photoStyle = computed(() => {
   if (!props.imageSrc) return undefined
@@ -69,7 +70,7 @@ watch(
 
 <template>
   <div
-    class="process-results-page"
+    class="process-results-page see-results-pass"
     role="main"
     :aria-label="
       isSuccess
@@ -90,7 +91,11 @@ watch(
         <div v-if="showImage" class="see-results-hazard-image-frame">
           <div
             class="see-results-hazard-token"
-            :class="{ 'is-in': imageReady }"
+            :class="{
+              'is-in': imageReady,
+              'is-correct': isCorrect,
+              'is-incorrect': !isCorrect,
+            }"
             :style="photoStyle"
           >
             <div class="see-results-hazard-image-mask">

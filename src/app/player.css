@@ -1896,6 +1896,24 @@ body:has(.player-page) {
   color: #403b3b;
 }
 
+.process-results-page.see-results-pass {
+  gap: 32px;
+}
+
+.process-results-page.see-results-pass .process-results-score-card,
+.process-results-page.see-results-pass .process-results-score-card.is-hazard-image {
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
+.process-results-page.see-results-pass .see-results-hazard-image-frame {
+  padding: 0;
+}
+
+.process-results-page.see-results-pass .process-instruction-begin {
+  margin-top: 0;
+}
+
 .see-results-heading {
   display: flex;
   width: 100%;
@@ -1959,6 +1977,18 @@ body:has(.player-page) {
     inset 0 0 0 18px #b4eae3;
   transform-origin: center center;
   opacity: 0;
+}
+
+.see-results-hazard-token.is-correct {
+  box-shadow:
+    7px 15px 0 0 #000,
+    inset 0 0 0 18px #59c4b6;
+}
+
+.see-results-hazard-token.is-incorrect {
+  box-shadow:
+    7px 15px 0 0 #000,
+    inset 0 0 0 18px #eb5e95;
 }
 
 .see-results-hazard-token.is-in {
