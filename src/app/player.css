@@ -2018,6 +2018,12 @@ body:has(.player-page) {
   word-break: break-word;
 }
 
+.see-results-explanation {
+  font-size: calc(16px * 0.95);
+  line-height: calc(22px * 0.95);
+  letter-spacing: calc(-0.5px * 0.95);
+}
+
 .process-results-score-card.is-hazard-image {
   height: auto;
   margin-top: 24px;
