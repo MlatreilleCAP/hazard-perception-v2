@@ -15,6 +15,12 @@ export function prefersHttpMediaWarm(): boolean {
   )
 }
 
+/** Chrome/Edge on Windows (and Android) often allow only one hardware video decoder. */
+function usesExclusiveVideoDecoder(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /Windows NT|Android/i.test(navigator.userAgent)
+}
+
 function waitForSignal(signal: AbortSignal | undefined): Promise<void> {
   return new Promise((_, reject) => {
     if (!signal) return
@@ -57,6 +63,12 @@ export class MediaWarmPool {
     // iPhone: do not download the full file or occupy a decoder. Signed URLs
     // plus the visible player are enough and stay as fast as per-section load.
     if (prefersHttpMediaWarm()) return
+    // Windows/Android Chrome: a hidden <video> can steal the only decoder from
+    // the visible Observe/Process player, so cache over HTTP instead.
+    if (request.kind === 'video' && usesExclusiveVideoDecoder()) {
+      await this.warmHttp(request.url, timeoutMs, signal)
+      return
+    }
     await this.warmPlayback(request.kind, request.url, timeoutMs, signal)
   }
 
@@ -103,6 +115,22 @@ export class MediaWarmPool {
         window.setTimeout(resolve, timeoutMs)
       }),
       waitForSignal(signal).catch(() => undefined),
+    ])
+  }
+
+  private async warmHttp(
+    url: string,
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    await Promise.race([
+      fetch(url, { mode: 'cors', credentials: 'omit', cache: 'force-cache', signal })
+        .then((response) => (response.ok ? response.blob() : undefined))
+        .then(() => undefined)
+        .catch(() => undefined),
+      new Promise<void>((resolve) => {
+        window.setTimeout(resolve, timeoutMs)
+      }),
     ])
   }
 

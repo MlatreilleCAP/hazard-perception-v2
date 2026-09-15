@@ -235,10 +235,10 @@ async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
     // Decode immediately. Waiting on loadeddata can sit on a black frame on iPhone.
     try {
       await el.play()
-      await waitForEvent(el, 'playing', 1500)
+      await waitForEvent(el, 'playing', 4000)
     } catch {
       if (el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-        await waitForEvent(el, 'loadeddata', 1500)
+        await waitForEvent(el, 'loadeddata', 4000)
       }
     }
   } finally {
@@ -330,7 +330,7 @@ const maxPan = computed(() => Math.max(0, planeSize.value.width - viewportSize.v
 const planeStyle = computed(() => ({
   width: `${planeSize.value.width}px`,
   height: `${planeSize.value.height}px`,
-  transform: `translate3d(${-panX.value}px, 0, 0)`,
+  left: `${-panX.value}px`,
 }))
 
 function clampPan(value: number): number {
@@ -1019,7 +1019,16 @@ function onVideoMetadata(): void {
   if (!el) return
   const width = el.videoWidth
   const height = el.videoHeight
-  if (!width || !height) return
+  if (!width || !height) {
+    if (!frameReady.value) {
+      window.setTimeout(() => {
+        if (video.value === el && !frameReady.value && el.videoWidth && el.videoHeight) {
+          onVideoMetadata()
+        }
+      }, 120)
+    }
+    return
+  }
   if (frameReady.value) return
 
   const aspect = width / height

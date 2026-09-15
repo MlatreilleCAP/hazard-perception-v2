@@ -79,15 +79,23 @@ body:has(.player-page) {
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.08),
     0 24px 80px rgba(28, 28, 30, 0.28);
-  transform: scale(var(--phone-fit));
-  transform-origin: top left;
+  /* zoom (not transform: scale) so Chromium on Windows can paint <video>. */
+  zoom: var(--phone-fit);
+}
+
+@supports not (zoom: 1) {
+  .player-phone {
+    zoom: unset;
+    transform: scale(var(--phone-fit));
+    transform-origin: top left;
+  }
 }
 
 .player-phone.is-waiting {
   background: #fff;
 }
 
-@media (max-width: 767px), (hover: none) and (pointer: coarse) and (max-width: 1024px) {
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
   html:has(.player-page),
   body:has(.player-page),
   #app:has(.player-page) {
@@ -119,6 +127,7 @@ body:has(.player-page) {
     max-height: none;
     border-radius: 0;
     transform: none;
+    zoom: 1;
     box-shadow: none;
   }
 }
@@ -972,7 +981,7 @@ body:has(.player-page) {
   background: #fff;
 }
 
-@media (max-width: 767px), (hover: none) and (pointer: coarse) and (max-width: 1024px) {
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
   .process-results-page {
     padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
       max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
@@ -1584,7 +1593,6 @@ body:has(.player-page) {
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
-  will-change: transform;
 }
 
 .see-video-plane.is-layout-ready {
