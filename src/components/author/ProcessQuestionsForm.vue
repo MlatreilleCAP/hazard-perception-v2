@@ -4,16 +4,13 @@ import { cloneJson } from '@/app/clone'
 import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
-import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import {
   ANSWER_LABELS,
   answersWithFixedPoints,
   createAnswerOption,
-  createBranchingSurveyQuestion,
   createSeveritySurveyQuestion,
   createTheorySurveyQuestion,
   EXPLANATION_WHEN_OPTIONS,
-  isBranchingKind,
   isExplanationWhen,
   questionKindLabel,
   resolveExplanationWhen,
@@ -34,7 +31,7 @@ const props = withDefaults(
   {
     title: 'Theory',
     description:
-      'Add severity, theory, or branching logic questions from the dropdown. Theory and branching questions are optional — if one is configured it is asked; otherwise it is skipped. Customize the text, answers, and correct answer. The correct answer is always worth 10 points. Use Up/Down to set the learner order.',
+      'Add severity or theory questions from the dropdown. Theory questions are optional — if one is configured it is asked; otherwise it is skipped. Customize the text, answers, and correct answer. Points for each Inroads question type are set in Inroads Scoring. Use Up/Down to set the learner order.',
   },
 )
 
@@ -84,11 +81,7 @@ defineExpose({ snapshot })
 function addQuestion(kind: ProcessQuestionKind | ''): void {
   if (!kind) return
   const question =
-    kind === 'severity'
-      ? createSeveritySurveyQuestion()
-      : kind === 'branching'
-        ? createBranchingSurveyQuestion()
-        : createTheorySurveyQuestion()
+    kind === 'severity' ? createSeveritySurveyQuestion() : createTheorySurveyQuestion()
   commit([...questions.value, question])
   addKind.value = ''
   // Remount so the same kind can be chosen again without a second click.
@@ -164,7 +157,6 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
           <option value="">Add question</option>
           <option value="severity">Severity question</option>
           <option value="theory">Theory question</option>
-          <option value="branching">Branching logic question</option>
         </select>
       </template>
     </AuthorSectionHeader>
@@ -174,7 +166,7 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
     </p>
 
     <p v-if="questions.length === 0" class="author-list-empty author-muted" style="border: 1px dashed var(--editor-border); border-radius: 6px">
-      No questions yet. Use “Add question” to create a severity, theory, or branching logic question.
+      No questions yet. Use “Add question” to create a severity or theory question.
     </p>
 
     <div v-else class="author-stack-sm">
@@ -282,57 +274,14 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
           </div>
         </div>
 
-        <AuthorToggle
-          :id="`${question.id}-show-correct`"
-          :model-value="question.showCorrectIncorrect !== false"
-          label="Show correct / incorrect"
-          description="When off, learners do not see correct or incorrect feedback or the score pill."
-          @update:model-value="updateQuestion(question.id, { ...question, showCorrectIncorrect: $event })"
-        />
         <AuthorSelectField
-          v-if="question.kind === 'theory' || question.kind === 'severity'"
           :id="`${question.id}-show-explanation`"
           :model-value="resolveExplanationWhen(question)"
           label="Show explanation text"
           :options="EXPLANATION_WHEN_OPTIONS"
           @update:model-value="setExplanationWhen(question, $event)"
         />
-        <AuthorToggle
-          v-else
-          :id="`${question.id}-show-explanation`"
-          :model-value="question.showExplanation !== false"
-          label="Show explanation"
-          description="When on, learners see the matching explanation after any answer. They always tap Continue to proceed."
-          @update:model-value="
-            updateQuestion(question.id, {
-              ...question,
-              showExplanation: $event,
-              explanationWhen: $event ? 'always' : 'never',
-            })
-          "
-        />
-        <template v-if="isBranchingKind(question.kind)">
-          <AuthorField
-            :id="`${question.id}-correct-explanation`"
-            :model-value="question.correctExplanation ?? ''"
-            label="Correct explanation"
-            multiline
-            :rows="2"
-            @update:model-value="
-              updateQuestion(question.id, { ...question, correctExplanation: $event })
-            "
-          />
-          <AuthorField
-            :id="`${question.id}-incorrect-explanation`"
-            :model-value="question.explanation"
-            label="Incorrect explanation"
-            multiline
-            :rows="2"
-            @update:model-value="updateQuestion(question.id, { ...question, explanation: $event })"
-          />
-        </template>
         <AuthorField
-          v-else
           :id="`${question.id}-explanation`"
           :model-value="question.explanation"
           label="Explanation text"

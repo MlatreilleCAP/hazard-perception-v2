@@ -6,6 +6,7 @@ import ProcessSeverityPopover from '@/components/process/ProcessSeverityPopover.
 import ProcessTheoryPopover from '@/components/process/ProcessTheoryPopover.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
 import { services } from '@/app/container'
+import { inroadsQuestionPointsFn } from '@/services/inroadsScoring'
 import type { ActivityDefinition } from '@/types/activity'
 import type { ProcessSegmentIndex } from '@/types/process'
 import {
@@ -56,7 +57,11 @@ const activeQuestions = computed(() =>
 const currentQuestion = computed(() => activeQuestions.value[questionIndex.value] ?? null)
 
 const score = computed(() =>
-  scoreProcessQuestions({ version: 2, questions: video1Questions.value }, answers.value),
+  scoreProcessQuestions(
+    { version: 2, questions: video1Questions.value },
+    answers.value,
+    inroadsQuestionPointsFn('process', 1, video1Questions.value),
+  ),
 )
 const results = computed(() =>
   processQuestionResults({ version: 2, questions: video1Questions.value }, answers.value),

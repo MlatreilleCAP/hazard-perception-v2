@@ -8,6 +8,7 @@ import {
   configuredAnswerEntries,
   explanationForOutcome,
   isAnswerCorrect,
+  showAnswerFeedback,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 
@@ -53,7 +54,6 @@ const position = computed(() => SEVERITY_POSITION[severity.value])
 const isCorrect = computed(
   () => submitted.value && isAnswerCorrect(props.question, draftIndex.value),
 )
-const showCorrectIncorrect = computed(() => props.question.showCorrectIncorrect !== false)
 const explanationText = computed(() =>
   explanationForOutcome(props.question, isCorrect.value),
 )
@@ -61,7 +61,7 @@ const awaitingContinue = computed(
   () => submitted.value && revealExplanation.value,
 )
 const revealAnswerFeedback = computed(
-  () => submitted.value && showCorrectIncorrect.value,
+  () => submitted.value && showAnswerFeedback(props.question, isCorrect.value),
 )
 const feedback = computed(() => {
   if (!revealAnswerFeedback.value) return null

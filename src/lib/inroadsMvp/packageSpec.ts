@@ -161,7 +161,7 @@ export const COPY_FIELDS = [
 ] as const
 export type CopyField = (typeof COPY_FIELDS)[number]
 
-export const QUESTION_KIND_VALUES = ['severity', 'theory', 'branching'] as const
+export const QUESTION_KIND_VALUES = ['severity', 'theory'] as const
 export const QUESTION_SECTIONS = ['observe', 'process', 'anticipate'] as const
 export const ANSWER_COLUMNS = ['a', 'b', 'c', 'd', 'e', 'f'] as const
 
@@ -191,7 +191,6 @@ export const QUESTION_HEADERS = [
 
 export const HIDDEN_QUESTION_HEADERS = [
   'segment',
-  'show_explanation',
   'show_correct_incorrect',
   'a_points',
   'b_points',
@@ -385,16 +384,16 @@ Metadata: header row, then Video Folder | Metadata Name | Metadata text
 
 Questions: one row per Observe, Process, or Anticipate question
   Visible: section | kind | question_text | explanation | correct_explanation |
-           correct | a_text | b_text | c_text
-  Hidden/locked: segment, show_explanation, show_correct_incorrect,
-                 a–c points, and D–F answers
+           show_explanation | correct | a_text | b_text | c_text
+  Hidden/locked: segment, show_correct_incorrect, a–c points, and D–F answers
   section: observe | process | anticipate
-  kind: severity | theory | branching
+  kind: severity | theory
   explanation = incorrect / standard explanation
-  show_explanation (hidden): never | incorrect | correct | always
+  show_explanation: never | incorrect | correct | always
     (legacy true/false still accepted: false = never; true = incorrect for theory,
-     always for severity and branching)
-  correct_explanation = branching logic only: shown after a correct answer
+     always for severity)
+    Also controls when correct/incorrect answer styling is shown.
+  correct_explanation = unused
   correct: A-C
   Correct answers are always worth 10 points.
   Observe questions attach to the first Observe hazard.

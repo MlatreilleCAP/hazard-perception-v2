@@ -1,8 +1,9 @@
 import { cloneJson } from '@/app/clone'
+import { getInroadsScoringPoints } from '@/services/inroadsScoring'
 import type { MediaRef } from '@/types/media'
+import { inroadsQuestionBankMaxPoints } from '@/types/inroadsScoring'
 import {
   emptyQuestionBank,
-  questionBankMaxPoints,
   readQuestionBank,
   type ProcessQuestionBank,
 } from '@/types/questions'
@@ -62,9 +63,11 @@ export function createDefaultProcessDefinition(): ProcessDefinition {
 }
 
 export function processMaxScore(definition: ProcessDefinition): number {
-  return definition.segments
-    .slice(0, 2)
-    .reduce((sum, segment) => sum + questionBankMaxPoints(segment.questions), 0)
+  const points = getInroadsScoringPoints()
+  return definition.segments.slice(0, 2).reduce((sum, segment, index) => {
+    const segmentNo = (index === 1 ? 2 : 1) as 1 | 2
+    return sum + inroadsQuestionBankMaxPoints(points, 'process', segmentNo, segment.questions)
+  }, 0)
 }
 
 export function cloneProcessDefinition(definition: ProcessDefinition): ProcessDefinition {

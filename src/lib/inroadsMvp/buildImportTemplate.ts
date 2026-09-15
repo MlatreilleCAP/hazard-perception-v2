@@ -13,7 +13,9 @@ import {
   answersWithFixedPoints,
   createAnswerOption,
   DEFAULT_ANSWER_POINTS,
+  EXPLANATION_WHEN,
   resolveExplanationWhen,
+  type ExplanationWhen,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 
@@ -76,6 +78,8 @@ function copyRows(content: ImportWorkbookContent): string[][] {
     ['observe', 'traffic_density', content.observe.trafficDensity],
     ['observe', 'time_of_day', content.observe.timeOfDay],
     ['observe', 'road_conditions', content.observe.roadConditions],
+    ['observe', 'hazard_name', content.observe.hazardName],
+    ['observe', 'core_competency', content.observe.coreCompetency],
     ['observe', 'hazard_explanation', content.observe.hazardExplanation],
     ['observe', 'success_result', content.observe.successResult],
     ['observe', 'fail_screen', content.observe.failScreen],
@@ -161,7 +165,7 @@ function questionRow(
     question.explanation,
     question.correctExplanation ?? '',
     resolveExplanationWhen(question),
-    String(question.showCorrectIncorrect ?? true),
+    '',
     correct,
   ]
   for (let index = 0; index < ANSWER_COLUMNS.length; index += 1) {
@@ -180,11 +184,17 @@ const UNLOCKED_QUESTION_HEADERS = [
   'question_text',
   'explanation',
   'correct_explanation',
+  'show_explanation',
   'correct',
   'a_text',
   'b_text',
   'c_text',
 ] as const
+
+const QUESTION_LIST_VALIDATIONS: Array<{
+  header: (typeof QUESTION_HEADERS)[number]
+  values: readonly string[]
+}> = [{ header: 'show_explanation', values: EXPLANATION_WHEN }]
 
 const SHEET_PROTECT: Partial<ExcelJS.WorksheetProtection> = {
   selectLockedCells: true,
@@ -217,6 +227,27 @@ function hideColumns(
   })
 }
 
+function applyListValidation(
+  sheet: ExcelJS.Worksheet,
+  colNumber: number,
+  startRow: number,
+  endRow: number,
+  values: readonly string[],
+): void {
+  const formulae = [`"${values.join(',')}"`]
+  for (let rowNumber = startRow; rowNumber <= endRow; rowNumber += 1) {
+    sheet.getRow(rowNumber).getCell(colNumber).dataValidation = {
+      type: 'list',
+      allowBlank: true,
+      formulae,
+      showErrorMessage: true,
+      errorStyle: 'warning',
+      errorTitle: 'Invalid value',
+      error: `Choose one of: ${values.join(', ')}`,
+    }
+  }
+}
+
 async function protectSheet(
   sheet: ExcelJS.Worksheet,
   allowRowEdits: boolean,
@@ -234,7 +265,11 @@ function sampleQuestion(
   answers: string[],
   correctIndex: number,
   explanation: string,
+  explanationWhen?: ExplanationWhen,
 ): ProcessSurveyQuestion {
+  const when =
+    explanationWhen ??
+    (kind === 'severity' ? 'never' : 'incorrect')
   return {
     id: crypto.randomUUID(),
     kind,
@@ -245,55 +280,51 @@ function sampleQuestion(
     ),
     correctIndex,
     explanation,
-    showExplanation: kind !== 'severity',
-    explanationWhen: kind === 'severity' ? 'never' : kind === 'branching' ? 'always' : 'incorrect',
-    showCorrectIncorrect: true,
+    showExplanation: when !== 'never',
+    explanationWhen: when,
   }
 }
 
 export function defaultImportWorkbookContent(): ImportWorkbookContent {
   return {
-    title: 'Inroads MVP',
-    description: 'Canadian English inroads',
+    title: 'Inroads - Lane Changes',
+    description: '',
     introFirstVisit: false,
     country: 'Canada',
     language: 'English',
     observe: {
       instruction:
-        "You're about to watch a short driving video.\r\nSomewhere in the scenario is the primary hazard.It could be in front, behind or to either side, so drag the screen from side to side to scan the road and your mirrors.\r\n\r\nAs soon as you spot it, click on it. You'll have a few seconds and up to three attempts. There's no replay, so watch closely. Ready? Here we go.",
+        "You're about to watch a short driving video. \n\nThe primary hazard could be in front, behind, or to either side. Drag the screen side-to-side to scan the road and mirrors, then tap or click it as soon as you spot it. \n\nYou'll have a few seconds and three attempts. No replay, so watch closely.",
       instructionPill: 'Observe Challenge',
       maneuver: 'Travelling Straight',
-      roadway: 'Divided 2-Lane',
+      roadway: 'Divided Highway',
       trafficDensity: 'Moderate',
       timeOfDay: 'Daytime',
       roadConditions: 'Dry',
       hazardName: 'Hazard 1',
-      coreCompetency: 'Space Management',
-      hazardExplanation:
-        'The SUV pulling out from the row of parked cars was the hazard. ',
+      coreCompetency: 'Scanning',
+      hazardExplanation: 'The hazard was the blue crossover passing you on the right.',
       successResult: 'NO COACHING NEEDED',
       failScreen: 'COACHING REQUIRED',
-      twoAttempts: 'You got it on your second attempt. ',
-      threeAttempts: 'You found it, but it took 3 attempts. ',
-      timeOut: 'Time ran out before you attempted anything. ',
-      missed1Attempt: 'You attempted once, but time ran out before you found it. ',
-      missed2Attempt: 'You tried twice and time ran out. ',
-      secondInstruction:
-        "Let's sharpen a couple of perception skills that can help keep you safe.",
+      twoAttempts: 'You got it on your second attempt.',
+      threeAttempts: 'You found it, but it took 3 attempts.',
+      timeOut: 'Time ran out before you attempted anything.',
+      missed1Attempt: 'You attempted once, but time ran out before you found it.',
+      missed2Attempt: 'You tried twice and time ran out.',
+      secondInstruction: "Let's sharpen a couple of Observe skills that can help keep you safe. ",
       secondInstructionPill: 'Observe Coaching',
     },
     process: {
       instruction:
-        'Watch the following video segment and answer questions. Your results will determine whether additional training is necessary.',
+        "You're about to watch a short driving video one time with no replay or side-to-side scanning options. \n\nAssess what's happening, what's changing, and why it matters in the scenario. \n\nRight after, you'll answer three quick questions about what you saw. You'll get feedback after each question.",
       instructionPill: 'Process',
-      secondInstruction:
-        'Based on your recent process challenge performance, you are required to take additional coaching. Watch the video and answer the question that follows.',
-      secondInstructionPill: 'Additional Process Coaching',
+      secondInstruction: "Let's look at a couple of points that can strengthen your Process skills. ",
+      secondInstructionPill: 'Process Coaching',
       secondScoreThreshold: '100',
     },
     anticipate: {
       instruction:
-        'Watch the following video segment and answer questions. Your results will determine whether additional training is necessary.',
+        "You are going to watch another video clip. There is no side-to-side scanning option. \n\nAt some point, it'll freeze. That's your moment to anticipate what happens next. \n\nAfter the freeze, you need to answer three quick questions. After each question, you'll see if you got it right, and why.",
       instructionPill: 'Anticipate',
       secondInstruction:
         'Additional coaching is required, based on your performance ins the anticipate challenge.',
@@ -306,14 +337,11 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
         segment: 1,
         question: sampleQuestion(
           'theory',
-          'Here is a question relating to the video?',
-          [
-            'Here is the correct answer',
-            'Here is an incorrect answer',
-            'Here is an incorrect answer. It is a bit long.',
-          ],
+          'Here is a coaching question',
+          ['Correct', 'Incorrect answer goes here', 'Incorrect'],
           0,
-          'Here is an explanation of the correct answer. It will likely be a few sentences long.',
+          'Here is an explanation of the correct answer.',
+          'always',
         ),
       },
       {
@@ -321,14 +349,15 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
         segment: 1,
         question: sampleQuestion(
           'theory',
-          'Here is a question that relates to the process video.',
+          "How would you characterize the following vehicle's behavior?",
           [
-            'Here is a correct answer',
-            'Here is a long incorrect answer that will definitely wrap into two lines',
-            'Incorrect answer',
+            'Distracted, not paying attention to road conditions',
+            'Aggressive tailgater, encroaching on space cushion',
+            'Strange, possibly overcorrecting rather than driving aggressively',
           ],
-          0,
-          'Here we explain the correct answer whenever the user gets it wrong. It can be kind of long. ',
+          1,
+          'The driver closes distance, drifts and changes lanes twice quickly without signalling. That repeated, deliberate pattern is what marks it as aggressive, not distracted or strange.',
+          'incorrect',
         ),
       },
       {
@@ -336,14 +365,11 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
         segment: 1,
         question: sampleQuestion(
           'theory',
-          'Here is a question that relates to the process video.',
-          [
-            'Correct answer goes here',
-            'Here is an incorrect answer',
-            'Here is a long incorrect answer that will definitely wrap into two lines',
-          ],
+          'Here is the second process question',
+          ['Correct answer', 'Incorrect answer', 'Incorrect answer goes here'],
           0,
-          'Here we explain the correct answer whenever the user gets it wrong. It can be kind of long. ',
+          'Here is the explanation as to why the answer was incorrect.',
+          'incorrect',
         ),
       },
       {
@@ -351,10 +377,11 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
         segment: 1,
         question: sampleQuestion(
           'severity',
-          'Here is a question that relates to the process video.',
-          ['Low', 'Medium', 'High'],
+          'If this situation had resulted in a collision, how severe would the outcome have been?',
+          ['Low Severity', 'Medium Severity', 'High Severity'],
           1,
           'Here is the explanation as to why the correct answer was correct.',
+          'incorrect',
         ),
       },
       {
@@ -362,10 +389,11 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
         segment: 2,
         question: sampleQuestion(
           'theory',
-          'Here is a question relating to the process video',
-          ['Correct answer', 'Incorrect Answer', 'Incorrect answer'],
+          'Here is the coaching question?',
+          ['Correct', 'Incorrect', 'Incorrect'],
           0,
-          'Here we explain the correct answer whenever the user gets it wrong. It can be kind of long. ',
+          '[Insert the correct answer] [Provide a brief explanation tying it back to the specific Coaching Point and Competency being tested. Use root-cause / effect reasoning, not a bare restatement of the option].',
+          'always',
         ),
       },
       {
@@ -380,7 +408,8 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
             'Incorrect t answer goes here',
           ],
           0,
-          'Here is where we explain to the user why their answer was incorrect and why the correct on was. ',
+          '[Insert the correct answer] [Provide a brief explanation tying it back to the specific Coaching Point and Competency being tested. Use root-cause / effect reasoning, not a bare restatement of the option].',
+          'always',
         ),
       },
       {
@@ -388,14 +417,11 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
         segment: 1,
         question: sampleQuestion(
           'theory',
-          'Here is a question related to the anticipate video?',
-          [
-            'Correct answer goes here',
-            'Incorrect t answer goes here',
-            'Incorrect t answer goes here',
-          ],
+          '"Problem Caused": Based on what you were told happened, what contributed to the situation? ',
+          ['Correct Answer Goes Here', 'Incorrect Answer', 'Incorrect Answer'],
           0,
-          'Here is where we explain to the user why their answer was incorrect and why the correct on was. ',
+          'Wrong answer marked with a red "X". Correct answer is shown and a brief explanation appears here.)',
+          'incorrect',
         ),
       },
       {
@@ -406,7 +432,8 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
           'How dangerous do you think this hazard was?',
           ['Low', 'Medium', 'High'],
           1,
-          'Here is where we explain to the user why their answer was incorrect and why the correct on was. ',
+          'Here is where we explain to the user why their answer was incorrect and why the correct on was.',
+          'incorrect',
         ),
       },
       {
@@ -417,7 +444,8 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
           'Here is a coaching question for anticipate?',
           ['Correct answer', 'Incorrect answer', 'Incorrect answer'],
           0,
-          'Here is an explanation of the correct answer and some additional coaching. ',
+          'Wrong answer marked with a red "X". Correct answer is shown and a brief explanation appears here.)',
+          'always',
         ),
       },
     ],
@@ -489,6 +517,11 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
     for (let colNumber = 1; colNumber <= QUESTION_HEADERS.length; colNumber += 1) {
       lockCell(row.getCell(colNumber), !unlockedCols.has(colNumber))
     }
+  }
+  const lastQuestionRow = totalRows + 1
+  for (const { header, values } of QUESTION_LIST_VALIDATIONS) {
+    const colNumber = QUESTION_HEADERS.indexOf(header) + 1
+    applyListValidation(questions, colNumber, 2, lastQuestionRow, values)
   }
   await protectSheet(questions, true)
 

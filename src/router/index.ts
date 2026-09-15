@@ -15,6 +15,7 @@ import ProcessNewView from '@/views/author/ProcessNewView.vue'
 import InroadsMvpEditorView from '@/views/author/InroadsMvpEditorView.vue'
 import InroadsMvpListView from '@/views/author/InroadsMvpListView.vue'
 import InroadsMvpNewView from '@/views/author/InroadsMvpNewView.vue'
+import InroadsScoringView from '@/views/author/InroadsScoringView.vue'
 import IntroductionEditorView from '@/views/author/IntroductionEditorView.vue'
 import IntroductionListView from '@/views/author/IntroductionListView.vue'
 import IntroductionNewView from '@/views/author/IntroductionNewView.vue'
@@ -177,6 +178,17 @@ export const router = createRouter({
           meta: {
             layout: 'author',
             title: 'Edit Inroads MVP',
+            requiresAuth: true,
+            requiresStudio: true,
+          },
+        },
+        {
+          path: 'inroads-scoring',
+          name: 'inroads-scoring',
+          component: InroadsScoringView,
+          meta: {
+            layout: 'author',
+            title: 'Inroads Scoring',
             requiresAuth: true,
             requiresStudio: true,
           },

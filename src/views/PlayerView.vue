@@ -18,6 +18,7 @@ import { isIntroductionActivity } from '@/types/introduction'
 import { isLessonActivity } from '@/types/lesson'
 import { isProcessActivity } from '@/types/process'
 import { isSeeActivity } from '@/types/see'
+import { loadInroadsScoring } from '@/services/inroadsScoring'
 
 const route = useRoute()
 const router = useRouter()
@@ -117,6 +118,7 @@ async function loadActivity(id: string): Promise<void> {
 }
 
 onMounted(async () => {
+  await loadInroadsScoring()
   await activities.refreshList('catalog')
   if (activityId.value) {
     await loadActivity(activityId.value)

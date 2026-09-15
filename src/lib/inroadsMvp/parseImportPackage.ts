@@ -66,7 +66,6 @@ export type ImportedQuestionRow = {
   correctExplanation: string
   showExplanation: boolean | null
   explanationWhen: ExplanationWhen | null
-  showCorrectIncorrect: boolean | null
   correctIndex: number
   answers: Array<{ text: string }>
 }
@@ -120,7 +119,7 @@ function parseExplanationWhenCell(
   const flag = parseBoolean(value)
   if (flag === false) return 'never'
   if (flag === true) {
-    if (kind === 'branching' || kind === 'severity') return 'always'
+    if (kind === 'severity') return 'always'
     return 'incorrect'
   }
   return null
@@ -224,7 +223,7 @@ function parseQuestionKind(raw: string): ProcessQuestionKind | null {
   const value = normalizeHeader(raw)
   if (!value) return null
   if (value === 'severity' || value.includes('severity')) return 'severity'
-  if (value === 'branching' || value.includes('branching')) return 'branching'
+  if (value === 'branching' || value.includes('branching')) return 'theory'
   if (value === 'theory' || value.includes('theory')) return 'theory'
   return null
 }
@@ -341,6 +340,10 @@ function parseQuestionsSheet(
     let section = normalizeHeader(record.section)
     if (section === 'see') section = 'observe'
     const questionText = record.question_text || record.question || ''
+    const kindRaw = normalizeHeader(record.kind)
+    if (kindRaw === 'branching' || kindRaw.includes('branching')) {
+      warnings.push(`Questions row ${line}: branching is no longer supported; imported as theory.`)
+    }
     const kind = parseQuestionKind(record.kind)
     const segmentRaw = record.segment ?? ''
     const hasAnswers = ANSWER_COLUMNS.some(
@@ -362,7 +365,7 @@ function parseQuestionsSheet(
           ? 'theory'
           : null)
     if (!inferredKind) {
-      warnings.push(`Questions row ${line}: kind must be severity, theory, or branching.`)
+      warnings.push(`Questions row ${line}: kind must be severity or theory.`)
       return
     }
 
@@ -401,7 +404,6 @@ function parseQuestionsSheet(
       correctExplanation: record.correct_explanation ?? '',
       showExplanation: parseBoolean(record.show_explanation ?? ''),
       explanationWhen: parseExplanationWhenCell(record.show_explanation ?? '', inferredKind),
-      showCorrectIncorrect: parseBoolean(record.show_correct_incorrect ?? ''),
       correctIndex,
       answers,
     })

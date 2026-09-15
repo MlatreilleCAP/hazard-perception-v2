@@ -6,7 +6,7 @@ import {
   configuredAnswerEntries,
   explanationForOutcome,
   isAnswerCorrect,
-  isBranchingKind,
+  showAnswerFeedback,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 
@@ -35,18 +35,20 @@ const answerBtnRefs = ref<HTMLButtonElement[]>([])
 let revealTimer = 0
 
 const answers = computed(() => configuredAnswerEntries(props.question))
-const isBranching = computed(() => isBranchingKind(props.question.kind))
-const showCorrectIncorrect = computed(() => props.question.showCorrectIncorrect !== false)
 const answeredCorrectly = computed(
   () => selectedIndex.value != null && isAnswerCorrect(props.question, selectedIndex.value),
+)
+const showFeedback = computed(
+  () =>
+    locked.value &&
+    selectedIndex.value != null &&
+    showAnswerFeedback(props.question, answeredCorrectly.value),
 )
 const explanationText = computed(() =>
   explanationForOutcome(props.question, answeredCorrectly.value),
 )
 const feedback = computed(() => {
-  if (!showCorrectIncorrect.value || !locked.value || selectedIndex.value == null) {
-    return null
-  }
+  if (!showFeedback.value) return null
   return answeredCorrectly.value ? 'correct' : 'incorrect'
 })
 
@@ -91,7 +93,7 @@ watch(
 )
 
 function answerState(index: number): 'default' | 'correct' | 'incorrect' {
-  if (!locked.value || !showCorrectIncorrect.value) return 'default'
+  if (!locked.value || !showFeedback.value) return 'default'
   if (holdsForContinue.value) {
     if (index === props.question.correctIndex) {
       return showCorrectHighlight.value ? 'correct' : 'default'
@@ -178,7 +180,7 @@ function select(index: number): void {
   locked.value = true
   emit('answer', index)
   const correct = isAnswerCorrect(props.question, index)
-  if (!showCorrectIncorrect.value) {
+  if (!showAnswerFeedback(props.question, correct)) {
     revealTimer = window.setTimeout(() => {
       revealExplanation.value = true
       showRevealContent.value = true
@@ -214,7 +216,7 @@ onBeforeUnmount(() => {
       'is-continue-only': awaitingContinue && !explanationText,
     }"
     role="dialog"
-    :aria-label="isBranching ? 'Branching logic question' : 'Theory question'"
+    aria-label="Theory question"
   >
     <img
       v-if="feedback"

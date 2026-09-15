@@ -4,6 +4,8 @@ import {
   DEFAULT_HAZARD_RADIUS,
 } from '@/lib/hazards/constants'
 import { MIN_HAZARD_DURATION } from '@/lib/timeline/format'
+import { getInroadsScoringPoints } from '@/services/inroadsScoring'
+import { inroadsQuestionBankMaxPoints } from '@/types/inroadsScoring'
 import type { MediaRef } from '@/types/media'
 import {
   defaultHazardDetails,
@@ -15,7 +17,6 @@ import {
 } from '@/types/hazard'
 import {
   emptyQuestionBank,
-  questionBankMaxPoints,
   readQuestionBank,
   type ProcessQuestionBank,
 } from '@/types/questions'
@@ -549,9 +550,10 @@ export function normalizeSeeDefinition(definition: SeeDefinition): SeeDefinition
 }
 
 export function seeMaxScore(definition: SeeDefinition): number {
+  const points = getInroadsScoringPoints()
   const hitPoints = definition.hazards.length
   const questionPoints = definition.hazards.reduce(
-    (sum, hazard) => sum + questionBankMaxPoints(hazard.questions),
+    (sum, hazard) => sum + inroadsQuestionBankMaxPoints(points, 'observe', 1, hazard.questions),
     0,
   )
   return hitPoints + questionPoints

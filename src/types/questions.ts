@@ -1,6 +1,6 @@
 export const ANSWER_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'] as const
 
-export const PROCESS_QUESTION_KINDS = ['severity', 'theory', 'branching'] as const
+export const PROCESS_QUESTION_KINDS = ['severity', 'theory'] as const
 export type ProcessQuestionKind = (typeof PROCESS_QUESTION_KINDS)[number]
 
 export const EXPLANATION_WHEN = ['never', 'incorrect', 'correct', 'always'] as const
@@ -17,11 +17,7 @@ export const EXPLANATION_WHEN_OPTIONS: ReadonlyArray<{
 ]
 
 export function isTheoryStyleKind(kind: ProcessQuestionKind): boolean {
-  return kind === 'theory' || kind === 'branching'
-}
-
-export function isBranchingKind(kind: ProcessQuestionKind): boolean {
-  return kind === 'branching'
+  return kind === 'theory'
 }
 
 export interface ProcessAnswerOption {
@@ -35,14 +31,14 @@ export interface ProcessSurveyQuestion {
   questionText: string
   answers: ProcessAnswerOption[]
   correctIndex: number
-  /** Shown after an incorrect answer. For branching, this is the incorrect explanation. */
+  /** Shown after an answer when explanation timing allows it. */
   explanation: string
-  /** Branching logic only: shown after a correct answer. */
+  /** Unused for current question types; kept for older imported workbooks. */
   correctExplanation?: string
   /**
    * When to show explanation text after an answer (theory and severity).
    * Legacy boolean `showExplanation` is kept in sync: false maps to never;
-   * true maps to incorrect-only for theory, always for severity and branching.
+   * true maps to incorrect-only for theory, always for severity.
    */
   explanationWhen?: ExplanationWhen
   /**
@@ -51,11 +47,6 @@ export interface ProcessSurveyQuestion {
    * Prefer `explanationWhen` for theory and severity questions.
    */
   showExplanation?: boolean
-  /**
-   * When false, hide correct/incorrect answer styling and the score pill.
-   * Learners still tap Continue to proceed.
-   */
-  showCorrectIncorrect?: boolean
 }
 
 export interface ProcessQuestionBank {
@@ -96,7 +87,6 @@ export function createSeveritySurveyQuestion(
     explanation: '',
     explanationWhen: 'never',
     showExplanation: false,
-    showCorrectIncorrect: true,
   }
 }
 
@@ -115,27 +105,6 @@ export function createTheorySurveyQuestion(): ProcessSurveyQuestion {
     explanation: '',
     explanationWhen: 'incorrect',
     showExplanation: true,
-    showCorrectIncorrect: true,
-  }
-}
-
-export function createBranchingSurveyQuestion(): ProcessSurveyQuestion {
-  return {
-    id: newQuestionId(),
-    kind: 'branching',
-    questionText: '',
-    answers: [
-      createAnswerOption('', DEFAULT_ANSWER_POINTS),
-      createAnswerOption('', 0),
-      createAnswerOption('', 0),
-      createAnswerOption('', 0),
-    ],
-    correctIndex: 0,
-    explanation: '',
-    correctExplanation: '',
-    explanationWhen: 'always',
-    showExplanation: true,
-    showCorrectIncorrect: true,
   }
 }
 
@@ -164,7 +133,7 @@ function explanationWhenFromLegacyBoolean(
   show: boolean,
 ): ExplanationWhen {
   if (!show) return 'never'
-  if (kind === 'branching' || kind === 'severity') return 'always'
+  if (kind === 'severity') return 'always'
   return 'incorrect'
 }
 
@@ -190,7 +159,7 @@ export function explanationWhenFromUnknown(
   if (typeof showExplanation === 'boolean') {
     return explanationWhenFromLegacyBoolean(kind, showExplanation)
   }
-  return kind === 'severity' ? 'never' : kind === 'branching' ? 'always' : 'incorrect'
+  return kind === 'severity' ? 'never' : 'incorrect'
 }
 
 export function resolveExplanationWhen(question: ProcessSurveyQuestion): ExplanationWhen {
@@ -211,15 +180,20 @@ export function showExplanationForOutcome(
   return !correct
 }
 
+/** Correct/incorrect styling follows the same timing as explanation text. */
+export function showAnswerFeedback(
+  question: ProcessSurveyQuestion,
+  correct: boolean,
+): boolean {
+  return showExplanationForOutcome(resolveExplanationWhen(question), correct)
+}
+
 export function explanationForOutcome(
   question: ProcessSurveyQuestion,
   correct: boolean,
 ): string {
   if (!showExplanationForOutcome(resolveExplanationWhen(question), correct)) {
     return ''
-  }
-  if (question.kind === 'branching' && correct) {
-    return (question.correctExplanation ?? '').trim()
   }
   return question.explanation.trim()
 }
@@ -267,10 +241,8 @@ export function answersWithFixedPoints(
 function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
   if (!value || typeof value !== 'object') return null
   const raw = value as Partial<ProcessSurveyQuestion> & { answers?: unknown }
-  const kind =
-    raw.kind === 'severity' || raw.kind === 'theory' || raw.kind === 'branching'
-      ? raw.kind
-      : 'theory'
+  const kind: ProcessQuestionKind =
+    raw.kind === 'severity' ? 'severity' : 'theory'
   const answersRaw = Array.isArray(raw.answers) ? raw.answers : []
   const correctIndexRaw =
     typeof raw.correctIndex === 'number' ? Math.floor(raw.correctIndex) : 0
@@ -286,24 +258,24 @@ function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
     kind,
     typeof raw.showExplanation === 'boolean' ? raw.showExplanation : undefined,
   )
+  const incorrectExplanation =
+    typeof raw.explanation === 'string'
+      ? raw.explanation
+      : typeof (raw as { incorrectExplanation?: unknown }).incorrectExplanation === 'string'
+        ? (raw as { incorrectExplanation: string }).incorrectExplanation
+        : ''
+  const correctExplanation =
+    typeof raw.correctExplanation === 'string' ? raw.correctExplanation : ''
   return {
     id: typeof raw.id === 'string' && raw.id ? raw.id : newQuestionId(),
     kind,
     questionText,
     answers,
     correctIndex,
-    explanation:
-      typeof raw.explanation === 'string'
-        ? raw.explanation
-        : typeof (raw as { incorrectExplanation?: unknown }).incorrectExplanation === 'string'
-          ? (raw as { incorrectExplanation: string }).incorrectExplanation
-          : '',
-    correctExplanation:
-      typeof raw.correctExplanation === 'string' ? raw.correctExplanation : '',
+    explanation: incorrectExplanation || ((raw as { kind?: string }).kind === 'branching' ? correctExplanation : ''),
+    correctExplanation,
     explanationWhen,
     showExplanation: explanationWhen !== 'never',
-    showCorrectIncorrect:
-      typeof raw.showCorrectIncorrect === 'boolean' ? raw.showCorrectIncorrect : true,
   }
 }
 
@@ -344,11 +316,17 @@ export function configuredAnswerEntries(question: ProcessSurveyQuestion) {
     .filter(({ text }) => text.length > 0)
 }
 
+export type QuestionPointsFn = (
+  question: ProcessSurveyQuestion,
+  index: number,
+) => number
+
 export function pointsForAnswer(
   question: ProcessSurveyQuestion,
   answerIndex: number,
+  worth: number = DEFAULT_ANSWER_POINTS,
 ): number {
-  return isAnswerCorrect(question, answerIndex) ? DEFAULT_ANSWER_POINTS : 0
+  return isAnswerCorrect(question, answerIndex) ? worth : 0
 }
 
 export function isAnswerCorrect(
@@ -361,16 +339,18 @@ export function isAnswerCorrect(
 export function scoreProcessQuestions(
   bank: ProcessQuestionBank,
   answers: Record<string, number>,
+  getPoints: QuestionPointsFn = () => DEFAULT_ANSWER_POINTS,
 ): { earned: number; max: number; percent: number } {
   const questions = configuredSurveyQuestions(bank)
   let earned = 0
   let max = 0
 
-  for (const question of questions) {
-    max += DEFAULT_ANSWER_POINTS
+  for (const [index, question] of questions.entries()) {
+    const worth = Math.max(0, Math.round(getPoints(question, index)))
+    max += worth
     const selected = answers[question.id]
     if (typeof selected === 'number') {
-      earned += pointsForAnswer(question, selected)
+      earned += pointsForAnswer(question, selected, worth)
     }
   }
 
@@ -403,12 +383,17 @@ export function processQuestionResults(
   })
 }
 
-export function questionBankMaxPoints(bank: ProcessQuestionBank): number {
-  return configuredSurveyQuestions(bank).length * DEFAULT_ANSWER_POINTS
+export function questionBankMaxPoints(
+  bank: ProcessQuestionBank,
+  getPoints: QuestionPointsFn = () => DEFAULT_ANSWER_POINTS,
+): number {
+  return configuredSurveyQuestions(bank).reduce(
+    (sum, question, index) => sum + Math.max(0, Math.round(getPoints(question, index))),
+    0,
+  )
 }
 
 export function questionKindLabel(kind: ProcessQuestionKind): string {
   if (kind === 'severity') return 'Severity'
-  if (kind === 'branching') return 'Branching logic'
   return 'Theory'
 }
