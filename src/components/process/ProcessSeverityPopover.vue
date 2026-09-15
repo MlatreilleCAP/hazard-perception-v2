@@ -8,7 +8,6 @@ import {
   configuredAnswerEntries,
   explanationForOutcome,
   isAnswerCorrect,
-  showAnswerFeedback,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 
@@ -60,9 +59,7 @@ const explanationText = computed(() =>
 const awaitingContinue = computed(
   () => submitted.value && revealExplanation.value,
 )
-const revealAnswerFeedback = computed(
-  () => submitted.value && showAnswerFeedback(props.question, isCorrect.value),
-)
+const revealAnswerFeedback = computed(() => submitted.value)
 const feedback = computed(() => {
   if (!revealAnswerFeedback.value) return null
   return isCorrect.value ? 'correct' : 'incorrect'
