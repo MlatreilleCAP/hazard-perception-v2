@@ -2,7 +2,6 @@ export const LANDING_NAV_LINKS = [
   { href: '#features', label: 'Features' },
   { href: '#how-it-works', label: 'How it Works' },
   { href: '#demos', label: 'Demos' },
-  { href: '#faq', label: 'FAQs' },
 ] as const
 
 export const LANDING_FEATURES = [
@@ -45,18 +44,3 @@ export const LANDING_FEATURES = [
 ] as const
 
 export type LandingFeatureVisual = (typeof LANDING_FEATURES)[number]['visual']
-
-export const LANDING_FAQS = [
-  {
-    q: 'Who is this demo for?',
-    a: 'Fleet trainers, driving schools, and safety leaders evaluating AI-powered hazard perception coaching.',
-  },
-  {
-    q: 'Do I need an account?',
-    a: 'You can browse the full catalog freely. Starting some demos may ask you to sign in.',
-  },
-  {
-    q: 'What devices work best?',
-    a: 'Desktop and tablets work great. Many activities are also designed for smartphone practice.',
-  },
-] as const

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, useRouter } from 'vue-router'
-import { LANDING_FAQS, LANDING_FEATURES, LANDING_NAV_LINKS } from '@/app/landingFeatures'
+import { LANDING_FEATURES, LANDING_NAV_LINKS } from '@/app/landingFeatures'
 import DemoCatalog from '@/components/landing/DemoCatalog.vue'
 import FeatureVisual from '@/components/landing/FeatureVisual.vue'
 import { useAuthStore } from '@/stores/authStore'
@@ -122,19 +122,6 @@ async function signOut(): Promise<void> {
               </div>
             </article>
           </div>
-        </div>
-      </section>
-
-      <section id="faq" class="landing-faq">
-        <h2>FAQs</h2>
-        <div class="faq-list">
-          <details v-for="item in LANDING_FAQS" :key="item.q" class="faq-item">
-            <summary>
-              <span>{{ item.q }}</span>
-              <span class="faq-plus" aria-hidden="true">+</span>
-            </summary>
-            <p>{{ item.a }}</p>
-          </details>
         </div>
       </section>
     </main>
