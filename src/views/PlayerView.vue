@@ -5,7 +5,7 @@ import { cloneJson } from '@/app/clone'
 import { services } from '@/app/container'
 import { expandInroadsMvpForPlayback, expandIntroductionForPlayback } from '@/activities/expandInroadsMvp'
 import { findInroadsMvpNode, readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
-import { provideLessonButtonLabel } from '@/lib/lesson/buttonLabel'
+import { provideLessonButtonLabel, provideLessonSubmitLabel } from '@/lib/lesson/buttonLabel'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
 import AnticipateExperience from '@/components/anticipate/AnticipateExperience.vue'
 import LessonExperience from '@/components/lesson/LessonExperience.vue'
@@ -65,15 +65,28 @@ const activityId = computed(() =>
 )
 const isPreview = computed(() => route.query.preview === '1')
 const lessonButtonLabel = ref('')
+const lessonSubmitLabel = ref('')
+const lessonCountry = ref('')
 provideLessonButtonLabel(lessonButtonLabel)
+provideLessonSubmitLabel(lessonSubmitLabel)
 
-async function resolveLessonButtonLabel(activity: ActivityDefinition): Promise<string> {
-  const fromDefinition = (definition: ActivityDefinition | null | undefined) =>
-    definition ? readInroadsMvpDefinition(definition)?.buttonLabel.trim() ?? '' : ''
+async function resolveLessonLabels(
+  activity: ActivityDefinition,
+): Promise<{ button: string; submit: string; country: string }> {
+  const fromDefinition = (definition: ActivityDefinition | null | undefined) => {
+    const mvp = definition ? readInroadsMvpDefinition(definition) : null
+    return {
+      button: mvp?.buttonLabel.trim() ?? '',
+      submit: mvp?.submitLabel.trim() ?? '',
+      country: mvp?.country.trim() ?? '',
+    }
+  }
   if (isInroadsMvpActivity(activity.metadata.tags)) return fromDefinition(activity)
-  if (!isInroadsMvpChildActivity(activity.metadata.tags)) return ''
+  if (!isInroadsMvpChildActivity(activity.metadata.tags)) {
+    return { button: '', submit: '', country: '' }
+  }
   const match = await findInroadsMvpParent(activity.id)
-  if (!match) return ''
+  if (!match) return { button: '', submit: '', country: '' }
   const parent = isPreview.value
     ? await services.persistence.getById(match.parentId)
     : await services.persistence.getPublished(match.parentId)
@@ -105,7 +118,10 @@ async function loadActivity(id: string): Promise<void> {
       return
     }
     const next = cloneJson(loaded)
-    lessonButtonLabel.value = await resolveLessonButtonLabel(next)
+    const labels = await resolveLessonLabels(next)
+    lessonButtonLabel.value = labels.button
+    lessonSubmitLabel.value = labels.submit
+    lessonCountry.value = labels.country
     if (isIntroductionActivity(next.metadata.tags)) {
       const expanded = expandIntroductionForPlayback(next)
       if (!expanded) {
@@ -216,6 +232,7 @@ function onExperienceFinished(): void {
           v-if="isLesson"
           :key="`${definition.id}-${replayNonce}`"
           :definition="definition"
+          :country="lessonCountry"
           :preview="isPreview"
           @finished="onExperienceFinished"
         />

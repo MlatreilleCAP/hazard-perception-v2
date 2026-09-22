@@ -53,6 +53,8 @@ export type ImportedLessonFields = {
   language: string
   /** Null when the Lesson sheet has no button row. */
   button: string | null
+  /** Null when the Lesson sheet has no submit row. */
+  submit: string | null
 }
 
 export type ImportedCopy = Partial<
@@ -245,7 +247,15 @@ function parseLessonSheet(
   const sheet = findSheet(workbook, SHEET_NAMES.lesson)
   if (!sheet) {
     warnings.push(`Missing "${SHEET_NAMES.lesson}" sheet.`)
-    return { title: '', description: '', introFirstVisit: null, country: '', language: '', button: null }
+    return {
+      title: '',
+      description: '',
+      introFirstVisit: null,
+      country: '',
+      language: '',
+      button: null,
+      submit: null,
+    }
   }
 
   const lesson: ImportedLessonFields = {
@@ -255,6 +265,7 @@ function parseLessonSheet(
     country: '',
     language: '',
     button: null,
+    submit: null,
   }
   const known = new Set<string>(LESSON_KEYS)
 
@@ -271,6 +282,7 @@ function parseLessonSheet(
     else if (key === 'country') lesson.country = canonicalizeLessonCountry(value)
     else if (key === 'language') lesson.language = canonicalizeLessonLanguage(value)
     else if (key === 'button') lesson.button = value
+    else if (key === 'submit') lesson.submit = value
     else if (key === 'intro_first_visit') {
       const parsed = parseBoolean(value)
       if (value && parsed == null) {

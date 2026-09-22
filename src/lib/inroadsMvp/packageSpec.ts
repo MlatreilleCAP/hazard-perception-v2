@@ -88,7 +88,7 @@ export const COPY_SHEET_ALIASES = [
   'Instruction',
 ] as const
 
-export const LESSON_KEYS = ['title', 'description', 'intro_first_visit', 'country', 'language', 'button'] as const
+export const LESSON_KEYS = ['title', 'description', 'intro_first_visit', 'country', 'language', 'button', 'submit'] as const
 
 export const LESSON_COUNTRY_OPTIONS = [
   'Canada',
@@ -354,6 +354,7 @@ Lesson: column A = key, column B = value
   country
   language
   button                label on every Continue / Start button in the lesson
+  submit                label on every severity-question Submit button in the lesson
 
 Copy: header row, then section | field | text
   (sheet name Instructions, Copy, or Instruction)

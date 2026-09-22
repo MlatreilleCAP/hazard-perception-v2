@@ -20,6 +20,8 @@ export type InroadsMvpDefinition = {
   language: string
   /** Label for every learner Continue / Start button in this lesson. */
   buttonLabel: string
+  /** Label for every severity-question Submit button in this lesson. */
+  submitLabel: string
   /** Section 2 — Observe activity id. */
   seeActivityId: string
   /** Section 3 — Process activity id. */
@@ -49,6 +51,7 @@ export function createDefaultInroadsMvpDefinition(
     country: 'Canada',
     language: 'English',
     buttonLabel: '',
+    submitLabel: '',
     seeActivityId,
     processActivityId,
     anticipateActivityId,
@@ -68,6 +71,7 @@ export function cloneInroadsMvpDefinition(
     country: canonicalizeLessonCountry(definition.country),
     language: canonicalizeLessonLanguage(definition.language),
     buttonLabel: definition.buttonLabel.trim(),
+    submitLabel: definition.submitLabel.trim(),
     seeActivityId: definition.seeActivityId,
     processActivityId: definition.processActivityId,
     anticipateActivityId: definition.anticipateActivityId,
@@ -108,6 +112,7 @@ export function normalizeInroadsMvpDefinition(
       typeof raw.language === 'string' ? raw.language : '',
     ),
     buttonLabel: typeof raw.buttonLabel === 'string' ? raw.buttonLabel.trim() : '',
+    submitLabel: typeof raw.submitLabel === 'string' ? raw.submitLabel.trim() : '',
     seeActivityId,
     processActivityId,
     anticipateActivityId,

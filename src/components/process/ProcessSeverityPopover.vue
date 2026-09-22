@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
+import { useLessonButtonLabel, useLessonSubmitLabel } from '@/lib/lesson/buttonLabel'
 import questionPassIcon from '@/assets/lesson/question-pass.svg'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import sliderFaceIcon from '@/assets/severity-slider-face.svg'
@@ -22,6 +22,7 @@ const emit = defineEmits<{
 }>()
 
 const lessonButtonLabel = useLessonButtonLabel()
+const lessonSubmitLabel = useLessonSubmitLabel()
 
 const THUMB_SIZE = 32
 const SEVERITY_POSITION: Record<HazardSeverity, number> = {
@@ -262,7 +263,7 @@ onBeforeUnmount(() => {
           :tabindex="awaitingContinue ? -1 : 0"
           @click="submit"
         >
-          Submit
+          {{ lessonSubmitLabel }}
         </button>
       </div>
     </div>

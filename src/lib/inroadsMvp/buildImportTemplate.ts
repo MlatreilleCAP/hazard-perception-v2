@@ -26,6 +26,7 @@ export type ImportWorkbookContent = {
   country: string
   language: string
   buttonLabel: string
+  submitLabel: string
   observe: {
     instruction: string
     instructionPill: string
@@ -293,6 +294,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     country: 'Canada',
     language: 'English',
     buttonLabel: 'Continue',
+    submitLabel: 'Submit',
     observe: {
       instruction:
         "You're about to watch a short driving video. \n\nThe primary hazard could be in front, behind, or to either side. Drag the screen side-to-side to scan the road and mirrors, then tap or click it as soon as you spot it. \n\nYou'll have a few seconds and three attempts. No replay, so watch closely.",
@@ -466,6 +468,7 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
   lesson.addRow(['country', content.country])
   lesson.addRow(['language', content.language])
   lesson.addRow(['button', content.buttonLabel])
+  lesson.addRow(['submit', content.submitLabel])
   lesson.getRow(1).font = { bold: true }
   lesson.getColumn(1).width = 22
   lesson.getColumn(2).width = 48

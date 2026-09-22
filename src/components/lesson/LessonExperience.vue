@@ -34,10 +34,12 @@ import { isIntroductionActivity } from '@/types/introduction'
 const props = withDefaults(
   defineProps<{
     definition: ActivityDefinition
+    /** Lesson country from the workbook, shown on the title card. */
+    country?: string
     /** Studio preview loads draft section snapshots; learners use published. */
     preview?: boolean
   }>(),
-  { preview: false },
+  { country: '', preview: false },
 )
 
 const emit = defineEmits<{
@@ -87,6 +89,7 @@ const resultsModel = computed(() =>
 )
 const titlePageTitle = computed(() => props.definition.metadata.title.trim() || 'Activity')
 const titlePageDescription = computed(() => props.definition.metadata.description.trim())
+const titlePageCountry = computed(() => props.country.trim())
 const titlePageCover = computed(() => {
   const catalogTitles = activities.summaries
     .filter(
@@ -493,6 +496,7 @@ onBeforeUnmount(() => {
       v-else-if="phase === 'title'"
       :title="titlePageTitle"
       :description="titlePageDescription"
+      :country="titlePageCountry"
       :cover-src="titlePageCover"
       @start="beginFromTitle"
     />

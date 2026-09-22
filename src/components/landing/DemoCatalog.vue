@@ -104,6 +104,10 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
   localeById.value = next
 }
 
+function countryFor(id: string): string {
+  return localeById.value.get(id)?.country.trim() ?? ''
+}
+
 function buttonLabelFor(id: string): string {
   return localeById.value.get(id)?.button.trim() || DEFAULT_LESSON_BUTTON_LABEL
 }
@@ -225,9 +229,8 @@ function setSelected(groupKey: string, id: string): void {
               <div class="activity-glyph" aria-hidden="true">{{ glyph(group.title) }}</div>
             </div>
             <div class="activity-card-body">
-              <div class="activity-card-meta">
-                <span class="activity-type">Activity</span>
-                <span class="activity-duration">Flexible</span>
+              <div v-if="countryFor(selectedId(group.key))" class="activity-card-meta">
+                <span class="activity-type">{{ countryFor(selectedId(group.key)) }}</span>
               </div>
               <div class="activity-card-copy">
                 <h3>{{ group.title }}</h3>

@@ -4,6 +4,7 @@ import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
 defineProps<{
   title: string
   description: string
+  country: string
   coverSrc: string
 }>()
 
@@ -21,9 +22,8 @@ const lessonButtonLabel = useLessonButtonLabel()
         <img :src="coverSrc" alt="" />
       </div>
       <div class="activity-card-body">
-        <div class="activity-card-meta">
-          <span class="activity-type">Activity</span>
-          <span class="activity-duration">Flexible</span>
+        <div v-if="country.trim()" class="activity-card-meta">
+          <span class="activity-type">{{ country }}</span>
         </div>
         <div class="activity-card-copy">
           <h3>{{ title }}</h3>
