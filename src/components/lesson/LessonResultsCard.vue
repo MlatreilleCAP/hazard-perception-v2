@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import {
+  lessonResultsQuestionLabel,
   useLessonButtonLabel,
   useLessonChallengeFailedLabel,
   useLessonChallengePassedLabel,
+  useLessonResultsLabels,
 } from '@/lib/lesson/buttonLabel'
 import LessonAccuracyIcon from '@/components/lesson/LessonAccuracyIcon.vue'
 import LessonMetricRing from '@/components/lesson/LessonMetricRing.vue'
@@ -22,6 +24,7 @@ defineProps<{
 const lessonButtonLabel = useLessonButtonLabel()
 const challengePassedLabel = useLessonChallengePassedLabel()
 const challengeFailedLabel = useLessonChallengeFailedLabel()
+const resultsLabels = useLessonResultsLabels()
 
 defineEmits<{
   continue: []
@@ -53,6 +56,21 @@ function metricAlt(metric: LessonMetricToken): string {
 
 function isAccuracyMetric(metric: LessonMetricToken): boolean {
   return metric.id === 'accuracy' && typeof metric.accuracySegments === 'number'
+}
+
+function sectionTitle(section: LessonResultsSection): string {
+  if (section.id === 'see') return resultsLabels.value.observe
+  if (section.id === 'know') return resultsLabels.value.process
+  return resultsLabels.value.anticipate
+}
+
+function displayedMetricLabel(metric: LessonMetricToken): string {
+  if (metric.id === 'detection') return resultsLabels.value.detection
+  if (metric.id === 'accuracy') return resultsLabels.value.accuracy
+  if (metric.id === 'coaching') return resultsLabels.value.coaching
+  const question = /^Q(\d+)$/.exec(metric.label.trim())
+  if (question) return lessonResultsQuestionLabel(resultsLabels.value, Number(question[1]) - 1)
+  return metric.label
 }
 
 function sectionDelay(index: number): string {
@@ -91,8 +109,8 @@ function metricDelay(sectionIndex: number, metricIndex: number): string {
           :style="{ animationDelay: sectionDelay(sectionIndex) }"
         >
           <div class="lesson-results-section-head">
-            <p class="lesson-results-section-title">{{ section.title }}</p>
-            <p class="lesson-results-section-pts">{{ section.points }} pts</p>
+            <p class="lesson-results-section-title">{{ sectionTitle(section) }}</p>
+            <p class="lesson-results-section-pts">{{ section.points }} {{ resultsLabels.pts }}</p>
           </div>
           <div class="lesson-results-bar" aria-hidden="true">
             <span
@@ -145,7 +163,7 @@ function metricDelay(sectionIndex: number, metricIndex: number): string {
                 class="lesson-results-metric-label"
                 :class="{ 'is-idle': metric.status === 'idle' }"
               >
-                {{ metric.label }}
+                {{ displayedMetricLabel(metric) }}
               </p>
             </li>
           </ul>

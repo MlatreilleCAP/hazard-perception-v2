@@ -804,6 +804,19 @@ export async function importInroadsMvpPackage(
       payload.lesson.roadConditionsHeading != null
         ? payload.lesson.roadConditionsHeading
         : mvp.roadConditionsLabel,
+    ptsLabel: payload.lesson.pts != null ? payload.lesson.pts : mvp.ptsLabel,
+    detectionLabel: payload.lesson.detection != null ? payload.lesson.detection : mvp.detectionLabel,
+    accuracyLabel: payload.lesson.accuracy != null ? payload.lesson.accuracy : mvp.accuracyLabel,
+    coachingLabel: payload.lesson.coaching != null ? payload.lesson.coaching : mvp.coachingLabel,
+    q1Label: payload.lesson.q1 != null ? payload.lesson.q1 : mvp.q1Label,
+    q2Label: payload.lesson.q2 != null ? payload.lesson.q2 : mvp.q2Label,
+    q3Label: payload.lesson.q3 != null ? payload.lesson.q3 : mvp.q3Label,
+    q4Label: payload.lesson.q4 != null ? payload.lesson.q4 : mvp.q4Label,
+    observeLabel: payload.lesson.observation != null ? payload.lesson.observation : mvp.observeLabel,
+    processLabel:
+      payload.lesson.processSection != null ? payload.lesson.processSection : mvp.processLabel,
+    anticipateLabel:
+      payload.lesson.anticipation != null ? payload.lesson.anticipation : mvp.anticipateLabel,
   })
   if (payload.lesson.title.trim()) {
     nextParent.metadata.title = payload.lesson.title.trim()

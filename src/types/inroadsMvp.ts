@@ -36,6 +36,28 @@ export type InroadsMvpDefinition = {
   timeOfDayLabel: string
   /** Observe clip-intro heading for the road conditions row. */
   roadConditionsLabel: string
+  /** Final results suffix after a section score, e.g. "40 pts". */
+  ptsLabel: string
+  /** Final results Observe metric label. */
+  detectionLabel: string
+  /** Final results Observe metric label. */
+  accuracyLabel: string
+  /** Final results coaching metric label. */
+  coachingLabel: string
+  /** Final results label for the first question metric. */
+  q1Label: string
+  /** Final results label for the second question metric. */
+  q2Label: string
+  /** Final results label for the third question metric. */
+  q3Label: string
+  /** Final results label for the fourth question metric. */
+  q4Label: string
+  /** Final results Observe section title. */
+  observeLabel: string
+  /** Final results Process section title. */
+  processLabel: string
+  /** Final results Anticipate section title. */
+  anticipateLabel: string
   /** Section 2 — Observe activity id. */
   seeActivityId: string
   /** Section 3 — Process activity id. */
@@ -73,6 +95,17 @@ export function createDefaultInroadsMvpDefinition(
     trafficDensityLabel: '',
     timeOfDayLabel: '',
     roadConditionsLabel: '',
+    ptsLabel: '',
+    detectionLabel: '',
+    accuracyLabel: '',
+    coachingLabel: '',
+    q1Label: '',
+    q2Label: '',
+    q3Label: '',
+    q4Label: '',
+    observeLabel: '',
+    processLabel: '',
+    anticipateLabel: '',
     seeActivityId,
     processActivityId,
     anticipateActivityId,
@@ -100,6 +133,17 @@ export function cloneInroadsMvpDefinition(
     trafficDensityLabel: definition.trafficDensityLabel.trim(),
     timeOfDayLabel: definition.timeOfDayLabel.trim(),
     roadConditionsLabel: definition.roadConditionsLabel.trim(),
+    ptsLabel: definition.ptsLabel.trim(),
+    detectionLabel: definition.detectionLabel.trim(),
+    accuracyLabel: definition.accuracyLabel.trim(),
+    coachingLabel: definition.coachingLabel.trim(),
+    q1Label: definition.q1Label.trim(),
+    q2Label: definition.q2Label.trim(),
+    q3Label: definition.q3Label.trim(),
+    q4Label: definition.q4Label.trim(),
+    observeLabel: definition.observeLabel.trim(),
+    processLabel: definition.processLabel.trim(),
+    anticipateLabel: definition.anticipateLabel.trim(),
     seeActivityId: definition.seeActivityId,
     processActivityId: definition.processActivityId,
     anticipateActivityId: definition.anticipateActivityId,
@@ -152,6 +196,17 @@ export function normalizeInroadsMvpDefinition(
     timeOfDayLabel: typeof raw.timeOfDayLabel === 'string' ? raw.timeOfDayLabel.trim() : '',
     roadConditionsLabel:
       typeof raw.roadConditionsLabel === 'string' ? raw.roadConditionsLabel.trim() : '',
+    ptsLabel: typeof raw.ptsLabel === 'string' ? raw.ptsLabel.trim() : '',
+    detectionLabel: typeof raw.detectionLabel === 'string' ? raw.detectionLabel.trim() : '',
+    accuracyLabel: typeof raw.accuracyLabel === 'string' ? raw.accuracyLabel.trim() : '',
+    coachingLabel: typeof raw.coachingLabel === 'string' ? raw.coachingLabel.trim() : '',
+    q1Label: typeof raw.q1Label === 'string' ? raw.q1Label.trim() : '',
+    q2Label: typeof raw.q2Label === 'string' ? raw.q2Label.trim() : '',
+    q3Label: typeof raw.q3Label === 'string' ? raw.q3Label.trim() : '',
+    q4Label: typeof raw.q4Label === 'string' ? raw.q4Label.trim() : '',
+    observeLabel: typeof raw.observeLabel === 'string' ? raw.observeLabel.trim() : '',
+    processLabel: typeof raw.processLabel === 'string' ? raw.processLabel.trim() : '',
+    anticipateLabel: typeof raw.anticipateLabel === 'string' ? raw.anticipateLabel.trim() : '',
     seeActivityId,
     processActivityId,
     anticipateActivityId,

@@ -103,6 +103,17 @@ export const LESSON_KEYS = [
   'traffic_density',
   'time_of_day',
   'road_conditions',
+  'pts',
+  'detection',
+  'accuracy',
+  'coaching',
+  'q1',
+  'q2',
+  'q3',
+  'q4',
+  'observation',
+  'process',
+  'anticipation',
 ] as const
 
 export const LESSON_COUNTRY_OPTIONS = [
@@ -377,6 +388,17 @@ Lesson: column A = key, column B = value
   Traffic Density       clip-intro heading; column B is the label shown to the learner
   Time of Day           clip-intro heading; column B is the label shown to the learner
   Road Conditions       clip-intro heading; column B is the label shown to the learner
+  pts                   final results score suffix
+  Detection             final results Observe metric
+  Accuracy              final results Observe metric
+  Coaching              final results coaching metric
+  Q1                    final results label for question 1
+  Q2                    final results label for question 2
+  Q3                    final results label for question 3
+  Q4                    final results label for question 4
+  Observation           final results Observe section title
+  Process               final results Process section title
+  Anticipation          final results Anticipate section title
 
 Copy: header row, then section | field | text
   (sheet name Instructions, Copy, or Instruction)

@@ -12,6 +12,35 @@ const LESSON_CHALLENGE_PASSED_LABEL = Symbol('lessonChallengePassedLabel')
 const LESSON_CHALLENGE_FAILED_LABEL = Symbol('lessonChallengeFailedLabel')
 const LESSON_LANGUAGE = Symbol('lessonLanguage')
 const OBSERVE_SUMMARY_HEADINGS = Symbol('observeSummaryHeadings')
+const LESSON_RESULTS_LABELS = Symbol('lessonResultsLabels')
+
+export const DEFAULT_LESSON_RESULTS_LABELS = {
+  pts: 'pts',
+  detection: 'Detection',
+  accuracy: 'Accuracy',
+  coaching: 'Coaching',
+  q1: 'Q1',
+  q2: 'Q2',
+  q3: 'Q3',
+  q4: 'Q4',
+  observe: 'Observation',
+  process: 'Process',
+  anticipate: 'Anticipation',
+} as const
+
+export type LessonResultsLabels = {
+  pts: string
+  detection: string
+  accuracy: string
+  coaching: string
+  q1: string
+  q2: string
+  q3: string
+  q4: string
+  observe: string
+  process: string
+  anticipate: string
+}
 
 export const DEFAULT_OBSERVE_SUMMARY_HEADINGS = {
   maneuver: 'Maneuver',
@@ -109,4 +138,37 @@ export function useObserveSummaryHeadings(): ComputedRef<ObserveSummaryHeadings>
   return computed(() =>
     injected ? observeSummaryHeadingsFrom(injected.value) : { ...DEFAULT_OBSERVE_SUMMARY_HEADINGS },
   )
+}
+
+function lessonResultsLabelsFrom(source: LessonResultsLabels): LessonResultsLabels {
+  return {
+    pts: source.pts.trim() || DEFAULT_LESSON_RESULTS_LABELS.pts,
+    detection: source.detection.trim() || DEFAULT_LESSON_RESULTS_LABELS.detection,
+    accuracy: source.accuracy.trim() || DEFAULT_LESSON_RESULTS_LABELS.accuracy,
+    coaching: source.coaching.trim() || DEFAULT_LESSON_RESULTS_LABELS.coaching,
+    q1: source.q1.trim() || DEFAULT_LESSON_RESULTS_LABELS.q1,
+    q2: source.q2.trim() || DEFAULT_LESSON_RESULTS_LABELS.q2,
+    q3: source.q3.trim() || DEFAULT_LESSON_RESULTS_LABELS.q3,
+    q4: source.q4.trim() || DEFAULT_LESSON_RESULTS_LABELS.q4,
+    observe: source.observe.trim() || DEFAULT_LESSON_RESULTS_LABELS.observe,
+    process: source.process.trim() || DEFAULT_LESSON_RESULTS_LABELS.process,
+    anticipate: source.anticipate.trim() || DEFAULT_LESSON_RESULTS_LABELS.anticipate,
+  }
+}
+
+export function provideLessonResultsLabels(source: MaybeRefOrGetter<LessonResultsLabels>): void {
+  const labels = computed(() => lessonResultsLabelsFrom(toValue(source)))
+  provide(LESSON_RESULTS_LABELS, labels)
+}
+
+export function useLessonResultsLabels(): ComputedRef<LessonResultsLabels> {
+  const injected = inject<ComputedRef<LessonResultsLabels> | null>(LESSON_RESULTS_LABELS, null)
+  return computed(() =>
+    injected ? lessonResultsLabelsFrom(injected.value) : { ...DEFAULT_LESSON_RESULTS_LABELS },
+  )
+}
+
+export function lessonResultsQuestionLabel(labels: LessonResultsLabels, index: number): string {
+  const keyed = [labels.q1, labels.q2, labels.q3, labels.q4]
+  return keyed[index] ?? `Q${index + 1}`
 }

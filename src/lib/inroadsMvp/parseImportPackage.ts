@@ -69,6 +69,28 @@ export type ImportedLessonFields = {
   timeOfDayHeading: string | null
   /** Null when the Lesson sheet has no Road Conditions heading row. */
   roadConditionsHeading: string | null
+  /** Null when the Lesson sheet has no pts row. */
+  pts: string | null
+  /** Null when the Lesson sheet has no Detection row. */
+  detection: string | null
+  /** Null when the Lesson sheet has no Accuracy row. */
+  accuracy: string | null
+  /** Null when the Lesson sheet has no Coaching row. */
+  coaching: string | null
+  /** Null when the Lesson sheet has no Q1 row. */
+  q1: string | null
+  /** Null when the Lesson sheet has no Q2 row. */
+  q2: string | null
+  /** Null when the Lesson sheet has no Q3 row. */
+  q3: string | null
+  /** Null when the Lesson sheet has no Q4 row. */
+  q4: string | null
+  /** Null when the Lesson sheet has no Observation row. */
+  observation: string | null
+  /** Null when the Lesson sheet has no Process section row. */
+  processSection: string | null
+  /** Null when the Lesson sheet has no Anticipation row. */
+  anticipation: string | null
 }
 
 export type ImportedCopy = Partial<
@@ -276,6 +298,17 @@ function parseLessonSheet(
       trafficDensityHeading: null,
       timeOfDayHeading: null,
       roadConditionsHeading: null,
+      pts: null,
+      detection: null,
+      accuracy: null,
+      coaching: null,
+      q1: null,
+      q2: null,
+      q3: null,
+      q4: null,
+      observation: null,
+      processSection: null,
+      anticipation: null,
     }
   }
 
@@ -294,6 +327,17 @@ function parseLessonSheet(
     trafficDensityHeading: null,
     timeOfDayHeading: null,
     roadConditionsHeading: null,
+    pts: null,
+    detection: null,
+    accuracy: null,
+    coaching: null,
+    q1: null,
+    q2: null,
+    q3: null,
+    q4: null,
+    observation: null,
+    processSection: null,
+    anticipation: null,
   }
   const known = new Set<string>(LESSON_KEYS)
 
@@ -318,6 +362,17 @@ function parseLessonSheet(
     else if (key === 'traffic_density') lesson.trafficDensityHeading = value
     else if (key === 'time_of_day') lesson.timeOfDayHeading = value
     else if (key === 'road_conditions') lesson.roadConditionsHeading = value
+    else if (key === 'pts') lesson.pts = value
+    else if (key === 'detection') lesson.detection = value
+    else if (key === 'accuracy') lesson.accuracy = value
+    else if (key === 'coaching') lesson.coaching = value
+    else if (key === 'q1') lesson.q1 = value
+    else if (key === 'q2') lesson.q2 = value
+    else if (key === 'q3') lesson.q3 = value
+    else if (key === 'q4') lesson.q4 = value
+    else if (key === 'observation') lesson.observation = value
+    else if (key === 'process') lesson.processSection = value
+    else if (key === 'anticipation') lesson.anticipation = value
     else if (key === 'intro_first_visit') {
       const parsed = parseBoolean(value)
       if (value && parsed == null) {

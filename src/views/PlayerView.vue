@@ -11,7 +11,9 @@ import {
   provideLessonChallengeLabels,
   provideLessonLanguage,
   provideLessonSubmitLabel,
+  provideLessonResultsLabels,
   provideObserveSummaryHeadings,
+  type LessonResultsLabels,
   type ObserveSummaryHeadings,
 } from '@/lib/lesson/buttonLabel'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
@@ -90,6 +92,20 @@ provideLessonSubmitLabel(lessonSubmitLabel)
 provideLessonChallengeLabels(lessonChallengePassedLabel, lessonChallengeFailedLabel)
 provideLessonLanguage(lessonLanguage)
 provideObserveSummaryHeadings(observeSummaryHeadings)
+const lessonResultsLabels = ref<LessonResultsLabels>({
+  pts: '',
+  detection: '',
+  accuracy: '',
+  coaching: '',
+  q1: '',
+  q2: '',
+  q3: '',
+  q4: '',
+  observe: '',
+  process: '',
+  anticipate: '',
+})
+provideLessonResultsLabels(lessonResultsLabels)
 
 async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
   button: string
@@ -103,6 +119,17 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
   trafficDensity: string
   timeOfDay: string
   roadConditions: string
+  pts: string
+  detection: string
+  accuracy: string
+  coaching: string
+  q1: string
+  q2: string
+  q3: string
+  q4: string
+  observe: string
+  process: string
+  anticipate: string
 }> {
   const fromDefinition = (definition: ActivityDefinition | null | undefined) => {
     const mvp = definition ? readInroadsMvpDefinition(definition) : null
@@ -118,6 +145,17 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
       trafficDensity: mvp?.trafficDensityLabel.trim() ?? '',
       timeOfDay: mvp?.timeOfDayLabel.trim() ?? '',
       roadConditions: mvp?.roadConditionsLabel.trim() ?? '',
+      pts: mvp?.ptsLabel.trim() ?? '',
+      detection: mvp?.detectionLabel.trim() ?? '',
+      accuracy: mvp?.accuracyLabel.trim() ?? '',
+      coaching: mvp?.coachingLabel.trim() ?? '',
+      q1: mvp?.q1Label.trim() ?? '',
+      q2: mvp?.q2Label.trim() ?? '',
+      q3: mvp?.q3Label.trim() ?? '',
+      q4: mvp?.q4Label.trim() ?? '',
+      observe: mvp?.observeLabel.trim() ?? '',
+      process: mvp?.processLabel.trim() ?? '',
+      anticipate: mvp?.anticipateLabel.trim() ?? '',
     }
   }
   const empty = {
@@ -132,6 +170,17 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
     trafficDensity: '',
     timeOfDay: '',
     roadConditions: '',
+    pts: '',
+    detection: '',
+    accuracy: '',
+    coaching: '',
+    q1: '',
+    q2: '',
+    q3: '',
+    q4: '',
+    observe: '',
+    process: '',
+    anticipate: '',
   }
   if (isIntroductionActivity(activity.metadata.tags)) {
     return { ...empty, language: readIntroductionDefinition(activity).language.trim() }
@@ -184,6 +233,19 @@ async function loadActivity(id: string): Promise<void> {
       trafficDensity: labels.trafficDensity,
       timeOfDay: labels.timeOfDay,
       roadConditions: labels.roadConditions,
+    }
+    lessonResultsLabels.value = {
+      pts: labels.pts,
+      detection: labels.detection,
+      accuracy: labels.accuracy,
+      coaching: labels.coaching,
+      q1: labels.q1,
+      q2: labels.q2,
+      q3: labels.q3,
+      q4: labels.q4,
+      observe: labels.observe,
+      process: labels.process,
+      anticipate: labels.anticipate,
     }
     if (isIntroductionActivity(next.metadata.tags)) {
       const expanded = expandIntroductionForPlayback(next)

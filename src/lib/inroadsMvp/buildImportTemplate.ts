@@ -34,6 +34,17 @@ export type ImportWorkbookContent = {
   trafficDensityHeading: string
   timeOfDayHeading: string
   roadConditionsHeading: string
+  ptsLabel: string
+  detectionLabel: string
+  accuracyLabel: string
+  coachingLabel: string
+  q1Label: string
+  q2Label: string
+  q3Label: string
+  q4Label: string
+  observationLabel: string
+  processSectionLabel: string
+  anticipationLabel: string
   observe: {
     instruction: string
     instructionPill: string
@@ -309,6 +320,17 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     trafficDensityHeading: 'Traffic Density',
     timeOfDayHeading: 'Time of Day',
     roadConditionsHeading: 'Road Conditions',
+    ptsLabel: 'pts',
+    detectionLabel: 'Detection',
+    accuracyLabel: 'Accuracy',
+    coachingLabel: 'Coaching',
+    q1Label: 'Q1',
+    q2Label: 'Q2',
+    q3Label: 'Q3',
+    q4Label: 'Q4',
+    observationLabel: 'Observation',
+    processSectionLabel: 'Process',
+    anticipationLabel: 'Anticipation',
     observe: {
       instruction:
         "You're about to watch a short driving video. \n\nThe primary hazard could be in front, behind, or to either side. Drag the screen side-to-side to scan the road and mirrors, then tap or click it as soon as you spot it. \n\nYou'll have a few seconds and three attempts. No replay, so watch closely.",
@@ -490,6 +512,17 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
   lesson.addRow(['Traffic Density', content.trafficDensityHeading])
   lesson.addRow(['Time of Day', content.timeOfDayHeading])
   lesson.addRow(['Road Conditions', content.roadConditionsHeading])
+  lesson.addRow(['pts', content.ptsLabel])
+  lesson.addRow(['Detection', content.detectionLabel])
+  lesson.addRow(['Accuracy', content.accuracyLabel])
+  lesson.addRow(['Coaching', content.coachingLabel])
+  lesson.addRow(['Q1', content.q1Label])
+  lesson.addRow(['Q2', content.q2Label])
+  lesson.addRow(['Q3', content.q3Label])
+  lesson.addRow(['Q4', content.q4Label])
+  lesson.addRow(['Observation', content.observationLabel])
+  lesson.addRow(['Process', content.processSectionLabel])
+  lesson.addRow(['Anticipation', content.anticipationLabel])
   lesson.getRow(1).font = { bold: true }
   lesson.getColumn(1).width = 22
   lesson.getColumn(2).width = 48
