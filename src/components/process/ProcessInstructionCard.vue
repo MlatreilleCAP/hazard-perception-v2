@@ -28,7 +28,7 @@ const blocks = computed(() => parseInstructionBlocks(props.text))
         </template>
       </div>
       <button type="button" class="process-instruction-begin" @click="$emit('begin')">
-        {{ actionLabel ?? 'Start' }}
+        {{ actionLabel?.trim() || 'Continue' }}
       </button>
     </div>
   </div>

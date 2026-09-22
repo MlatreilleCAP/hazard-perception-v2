@@ -143,6 +143,7 @@ export type CopySection = (typeof COPY_SECTIONS)[number]
 export const COPY_FIELDS = [
   'instruction',
   'instruction_pill',
+  'button',
   'maneuver',
   'roadway',
   'traffic_density',
@@ -335,7 +336,7 @@ Folder names (case-insensitive):
 
   Intro Video/
   Observe Hazard Scenario/
-  Hazard Summary Audio/       (MP3, M4A, WAV, or OGG — plays after Observe Start)
+  Hazard Summary Audio/       (MP3, M4A, WAV, or OGG — plays after the learner taps Continue)
   Observe Coaching Video/     (missed-hazard / coaching clip on Observe)
   Observe Explanation Image/  (JPG, PNG, WebP, or GIF)
   Process Lesson/
@@ -357,11 +358,12 @@ Lesson: column A = key, column B = value
 Copy: header row, then section | field | text
   (sheet name Instructions, Copy, or Instruction)
   section: observe | process | anticipate
-  field: instruction | instruction_pill | second_instruction |
+  field: instruction | instruction_pill | button | second_instruction |
          second_instruction_pill | second_score_threshold |
          maneuver | roadway | traffic_density | time_of_day | road_conditions |
          hazard_explanation | success_result | fail_screen | 2_attempts |
          3_attempts | time_out | missed_1_attempt | missed_2_attempts
+  button = label on every Continue button in that section (scenario and coaching)
   Observe instruction / instruction_pill = scenario overlay on the hazard clip
   Observe second_instruction / second_instruction_pill = coaching clip overlay
   Observe maneuver / roadway / traffic_density / time_of_day / road_conditions

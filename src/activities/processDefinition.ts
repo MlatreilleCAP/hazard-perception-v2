@@ -53,6 +53,7 @@ export function readProcessDefinition(
       typeof process.instructionPill === 'string'
         ? process.instructionPill
         : DEFAULT_PROCESS_INSTRUCTION_PILL,
+    buttonLabel: typeof process.buttonLabel === 'string' ? process.buttonLabel : '',
     secondInstructionText:
       typeof process.secondInstructionText === 'string'
         ? process.secondInstructionText

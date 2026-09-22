@@ -374,7 +374,7 @@ defineExpose({ save })
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Instruction" />
         <p class="author-muted">
-          Shown over the paused first frame of Video 1 until the learner taps Start.
+          Shown over the paused first frame of Video 1 until the learner taps Continue.
         </p>
         <AuthorField
           id="process-instruction-pill"
@@ -416,7 +416,7 @@ defineExpose({ save })
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Instruction" />
           <p class="author-muted">
-            Shown over the paused first frame of Video 2 until the learner taps Start.
+            Shown over the paused first frame of Video 2 until the learner taps Continue.
           </p>
           <AuthorField
             id="process-second-instruction-pill"

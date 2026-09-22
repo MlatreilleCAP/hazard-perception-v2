@@ -241,7 +241,7 @@ function setSelected(groupKey: string, id: string): void {
                   :to="startTo(selectedId(group.key))"
                   class="demo-primary-button"
                 >
-                  Start Activity
+                  Continue
                 </RouterLink>
               </div>
             </div>

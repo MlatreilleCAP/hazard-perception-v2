@@ -1234,6 +1234,7 @@ onBeforeUnmount(() => {
           :src="missedVideoSrc"
           :instruction-text="overlayHazard?.instructionText ?? ''"
           :instruction-pill="overlayHazard?.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
+          :action-label="see.buttonLabel"
           :hold-end="overlay?.step === 'question'"
           @ready="onCoachingVideoReady"
           @continue="startQuestionFlow"
@@ -1319,6 +1320,7 @@ onBeforeUnmount(() => {
             <ProcessInstructionCard
               :text="instructionText"
               :tag="instructionPill"
+              :action-label="see.buttonLabel"
               @begin="begin"
             />
           </div>
@@ -1358,6 +1360,7 @@ onBeforeUnmount(() => {
           :src="missedVideoSrc"
           :instruction-text="overlayHazard?.instructionText ?? ''"
           :instruction-pill="overlayHazard?.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
+          :action-label="see.buttonLabel"
           :hold-end="overlay?.step === 'question'"
           @ready="onCoachingVideoReady"
           @continue="startQuestionFlow"

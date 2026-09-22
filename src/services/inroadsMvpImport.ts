@@ -189,6 +189,7 @@ function patchProcess(
       'instruction_pill',
       current.instructionPill,
     ),
+    buttonLabel: importedCopyField(copy, 'button', current.buttonLabel),
     secondInstructionText: importedCopyField(
       copy,
       'second_instruction',
@@ -239,6 +240,7 @@ function patchAnticipate(
       'instruction_pill',
       current.instructionPill,
     ),
+    buttonLabel: importedCopyField(copy, 'button', current.buttonLabel),
     secondInstructionText: importedCopyField(
       copy,
       'second_instruction',
@@ -376,6 +378,7 @@ function patchSee(
     duration: durationSeconds,
     instructionText: importedCopyField(copy, 'instruction', current.instructionText),
     instructionPill: importedCopyField(copy, 'instruction_pill', current.instructionPill),
+    buttonLabel: importedCopyField(copy, 'button', current.buttonLabel),
     introAudio: uploaded['observe-summary-audio']?.media ?? current.introAudio,
     maneuver: xlsManeuver || current.maneuver,
     roadway: xlsRoadway || current.roadway,

@@ -498,7 +498,7 @@ watch(previewUrl, () => {
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Instruction" />
         <p class="author-muted">
-          Shown over the paused first frame of the coaching video until the learner taps Start.
+          Shown over the paused first frame of the coaching video until the learner taps Continue.
         </p>
         <AuthorField
           :id="`${coachingHazard.id}-instruction-pill`"

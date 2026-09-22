@@ -27,7 +27,7 @@ defineEmits<{
         </div>
         <div class="activity-card-action">
           <button type="button" class="demo-primary-button" @click="$emit('start')">
-            Start Activity
+            Continue
           </button>
         </div>
       </div>

@@ -335,7 +335,7 @@ defineExpose({ save })
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Instruction" />
         <p class="author-muted">
-          Shown over the paused first frame of the scenario video until the learner taps Start.
+          Shown over the paused first frame of the scenario video until the learner taps Continue.
         </p>
         <AuthorField
           id="see-instruction-pill"
@@ -354,7 +354,7 @@ defineExpose({ save })
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Clip intro" />
         <p class="author-muted">
-          After Start, the scenario video stays paused on this summary card until the audio ends.
+          After Continue, the scenario video stays paused on this summary card until the audio ends.
         </p>
         <MediaUploadField
           :id="`${activityId}-intro-audio`"

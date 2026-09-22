@@ -53,6 +53,7 @@ export function readAnticipateDefinition(
       typeof anticipate.instructionPill === 'string'
         ? anticipate.instructionPill
         : DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
+    buttonLabel: typeof anticipate.buttonLabel === 'string' ? anticipate.buttonLabel : '',
     secondInstructionText:
       typeof anticipate.secondInstructionText === 'string'
         ? anticipate.secondInstructionText
