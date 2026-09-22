@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ProcessResultsLottie from '@/components/process/ProcessResultsLottie.vue'
+import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
 import ProcessResultsQuestionList from '@/components/process/ProcessResultsQuestionList.vue'
 import type { ProcessQuestionResult } from '@/types/questions'
 import passAnimation from '@/assets/lottie/process-results.json'
@@ -11,6 +12,8 @@ defineProps<{
 defineEmits<{
   continue: []
 }>()
+
+const lessonButtonLabel = useLessonButtonLabel()
 </script>
 
 <template>
@@ -25,7 +28,7 @@ defineEmits<{
     <ProcessResultsQuestionList :results="results" />
 
     <button type="button" class="process-instruction-begin" @click="$emit('continue')">
-      Continue
+      {{ lessonButtonLabel }}
     </button>
   </div>
 </template>

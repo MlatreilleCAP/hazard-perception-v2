@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
 import ProcessResultsLottie from '@/components/process/ProcessResultsLottie.vue'
 import passAnimation from '@/assets/lottie/process-results.json'
 import failAnimation from '@/assets/lottie/process-results-fail.json'
@@ -20,6 +21,8 @@ const props = defineProps<{
 defineEmits<{
   continue: []
 }>()
+
+const lessonButtonLabel = useLessonButtonLabel()
 
 const heading = computed(() => observeResultHeading(props.outcome, props.resultCopy))
 const subtext = computed(() => observeResultSubtext(props.outcome, props.resultCopy))
@@ -110,7 +113,7 @@ watch(
       <p class="see-results-explanation">{{ explanationText }}</p>
     </div>
     <button type="button" class="process-instruction-begin" @click="$emit('continue')">
-      Continue
+      {{ lessonButtonLabel }}
     </button>
   </div>
 </template>

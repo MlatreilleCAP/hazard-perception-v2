@@ -38,6 +38,7 @@ import {
   configuredSurveyQuestions,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
+import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
 import { DEFAULT_SEE_INSTRUCTION_PILL, hazardClipSummary, resolveObserveHazardOutcome, type ObserveHazardOutcome } from '@/types/see'
 
 const props = withDefaults(
@@ -248,6 +249,7 @@ async function waitForFirstFrame(el: HTMLVideoElement): Promise<void> {
 }
 
 const see = computed(() => readSeeDefinition(props.definition))
+const lessonButtonLabel = useLessonButtonLabel()
 const instructionText = computed(() => see.value.instructionText ?? '')
 const instructionPill = computed(
   () => see.value.instructionPill?.trim() || DEFAULT_SEE_INSTRUCTION_PILL,
@@ -1234,7 +1236,6 @@ onBeforeUnmount(() => {
           :src="missedVideoSrc"
           :instruction-text="overlayHazard?.instructionText ?? ''"
           :instruction-pill="overlayHazard?.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
-          :action-label="see.buttonLabel"
           :hold-end="overlay?.step === 'question'"
           @ready="onCoachingVideoReady"
           @continue="startQuestionFlow"
@@ -1320,7 +1321,6 @@ onBeforeUnmount(() => {
             <ProcessInstructionCard
               :text="instructionText"
               :tag="instructionPill"
-              :action-label="see.buttonLabel"
               @begin="begin"
             />
           </div>
@@ -1360,7 +1360,6 @@ onBeforeUnmount(() => {
           :src="missedVideoSrc"
           :instruction-text="overlayHazard?.instructionText ?? ''"
           :instruction-pill="overlayHazard?.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
-          :action-label="see.buttonLabel"
           :hold-end="overlay?.step === 'question'"
           @ready="onCoachingVideoReady"
           @continue="startQuestionFlow"
@@ -1403,7 +1402,7 @@ onBeforeUnmount(() => {
           {{ spotted }} of {{ totalHazards }} hazard{{ totalHazards === 1 ? '' : 's' }} spotted
         </p>
         <button type="button" class="process-instruction-begin" @click="emitFinished">
-          Continue
+          {{ lessonButtonLabel }}
         </button>
       </div>
     </template>

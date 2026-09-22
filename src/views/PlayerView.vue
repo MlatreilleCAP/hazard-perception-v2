@@ -4,7 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { cloneJson } from '@/app/clone'
 import { services } from '@/app/container'
 import { expandInroadsMvpForPlayback, expandIntroductionForPlayback } from '@/activities/expandInroadsMvp'
-import { findInroadsMvpNode } from '@/activities/inroadsMvpDefinition'
+import { findInroadsMvpNode, readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
+import { provideLessonButtonLabel } from '@/lib/lesson/buttonLabel'
+import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
 import AnticipateExperience from '@/components/anticipate/AnticipateExperience.vue'
 import LessonExperience from '@/components/lesson/LessonExperience.vue'
 import ProcessExperience from '@/components/process/ProcessExperience.vue'
@@ -62,6 +64,21 @@ const activityId = computed(() =>
   typeof route.query.activity === 'string' ? route.query.activity : null,
 )
 const isPreview = computed(() => route.query.preview === '1')
+const lessonButtonLabel = ref('')
+provideLessonButtonLabel(lessonButtonLabel)
+
+async function resolveLessonButtonLabel(activity: ActivityDefinition): Promise<string> {
+  const fromDefinition = (definition: ActivityDefinition | null | undefined) =>
+    definition ? readInroadsMvpDefinition(definition)?.buttonLabel.trim() ?? '' : ''
+  if (isInroadsMvpActivity(activity.metadata.tags)) return fromDefinition(activity)
+  if (!isInroadsMvpChildActivity(activity.metadata.tags)) return ''
+  const match = await findInroadsMvpParent(activity.id)
+  if (!match) return ''
+  const parent = isPreview.value
+    ? await services.persistence.getById(match.parentId)
+    : await services.persistence.getPublished(match.parentId)
+  return fromDefinition(parent)
+}
 
 async function loadActivity(id: string): Promise<void> {
   loading.value = true
@@ -88,6 +105,7 @@ async function loadActivity(id: string): Promise<void> {
       return
     }
     const next = cloneJson(loaded)
+    lessonButtonLabel.value = await resolveLessonButtonLabel(next)
     if (isIntroductionActivity(next.metadata.tags)) {
       const expanded = expandIntroductionForPlayback(next)
       if (!expanded) {

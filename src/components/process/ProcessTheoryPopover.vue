@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
 import questionPassIcon from '@/assets/lesson/question-pass.svg'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import {
@@ -12,6 +13,8 @@ import {
 const props = defineProps<{
   question: ProcessSurveyQuestion
 }>()
+
+const lessonButtonLabel = useLessonButtonLabel()
 
 const emit = defineEmits<{
   answer: [answerIndex: number]
@@ -244,7 +247,7 @@ onBeforeUnmount(() => {
           :class="{ 'is-visible': showRevealContent }"
           @click="continueToNext"
         >
-          Continue
+          {{ lessonButtonLabel }}
         </button>
       </template>
     </div>

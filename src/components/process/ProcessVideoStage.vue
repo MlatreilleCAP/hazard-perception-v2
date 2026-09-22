@@ -6,7 +6,6 @@ const props = defineProps<{
   src: string
   instructionText: string
   instructionPill?: string
-  actionLabel?: string
   compact?: boolean
   holdEnd?: boolean
 }>()
@@ -357,7 +356,6 @@ onBeforeUnmount(() => {
         v-if="showInstruction"
         :text="instructionText.trim()"
         :tag="instructionPill?.trim() || undefined"
-        :action-label="actionLabel"
         @begin="begin"
       />
       <button

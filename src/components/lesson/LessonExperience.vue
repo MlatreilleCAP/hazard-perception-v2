@@ -86,7 +86,7 @@ const resultsModel = computed(() =>
   buildLessonResultsModel(props.definition.metadata.title, sectionResults.value),
 )
 const titlePageTitle = computed(() => props.definition.metadata.title.trim() || 'Activity')
-const titlePageDescription = computed(() => 'Interactive driver coaching activity.')
+const titlePageDescription = computed(() => props.definition.metadata.description.trim())
 const titlePageCover = computed(() => {
   const catalogTitles = activities.summaries
     .filter(

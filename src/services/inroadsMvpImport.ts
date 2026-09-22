@@ -189,7 +189,6 @@ function patchProcess(
       'instruction_pill',
       current.instructionPill,
     ),
-    buttonLabel: importedCopyField(copy, 'button', current.buttonLabel),
     secondInstructionText: importedCopyField(
       copy,
       'second_instruction',
@@ -240,7 +239,6 @@ function patchAnticipate(
       'instruction_pill',
       current.instructionPill,
     ),
-    buttonLabel: importedCopyField(copy, 'button', current.buttonLabel),
     secondInstructionText: importedCopyField(
       copy,
       'second_instruction',
@@ -378,7 +376,6 @@ function patchSee(
     duration: durationSeconds,
     instructionText: importedCopyField(copy, 'instruction', current.instructionText),
     instructionPill: importedCopyField(copy, 'instruction_pill', current.instructionPill),
-    buttonLabel: importedCopyField(copy, 'button', current.buttonLabel),
     introAudio: uploaded['observe-summary-audio']?.media ?? current.introAudio,
     maneuver: xlsManeuver || current.maneuver,
     roadway: xlsRoadway || current.roadway,
@@ -783,6 +780,7 @@ export async function importInroadsMvpPackage(
       payload.lesson.introFirstVisit ?? mvp.introShowOnFirstVisitOnly,
     country: payload.lesson.country.trim() || mvp.country,
     language: payload.lesson.language.trim() || mvp.language,
+    buttonLabel: payload.lesson.button != null ? payload.lesson.button : mvp.buttonLabel,
   })
   if (payload.lesson.title.trim()) {
     nextParent.metadata.title = payload.lesson.title.trim()

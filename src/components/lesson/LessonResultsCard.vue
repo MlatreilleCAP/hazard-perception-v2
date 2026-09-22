@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
 import LessonAccuracyIcon from '@/components/lesson/LessonAccuracyIcon.vue'
 import LessonMetricRing from '@/components/lesson/LessonMetricRing.vue'
 import metricCoachingIdleIcon from '@/assets/lesson/metric-coaching-idle.svg'
@@ -13,6 +14,8 @@ defineProps<{
   passed: boolean
   sections: LessonResultsSection[]
 }>()
+
+const lessonButtonLabel = useLessonButtonLabel()
 
 defineEmits<{
   continue: []
@@ -146,7 +149,7 @@ function metricDelay(sectionIndex: number, metricIndex: number): string {
     </div>
 
     <button type="button" class="process-instruction-begin" @click="$emit('continue')">
-      Continue
+      {{ lessonButtonLabel }}
     </button>
   </div>
 </template>

@@ -5,6 +5,7 @@ import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { catalogCoverAt } from '@/app/catalogCovers'
 import { services } from '@/app/container'
 import { canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
+import { DEFAULT_LESSON_BUTTON_LABEL } from '@/lib/lesson/buttonLabel'
 import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
 import { useActivityStore } from '@/stores/activityStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -16,7 +17,9 @@ const activities = useActivityStore()
 const auth = useAuthStore()
 
 const catalogLoading = ref(false)
-const localeById = ref(new Map<string, { language: string; country: string }>())
+const localeById = ref(
+  new Map<string, { language: string; country: string; button: string; description: string }>(),
+)
 const selectedByGroup = ref<Record<string, string>>({})
 const userSelectedByGroup = ref<Record<string, boolean>>({})
 
@@ -77,11 +80,11 @@ const demoGroups = computed((): DemoLessonGroup[] => {
 })
 
 async function loadLocales(items: ActivitySummary[]): Promise<void> {
-  const next = new Map<string, { language: string; country: string }>()
+  const next = new Map<string, { language: string; country: string; button: string; description: string }>()
   await Promise.all(
     items.map(async (item) => {
       if (!isInroadsMvpActivity(item.tags)) {
-        next.set(item.id, { language: '', country: '' })
+        next.set(item.id, { language: '', country: '', button: '', description: '' })
         return
       }
       try {
@@ -90,13 +93,23 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
         next.set(item.id, {
           language: parsed?.language ?? '',
           country: parsed?.country ?? '',
+          button: parsed?.buttonLabel ?? '',
+          description: definition?.metadata.description.trim() ?? '',
         })
       } catch {
-        next.set(item.id, { language: '', country: '' })
+        next.set(item.id, { language: '', country: '', button: '', description: '' })
       }
     }),
   )
   localeById.value = next
+}
+
+function buttonLabelFor(id: string): string {
+  return localeById.value.get(id)?.button.trim() || DEFAULT_LESSON_BUTTON_LABEL
+}
+
+function descriptionFor(id: string): string {
+  return localeById.value.get(id)?.description.trim() ?? ''
 }
 
 function isEnglishLanguage(language: string): boolean {
@@ -218,7 +231,9 @@ function setSelected(groupKey: string, id: string): void {
               </div>
               <div class="activity-card-copy">
                 <h3>{{ group.title }}</h3>
-                <p>Interactive driver coaching activity.</p>
+                <p v-if="descriptionFor(selectedId(group.key))">
+                  {{ descriptionFor(selectedId(group.key)) }}
+                </p>
               </div>
               <label
                 v-if="group.versions.length > 1"
@@ -241,7 +256,7 @@ function setSelected(groupKey: string, id: string): void {
                   :to="startTo(selectedId(group.key))"
                   class="demo-primary-button"
                 >
-                  Continue
+                  {{ buttonLabelFor(selectedId(group.key)) }}
                 </RouterLink>
               </div>
             </div>

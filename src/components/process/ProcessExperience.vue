@@ -264,7 +264,6 @@ async function afterVideo1Questions(): Promise<void> {
         :src="src"
         :instruction-text="instructionText"
         :instruction-pill="instructionPill"
-        :action-label="process.buttonLabel"
         :hold-end="phase !== 'playing'"
         @ready="onStageReady"
         @ended="onVideoEnded"

@@ -9,7 +9,6 @@ const props = withDefaults(
     src: string
     instructionText?: string
     instructionPill?: string
-    actionLabel?: string
     introAudioSrc?: string | null
     summary?: HazardClipSummary | null
     /** Keep the last frame visible (e.g. while questions show over the clip). */
@@ -323,7 +322,6 @@ onBeforeUnmount(() => {
       <ProcessInstructionCard
         :text="trimmedInstruction"
         :tag="instructionPill.trim() || DEFAULT_SEE_INSTRUCTION_PILL"
-        :action-label="actionLabel"
         @begin="begin"
       />
     </div>

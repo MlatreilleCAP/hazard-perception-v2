@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
+
 defineProps<{
   title: string
   description: string
@@ -8,6 +10,8 @@ defineProps<{
 defineEmits<{
   start: []
 }>()
+
+const lessonButtonLabel = useLessonButtonLabel()
 </script>
 
 <template>
@@ -23,11 +27,11 @@ defineEmits<{
         </div>
         <div class="activity-card-copy">
           <h3>{{ title }}</h3>
-          <p>{{ description }}</p>
+          <p v-if="description.trim()">{{ description }}</p>
         </div>
         <div class="activity-card-action">
           <button type="button" class="demo-primary-button" @click="$emit('start')">
-            Continue
+            {{ lessonButtonLabel }}
           </button>
         </div>
       </div>

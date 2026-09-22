@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
 
 const props = defineProps<{
   variant: 'success' | 'missed'
@@ -9,6 +10,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   continue: []
 }>()
+
+const lessonButtonLabel = useLessonButtonLabel()
 
 const message = computed(() => {
   if (props.variant === 'success') {
@@ -35,7 +38,7 @@ const iconSrc = computed(
     <img :src="iconSrc" alt="" width="70" height="70" aria-hidden="true" />
     <p>{{ message }}</p>
     <button type="button" class="process-instruction-begin" @click="emit('continue')">
-      Continue
+      {{ lessonButtonLabel }}
     </button>
   </div>
 </template>

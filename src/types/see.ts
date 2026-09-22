@@ -195,8 +195,6 @@ export interface SeeDefinition {
   instructionText: string
   /** Pill label on the scenario instruction card. Empty uses "Observe". */
   instructionPill: string
-  /** Label on the scenario and coaching Continue buttons. Empty uses "Continue". */
-  buttonLabel: string
   /** Plays after the instruction card and before the scenario video. */
   introAudio: MediaRef | null
   maneuver: string
@@ -432,7 +430,6 @@ export function createDefaultSeeDefinition(): SeeDefinition {
     media: null,
     instructionText: DEFAULT_SEE_INSTRUCTION,
     instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
-    buttonLabel: '',
     introAudio: null,
     maneuver: '',
     roadway: '',
@@ -548,7 +545,6 @@ export function normalizeSeeDefinition(definition: SeeDefinition): SeeDefinition
       typeof definition.instructionPill === 'string'
         ? definition.instructionPill
         : DEFAULT_SEE_INSTRUCTION_PILL,
-    buttonLabel: typeof definition.buttonLabel === 'string' ? definition.buttonLabel : '',
     introAudio: readMediaRef(definition.introAudio) ?? readMediaRef(first?.introAudio),
     ...summary,
     hazards: hazards.sort((a, b) => a.startTime - b.startTime),

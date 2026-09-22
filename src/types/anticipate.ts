@@ -31,8 +31,6 @@ export interface AnticipateDefinition {
   instructionText: string
   /** Pill label on the Video 1 instruction card. Empty uses "Anticipate". */
   instructionPill: string
-  /** Label on the lesson and coaching Continue buttons. Empty uses "Continue". */
-  buttonLabel: string
   /** Shown once over the paused first frame of Video 2. Empty skips the overlay. */
   secondInstructionText: string
   /** Pill label on the Video 2 instruction card. Empty uses "Anticipate". */
@@ -56,7 +54,6 @@ export function createDefaultAnticipateDefinition(): AnticipateDefinition {
     version: 1,
     instructionText: DEFAULT_ANTICIPATE_INSTRUCTION,
     instructionPill: DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
-    buttonLabel: '',
     secondInstructionText: '',
     secondInstructionPill: DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
     segments: [createEmptyAnticipateSegment()],
@@ -108,7 +105,6 @@ export function normalizeAnticipateDefinition(
       typeof definition.instructionPill === 'string'
         ? definition.instructionPill
         : DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
-    buttonLabel: typeof definition.buttonLabel === 'string' ? definition.buttonLabel : '',
     secondInstructionText:
       typeof definition.secondInstructionText === 'string'
         ? definition.secondInstructionText
@@ -131,7 +127,6 @@ export function buildPersistableAnticipateDefinition(
   const instructionText = definition.instructionText ?? ''
   const instructionPill =
     definition.instructionPill ?? DEFAULT_ANTICIPATE_INSTRUCTION_PILL
-  const buttonLabel = definition.buttonLabel ?? ''
   const secondInstructionText = definition.secondInstructionText ?? ''
   const secondInstructionPill =
     definition.secondInstructionPill ?? DEFAULT_ANTICIPATE_INSTRUCTION_PILL
@@ -142,7 +137,6 @@ export function buildPersistableAnticipateDefinition(
       version: 1,
       instructionText,
       instructionPill,
-      buttonLabel,
       secondInstructionText: '',
       secondInstructionPill: DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
       segments: [segment1],
@@ -157,7 +151,6 @@ export function buildPersistableAnticipateDefinition(
       version: 1,
       instructionText,
       instructionPill,
-      buttonLabel,
       secondInstructionText,
       secondInstructionPill,
       segments: [segment1, segment2],
@@ -171,7 +164,6 @@ export function buildPersistableAnticipateDefinition(
     version: 1,
     instructionText,
     instructionPill,
-    buttonLabel,
     secondInstructionText,
     secondInstructionPill,
     segments: [segment1, segment2, { ...segment3, questions: emptyQuestionBank() }],

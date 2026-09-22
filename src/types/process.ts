@@ -31,8 +31,6 @@ export interface ProcessDefinition {
   instructionText: string
   /** Pill label on the Video 1 instruction card. Empty uses "Process". */
   instructionPill: string
-  /** Label on the lesson and coaching Continue buttons. Empty uses "Continue". */
-  buttonLabel: string
   /** Shown once over the paused first frame of Video 2. Empty skips the overlay. */
   secondInstructionText: string
   /** Pill label on the Video 2 instruction card. Empty uses "Process". */
@@ -56,7 +54,6 @@ export function createDefaultProcessDefinition(): ProcessDefinition {
     version: 1,
     instructionText: DEFAULT_PROCESS_INSTRUCTION,
     instructionPill: DEFAULT_PROCESS_INSTRUCTION_PILL,
-    buttonLabel: '',
     secondInstructionText: '',
     secondInstructionPill: DEFAULT_PROCESS_INSTRUCTION_PILL,
     segments: [createEmptyProcessSegment()],
@@ -106,7 +103,6 @@ export function normalizeProcessDefinition(
       typeof definition.instructionPill === 'string'
         ? definition.instructionPill
         : DEFAULT_PROCESS_INSTRUCTION_PILL,
-    buttonLabel: typeof definition.buttonLabel === 'string' ? definition.buttonLabel : '',
     secondInstructionText:
       typeof definition.secondInstructionText === 'string'
         ? definition.secondInstructionText
@@ -128,7 +124,6 @@ export function buildPersistableProcessDefinition(
 ): ProcessDefinition {
   const instructionText = definition.instructionText ?? ''
   const instructionPill = definition.instructionPill ?? DEFAULT_PROCESS_INSTRUCTION_PILL
-  const buttonLabel = definition.buttonLabel ?? ''
   const secondInstructionText = definition.secondInstructionText ?? ''
   const secondInstructionPill = definition.secondInstructionPill ?? DEFAULT_PROCESS_INSTRUCTION_PILL
   const segment1 = normalizeProcessSegment(definition.segments[0])
@@ -138,7 +133,6 @@ export function buildPersistableProcessDefinition(
       version: 1,
       instructionText,
       instructionPill,
-      buttonLabel,
       secondInstructionText: '',
       secondInstructionPill: DEFAULT_PROCESS_INSTRUCTION_PILL,
       segments: [segment1],
@@ -153,7 +147,6 @@ export function buildPersistableProcessDefinition(
       version: 1,
       instructionText,
       instructionPill,
-      buttonLabel,
       secondInstructionText,
       secondInstructionPill,
       segments: [segment1, segment2],
@@ -167,7 +160,6 @@ export function buildPersistableProcessDefinition(
     version: 1,
     instructionText,
     instructionPill,
-    buttonLabel,
     secondInstructionText,
     secondInstructionPill,
     segments: [segment1, segment2, { ...segment3, questions: emptyQuestionBank() }],

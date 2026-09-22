@@ -88,7 +88,7 @@ export const COPY_SHEET_ALIASES = [
   'Instruction',
 ] as const
 
-export const LESSON_KEYS = ['title', 'description', 'intro_first_visit', 'country', 'language'] as const
+export const LESSON_KEYS = ['title', 'description', 'intro_first_visit', 'country', 'language', 'button'] as const
 
 export const LESSON_COUNTRY_OPTIONS = [
   'Canada',
@@ -143,7 +143,6 @@ export type CopySection = (typeof COPY_SECTIONS)[number]
 export const COPY_FIELDS = [
   'instruction',
   'instruction_pill',
-  'button',
   'maneuver',
   'roadway',
   'traffic_density',
@@ -354,16 +353,16 @@ Lesson: column A = key, column B = value
   intro_first_visit     true or false (hidden)
   country
   language
+  button                label on every Continue / Start button in the lesson
 
 Copy: header row, then section | field | text
   (sheet name Instructions, Copy, or Instruction)
   section: observe | process | anticipate
-  field: instruction | instruction_pill | button | second_instruction |
+  field: instruction | instruction_pill | second_instruction |
          second_instruction_pill | second_score_threshold |
          maneuver | roadway | traffic_density | time_of_day | road_conditions |
          hazard_explanation | success_result | fail_screen | 2_attempts |
          3_attempts | time_out | missed_1_attempt | missed_2_attempts
-  button = label on every Continue button in that section (scenario and coaching)
   Observe instruction / instruction_pill = scenario overlay on the hazard clip
   Observe second_instruction / second_instruction_pill = coaching clip overlay
   Observe maneuver / roadway / traffic_density / time_of_day / road_conditions

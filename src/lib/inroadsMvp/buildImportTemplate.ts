@@ -25,10 +25,10 @@ export type ImportWorkbookContent = {
   introFirstVisit: boolean
   country: string
   language: string
+  buttonLabel: string
   observe: {
     instruction: string
     instructionPill: string
-    buttonLabel: string
     maneuver: string
     roadway: string
     trafficDensity: string
@@ -50,7 +50,6 @@ export type ImportWorkbookContent = {
   process: {
     instruction: string
     instructionPill: string
-    buttonLabel: string
     secondInstruction: string
     secondInstructionPill: string
     secondScoreThreshold: string
@@ -58,7 +57,6 @@ export type ImportWorkbookContent = {
   anticipate: {
     instruction: string
     instructionPill: string
-    buttonLabel: string
     secondInstruction: string
     secondInstructionPill: string
     secondScoreThreshold: string
@@ -75,7 +73,6 @@ function copyRows(content: ImportWorkbookContent): string[][] {
     ['section', 'field', 'text'],
     ['observe', 'instruction', content.observe.instruction],
     ['observe', 'instruction_pill', content.observe.instructionPill],
-    ['observe', 'button', content.observe.buttonLabel],
     ['observe', 'second_instruction', content.observe.secondInstruction],
     ['observe', 'maneuver', content.observe.maneuver],
     ['observe', 'roadway', content.observe.roadway],
@@ -95,13 +92,11 @@ function copyRows(content: ImportWorkbookContent): string[][] {
     ['observe', 'second_instruction_pill', content.observe.secondInstructionPill],
     ['process', 'instruction', content.process.instruction],
     ['process', 'instruction_pill', content.process.instructionPill],
-    ['process', 'button', content.process.buttonLabel],
     ['process', 'second_instruction', content.process.secondInstruction],
     ['process', 'second_instruction_pill', content.process.secondInstructionPill],
     ['process', 'second_score_threshold', content.process.secondScoreThreshold],
     ['anticipate', 'instruction', content.anticipate.instruction],
     ['anticipate', 'instruction_pill', content.anticipate.instructionPill],
-    ['anticipate', 'button', content.anticipate.buttonLabel],
     ['anticipate', 'second_instruction', content.anticipate.secondInstruction],
     ['anticipate', 'second_instruction_pill', content.anticipate.secondInstructionPill],
     ['anticipate', 'second_score_threshold', content.anticipate.secondScoreThreshold],
@@ -297,11 +292,11 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     introFirstVisit: false,
     country: 'Canada',
     language: 'English',
+    buttonLabel: 'Continue',
     observe: {
       instruction:
         "You're about to watch a short driving video. \n\nThe primary hazard could be in front, behind, or to either side. Drag the screen side-to-side to scan the road and mirrors, then tap or click it as soon as you spot it. \n\nYou'll have a few seconds and three attempts. No replay, so watch closely.",
       instructionPill: 'Observe Challenge',
-      buttonLabel: 'Continue',
       maneuver: 'Travelling Straight',
       roadway: 'Divided Highway',
       trafficDensity: 'Moderate',
@@ -324,7 +319,6 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
       instruction:
         "You're about to watch a short driving video one time with no replay or side-to-side scanning options. \n\nAssess what's happening, what's changing, and why it matters in the scenario. \n\nRight after, you'll answer three quick questions about what you saw. You'll get feedback after each question.",
       instructionPill: 'Process',
-      buttonLabel: 'Continue',
       secondInstruction: "Let's look at a couple of points that can strengthen your Process skills. ",
       secondInstructionPill: 'Process Coaching',
       secondScoreThreshold: '100',
@@ -333,7 +327,6 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
       instruction:
         "You are going to watch another video clip. There is no side-to-side scanning option. \n\nAt some point, it'll freeze. That's your moment to anticipate what happens next. \n\nAfter the freeze, you need to answer three quick questions. After each question, you'll see if you got it right, and why.",
       instructionPill: 'Anticipate',
-      buttonLabel: 'Continue',
       secondInstruction:
         'Additional coaching is required, based on your performance ins the anticipate challenge.',
       secondInstructionPill: 'Additional Anticipate Coaching',
@@ -472,6 +465,7 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
   lesson.addRow(['intro_first_visit', content.introFirstVisit ? 'true' : 'false'])
   lesson.addRow(['country', content.country])
   lesson.addRow(['language', content.language])
+  lesson.addRow(['button', content.buttonLabel])
   lesson.getRow(1).font = { bold: true }
   lesson.getColumn(1).width = 22
   lesson.getColumn(2).width = 48
