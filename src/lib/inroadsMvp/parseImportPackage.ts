@@ -55,6 +55,10 @@ export type ImportedLessonFields = {
   button: string | null
   /** Null when the Lesson sheet has no submit row. */
   submit: string | null
+  /** Null when the Lesson sheet has no challenge_passed row. */
+  challengePassed: string | null
+  /** Null when the Lesson sheet has no challenge_failed row. */
+  challengeFailed: string | null
 }
 
 export type ImportedCopy = Partial<
@@ -255,6 +259,8 @@ function parseLessonSheet(
       language: '',
       button: null,
       submit: null,
+      challengePassed: null,
+      challengeFailed: null,
     }
   }
 
@@ -266,6 +272,8 @@ function parseLessonSheet(
     language: '',
     button: null,
     submit: null,
+    challengePassed: null,
+    challengeFailed: null,
   }
   const known = new Set<string>(LESSON_KEYS)
 
@@ -283,6 +291,8 @@ function parseLessonSheet(
     else if (key === 'language') lesson.language = canonicalizeLessonLanguage(value)
     else if (key === 'button') lesson.button = value
     else if (key === 'submit') lesson.submit = value
+    else if (key === 'challenge_passed') lesson.challengePassed = value
+    else if (key === 'challenge_failed') lesson.challengeFailed = value
     else if (key === 'intro_first_visit') {
       const parsed = parseBoolean(value)
       if (value && parsed == null) {

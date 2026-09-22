@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
+import {
+  useLessonButtonLabel,
+  useLessonChallengeFailedLabel,
+  useLessonChallengePassedLabel,
+} from '@/lib/lesson/buttonLabel'
 import LessonAccuracyIcon from '@/components/lesson/LessonAccuracyIcon.vue'
 import LessonMetricRing from '@/components/lesson/LessonMetricRing.vue'
 import metricCoachingIdleIcon from '@/assets/lesson/metric-coaching-idle.svg'
@@ -16,6 +20,8 @@ defineProps<{
 }>()
 
 const lessonButtonLabel = useLessonButtonLabel()
+const challengePassedLabel = useLessonChallengePassedLabel()
+const challengeFailedLabel = useLessonChallengeFailedLabel()
 
 defineEmits<{
   continue: []
@@ -66,7 +72,7 @@ function metricDelay(sectionIndex: number, metricIndex: number): string {
     aria-label="Challenge results"
   >
     <p class="process-results-announcement is-emphasis">
-      {{ passed ? 'Challenge Complete' : 'Challenge Failed' }}
+      {{ passed ? challengePassedLabel : challengeFailedLabel }}
     </p>
 
     <div class="lesson-results-card">

@@ -782,6 +782,14 @@ export async function importInroadsMvpPackage(
     language: payload.lesson.language.trim() || mvp.language,
     buttonLabel: payload.lesson.button != null ? payload.lesson.button : mvp.buttonLabel,
     submitLabel: payload.lesson.submit != null ? payload.lesson.submit : mvp.submitLabel,
+    challengePassedLabel:
+      payload.lesson.challengePassed != null
+        ? payload.lesson.challengePassed
+        : mvp.challengePassedLabel,
+    challengeFailedLabel:
+      payload.lesson.challengeFailed != null
+        ? payload.lesson.challengeFailed
+        : mvp.challengeFailedLabel,
   })
   if (payload.lesson.title.trim()) {
     nextParent.metadata.title = payload.lesson.title.trim()

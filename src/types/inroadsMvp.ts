@@ -22,6 +22,10 @@ export type InroadsMvpDefinition = {
   buttonLabel: string
   /** Label for every severity-question Submit button in this lesson. */
   submitLabel: string
+  /** Final results heading when the lesson is passed. */
+  challengePassedLabel: string
+  /** Final results heading when the lesson is failed. */
+  challengeFailedLabel: string
   /** Section 2 — Observe activity id. */
   seeActivityId: string
   /** Section 3 — Process activity id. */
@@ -52,6 +56,8 @@ export function createDefaultInroadsMvpDefinition(
     language: 'English',
     buttonLabel: '',
     submitLabel: '',
+    challengePassedLabel: '',
+    challengeFailedLabel: '',
     seeActivityId,
     processActivityId,
     anticipateActivityId,
@@ -72,6 +78,8 @@ export function cloneInroadsMvpDefinition(
     language: canonicalizeLessonLanguage(definition.language),
     buttonLabel: definition.buttonLabel.trim(),
     submitLabel: definition.submitLabel.trim(),
+    challengePassedLabel: definition.challengePassedLabel.trim(),
+    challengeFailedLabel: definition.challengeFailedLabel.trim(),
     seeActivityId: definition.seeActivityId,
     processActivityId: definition.processActivityId,
     anticipateActivityId: definition.anticipateActivityId,
@@ -113,6 +121,10 @@ export function normalizeInroadsMvpDefinition(
     ),
     buttonLabel: typeof raw.buttonLabel === 'string' ? raw.buttonLabel.trim() : '',
     submitLabel: typeof raw.submitLabel === 'string' ? raw.submitLabel.trim() : '',
+    challengePassedLabel:
+      typeof raw.challengePassedLabel === 'string' ? raw.challengePassedLabel.trim() : '',
+    challengeFailedLabel:
+      typeof raw.challengeFailedLabel === 'string' ? raw.challengeFailedLabel.trim() : '',
     seeActivityId,
     processActivityId,
     anticipateActivityId,

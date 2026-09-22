@@ -5,7 +5,11 @@ import { cloneJson } from '@/app/clone'
 import { services } from '@/app/container'
 import { expandInroadsMvpForPlayback, expandIntroductionForPlayback } from '@/activities/expandInroadsMvp'
 import { findInroadsMvpNode, readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
-import { provideLessonButtonLabel, provideLessonSubmitLabel } from '@/lib/lesson/buttonLabel'
+import {
+  provideLessonButtonLabel,
+  provideLessonChallengeLabels,
+  provideLessonSubmitLabel,
+} from '@/lib/lesson/buttonLabel'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
 import AnticipateExperience from '@/components/anticipate/AnticipateExperience.vue'
 import LessonExperience from '@/components/lesson/LessonExperience.vue'
@@ -67,26 +71,40 @@ const isPreview = computed(() => route.query.preview === '1')
 const lessonButtonLabel = ref('')
 const lessonSubmitLabel = ref('')
 const lessonCountry = ref('')
+const lessonChallengePassedLabel = ref('')
+const lessonChallengeFailedLabel = ref('')
 provideLessonButtonLabel(lessonButtonLabel)
 provideLessonSubmitLabel(lessonSubmitLabel)
+provideLessonChallengeLabels(lessonChallengePassedLabel, lessonChallengeFailedLabel)
 
-async function resolveLessonLabels(
-  activity: ActivityDefinition,
-): Promise<{ button: string; submit: string; country: string }> {
+async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
+  button: string
+  submit: string
+  country: string
+  challengePassed: string
+  challengeFailed: string
+}> {
   const fromDefinition = (definition: ActivityDefinition | null | undefined) => {
     const mvp = definition ? readInroadsMvpDefinition(definition) : null
     return {
       button: mvp?.buttonLabel.trim() ?? '',
       submit: mvp?.submitLabel.trim() ?? '',
       country: mvp?.country.trim() ?? '',
+      challengePassed: mvp?.challengePassedLabel.trim() ?? '',
+      challengeFailed: mvp?.challengeFailedLabel.trim() ?? '',
     }
   }
-  if (isInroadsMvpActivity(activity.metadata.tags)) return fromDefinition(activity)
-  if (!isInroadsMvpChildActivity(activity.metadata.tags)) {
-    return { button: '', submit: '', country: '' }
+  const empty = {
+    button: '',
+    submit: '',
+    country: '',
+    challengePassed: '',
+    challengeFailed: '',
   }
+  if (isInroadsMvpActivity(activity.metadata.tags)) return fromDefinition(activity)
+  if (!isInroadsMvpChildActivity(activity.metadata.tags)) return empty
   const match = await findInroadsMvpParent(activity.id)
-  if (!match) return { button: '', submit: '', country: '' }
+  if (!match) return empty
   const parent = isPreview.value
     ? await services.persistence.getById(match.parentId)
     : await services.persistence.getPublished(match.parentId)
@@ -122,6 +140,8 @@ async function loadActivity(id: string): Promise<void> {
     lessonButtonLabel.value = labels.button
     lessonSubmitLabel.value = labels.submit
     lessonCountry.value = labels.country
+    lessonChallengePassedLabel.value = labels.challengePassed
+    lessonChallengeFailedLabel.value = labels.challengeFailed
     if (isIntroductionActivity(next.metadata.tags)) {
       const expanded = expandIntroductionForPlayback(next)
       if (!expanded) {
