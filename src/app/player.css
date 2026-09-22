@@ -9,13 +9,10 @@
   --iphone-17-pro-width: 492px;
   --iphone-17-pro-height: 874px;
   --iphone-17-pro-radius: 20px;
-  --player-max-width: 1080px;
-  --player-max-height: 1920px;
   /* Use svh so browser chrome / short desktop windows still fit the phone. */
   --phone-fit-pad: 32px;
   --phone-fit: min(
-    var(--player-max-width) / var(--iphone-17-pro-width),
-    var(--player-max-height) / var(--iphone-17-pro-height),
+    1,
     (100svw - var(--phone-fit-pad)) / var(--iphone-17-pro-width),
     (100svh - var(--phone-fit-pad)) / var(--iphone-17-pro-height)
   );
@@ -63,8 +60,8 @@ body:has(.player-page) {
 .player-phone-slot {
   width: calc(var(--iphone-17-pro-width) * var(--phone-fit));
   height: calc(var(--iphone-17-pro-height) * var(--phone-fit));
-  max-width: min(100%, var(--player-max-width));
-  max-height: min(100%, var(--player-max-height));
+  max-width: 100%;
+  max-height: 100%;
   flex-shrink: 0;
 }
 
@@ -82,23 +79,15 @@ body:has(.player-page) {
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.08),
     0 24px 80px rgba(28, 28, 30, 0.28);
-  /* zoom (not transform: scale) so Chromium on Windows can paint <video>. */
-  zoom: var(--phone-fit);
-}
-
-@supports not (zoom: 1) {
-  .player-phone {
-    zoom: unset;
-    transform: scale(var(--phone-fit));
-    transform-origin: top left;
-  }
+  transform: scale(var(--phone-fit));
+  transform-origin: top left;
 }
 
 .player-phone.is-waiting {
   background: #fff;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (hover: none) and (pointer: coarse) and (max-width: 1024px) {
   html:has(.player-page),
   body:has(.player-page),
   #app:has(.player-page) {
@@ -130,7 +119,6 @@ body:has(.player-page) {
     max-height: none;
     border-radius: 0;
     transform: none;
-    zoom: 1;
     box-shadow: none;
   }
 }
@@ -989,7 +977,7 @@ body:has(.player-page) {
   background: #fff;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (hover: none) and (pointer: coarse) and (max-width: 1024px) {
   .process-results-page {
     padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
       max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
@@ -1599,10 +1587,13 @@ body:has(.player-page) {
   top: 0;
   left: 0;
   overflow: hidden;
+  opacity: 0;
   pointer-events: none;
+  will-change: transform;
 }
 
 .see-video-plane.is-layout-ready {
+  opacity: 1;
   pointer-events: auto;
 }
 
@@ -1621,9 +1612,6 @@ body:has(.player-page) {
   object-fit: fill;
   background: #000;
   pointer-events: none;
-  /* Keep the media layer out of opacity/transform groups so Surface Chrome paints it. */
-  opacity: 1;
-  transform: none;
 }
 
 .see-click-marker {
