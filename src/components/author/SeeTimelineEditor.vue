@@ -147,16 +147,48 @@ watch(
   },
 )
 
+let pendingSeek: number | null = null
+
+function clampSeek(time: number): number {
+  return Math.min(Math.max(0, time), Math.max(0, duration.value))
+}
+
 function syncTime(): void {
-  currentTime.value = videoRef.value?.currentTime ?? 0
+  const video = videoRef.value
+  if (!video || video.seeking || pendingSeek != null) return
+  currentTime.value = video.currentTime
+}
+
+function flushSeek(): void {
+  const video = videoRef.value
+  if (!video || pendingSeek == null) return
+  const next = pendingSeek
+  pendingSeek = null
+  if (Math.abs(video.currentTime - next) < 0.0005) return
+  try {
+    video.currentTime = next
+  } catch {
+    /* ignore seek errors before the video can decode */
+  }
 }
 
 function seek(time: number): void {
   const video = videoRef.value
   if (!video) return
-  const clamped = Math.min(duration.value, Math.max(0, time))
-  video.currentTime = clamped
-  syncTime()
+  const clamped = clampSeek(time)
+  currentTime.value = clamped
+  pendingSeek = clamped
+  if (!video.paused) {
+    video.pause()
+    isPlaying.value = false
+  }
+  if (!video.seeking) flushSeek()
+}
+
+function onSeeked(): void {
+  flushSeek()
+  if (pendingSeek != null) return
+  currentTime.value = videoRef.value?.currentTime ?? currentTime.value
 }
 
 async function play(): Promise<void> {
@@ -397,7 +429,7 @@ watch(previewUrl, () => {
         class="see-video"
         :class="{ 'is-fill': videoAspect != null }"
         @timeupdate="syncTime"
-        @seeked="syncTime"
+        @seeked="onSeeked"
         @loadedmetadata="onLoadedMetadata"
         @play="isPlaying = true"
         @pause="isPlaying = false"

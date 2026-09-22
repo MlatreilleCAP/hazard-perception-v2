@@ -1568,6 +1568,7 @@ fieldset.author-stack {
   min-height: 56px;
   padding: 6px 0 6px 0;
   cursor: pointer;
+  touch-action: none;
   border-radius: 6px;
   background: #f5f5f5;
 }

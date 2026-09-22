@@ -238,12 +238,24 @@ onBeforeUnmount(() => {
   sizeDragCleanup?.()
 })
 
-function handleTrackClick(event: MouseEvent) {
-  const target = event.target as HTMLElement
-  if (target.closest('[data-hazard]') || target.dataset.sizeHandle) return
-  if (target.dataset.sizeCurve) return
-  emit('seek', timeFromClientX(event.clientX))
+function isTrackScrubTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.closest('[data-hazard]') || target.dataset.sizeHandle) return false
+  return !target.dataset.sizeCurve
+}
+
+function handleTrackPointerDown(event: PointerEvent) {
+  if (event.button !== 0 || !isTrackScrubTarget(event.target)) return
+  event.preventDefault()
   selectedKeyframeIndex.value = null
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+  emit('seek', timeFromClientX(event.clientX))
+}
+
+function handleTrackPointerMove(event: PointerEvent) {
+  const el = event.currentTarget as HTMLElement
+  if (!el.hasPointerCapture(event.pointerId)) return
+  emit('seek', timeFromClientX(event.clientX))
 }
 
 function handleSizeCurveClick(event: MouseEvent) {
@@ -503,7 +515,8 @@ function stepFrame(direction: -1 | 1) {
       :aria-valuemin="0"
       :aria-valuemax="duration"
       :aria-valuenow="currentTime"
-      @click="handleTrackClick"
+      @pointerdown="handleTrackPointerDown"
+      @pointermove="handleTrackPointerMove"
     >
       <div
         v-for="clip in clips"
