@@ -98,6 +98,11 @@ export const LESSON_KEYS = [
   'submit',
   'challenge_passed',
   'challenge_failed',
+  'maneuver',
+  'roadway',
+  'traffic_density',
+  'time_of_day',
+  'road_conditions',
 ] as const
 
 export const LESSON_COUNTRY_OPTIONS = [
@@ -367,6 +372,11 @@ Lesson: column A = key, column B = value
   submit                label on every severity-question Submit button in the lesson
   challenge_passed      final results heading when the lesson is passed
   challenge_failed      final results heading when the lesson is failed
+  Maneuver              clip-intro heading; column B is the label shown to the learner
+  Roadway               clip-intro heading; column B is the label shown to the learner
+  Traffic Density       clip-intro heading; column B is the label shown to the learner
+  Time of Day           clip-intro heading; column B is the label shown to the learner
+  Road Conditions       clip-intro heading; column B is the label shown to the learner
 
 Copy: header row, then section | field | text
   (sheet name Instructions, Copy, or Instruction)

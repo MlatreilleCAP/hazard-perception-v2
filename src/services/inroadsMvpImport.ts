@@ -790,6 +790,20 @@ export async function importInroadsMvpPackage(
       payload.lesson.challengeFailed != null
         ? payload.lesson.challengeFailed
         : mvp.challengeFailedLabel,
+    maneuverLabel:
+      payload.lesson.maneuverHeading != null ? payload.lesson.maneuverHeading : mvp.maneuverLabel,
+    roadwayLabel:
+      payload.lesson.roadwayHeading != null ? payload.lesson.roadwayHeading : mvp.roadwayLabel,
+    trafficDensityLabel:
+      payload.lesson.trafficDensityHeading != null
+        ? payload.lesson.trafficDensityHeading
+        : mvp.trafficDensityLabel,
+    timeOfDayLabel:
+      payload.lesson.timeOfDayHeading != null ? payload.lesson.timeOfDayHeading : mvp.timeOfDayLabel,
+    roadConditionsLabel:
+      payload.lesson.roadConditionsHeading != null
+        ? payload.lesson.roadConditionsHeading
+        : mvp.roadConditionsLabel,
   })
   if (payload.lesson.title.trim()) {
     nextParent.metadata.title = payload.lesson.title.trim()

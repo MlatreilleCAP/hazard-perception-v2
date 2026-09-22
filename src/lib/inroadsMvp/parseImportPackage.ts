@@ -59,6 +59,16 @@ export type ImportedLessonFields = {
   challengePassed: string | null
   /** Null when the Lesson sheet has no challenge_failed row. */
   challengeFailed: string | null
+  /** Null when the Lesson sheet has no Maneuver heading row. */
+  maneuverHeading: string | null
+  /** Null when the Lesson sheet has no Roadway heading row. */
+  roadwayHeading: string | null
+  /** Null when the Lesson sheet has no Traffic Density heading row. */
+  trafficDensityHeading: string | null
+  /** Null when the Lesson sheet has no Time of Day heading row. */
+  timeOfDayHeading: string | null
+  /** Null when the Lesson sheet has no Road Conditions heading row. */
+  roadConditionsHeading: string | null
 }
 
 export type ImportedCopy = Partial<
@@ -261,6 +271,11 @@ function parseLessonSheet(
       submit: null,
       challengePassed: null,
       challengeFailed: null,
+      maneuverHeading: null,
+      roadwayHeading: null,
+      trafficDensityHeading: null,
+      timeOfDayHeading: null,
+      roadConditionsHeading: null,
     }
   }
 
@@ -274,6 +289,11 @@ function parseLessonSheet(
     submit: null,
     challengePassed: null,
     challengeFailed: null,
+    maneuverHeading: null,
+    roadwayHeading: null,
+    trafficDensityHeading: null,
+    timeOfDayHeading: null,
+    roadConditionsHeading: null,
   }
   const known = new Set<string>(LESSON_KEYS)
 
@@ -293,6 +313,11 @@ function parseLessonSheet(
     else if (key === 'submit') lesson.submit = value
     else if (key === 'challenge_passed') lesson.challengePassed = value
     else if (key === 'challenge_failed') lesson.challengeFailed = value
+    else if (key === 'maneuver') lesson.maneuverHeading = value
+    else if (key === 'roadway') lesson.roadwayHeading = value
+    else if (key === 'traffic_density') lesson.trafficDensityHeading = value
+    else if (key === 'time_of_day') lesson.timeOfDayHeading = value
+    else if (key === 'road_conditions') lesson.roadConditionsHeading = value
     else if (key === 'intro_first_visit') {
       const parsed = parseBoolean(value)
       if (value && parsed == null) {

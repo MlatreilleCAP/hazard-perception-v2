@@ -26,6 +26,16 @@ export type InroadsMvpDefinition = {
   challengePassedLabel: string
   /** Final results heading when the lesson is failed. */
   challengeFailedLabel: string
+  /** Observe clip-intro heading for the maneuver row. */
+  maneuverLabel: string
+  /** Observe clip-intro heading for the roadway row. */
+  roadwayLabel: string
+  /** Observe clip-intro heading for the traffic density row. */
+  trafficDensityLabel: string
+  /** Observe clip-intro heading for the time of day row. */
+  timeOfDayLabel: string
+  /** Observe clip-intro heading for the road conditions row. */
+  roadConditionsLabel: string
   /** Section 2 — Observe activity id. */
   seeActivityId: string
   /** Section 3 — Process activity id. */
@@ -58,6 +68,11 @@ export function createDefaultInroadsMvpDefinition(
     submitLabel: '',
     challengePassedLabel: '',
     challengeFailedLabel: '',
+    maneuverLabel: '',
+    roadwayLabel: '',
+    trafficDensityLabel: '',
+    timeOfDayLabel: '',
+    roadConditionsLabel: '',
     seeActivityId,
     processActivityId,
     anticipateActivityId,
@@ -80,6 +95,11 @@ export function cloneInroadsMvpDefinition(
     submitLabel: definition.submitLabel.trim(),
     challengePassedLabel: definition.challengePassedLabel.trim(),
     challengeFailedLabel: definition.challengeFailedLabel.trim(),
+    maneuverLabel: definition.maneuverLabel.trim(),
+    roadwayLabel: definition.roadwayLabel.trim(),
+    trafficDensityLabel: definition.trafficDensityLabel.trim(),
+    timeOfDayLabel: definition.timeOfDayLabel.trim(),
+    roadConditionsLabel: definition.roadConditionsLabel.trim(),
     seeActivityId: definition.seeActivityId,
     processActivityId: definition.processActivityId,
     anticipateActivityId: definition.anticipateActivityId,
@@ -125,6 +145,13 @@ export function normalizeInroadsMvpDefinition(
       typeof raw.challengePassedLabel === 'string' ? raw.challengePassedLabel.trim() : '',
     challengeFailedLabel:
       typeof raw.challengeFailedLabel === 'string' ? raw.challengeFailedLabel.trim() : '',
+    maneuverLabel: typeof raw.maneuverLabel === 'string' ? raw.maneuverLabel.trim() : '',
+    roadwayLabel: typeof raw.roadwayLabel === 'string' ? raw.roadwayLabel.trim() : '',
+    trafficDensityLabel:
+      typeof raw.trafficDensityLabel === 'string' ? raw.trafficDensityLabel.trim() : '',
+    timeOfDayLabel: typeof raw.timeOfDayLabel === 'string' ? raw.timeOfDayLabel.trim() : '',
+    roadConditionsLabel:
+      typeof raw.roadConditionsLabel === 'string' ? raw.roadConditionsLabel.trim() : '',
     seeActivityId,
     processActivityId,
     anticipateActivityId,

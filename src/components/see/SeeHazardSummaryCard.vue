@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import densityIcon from '@/assets/see/density.png'
 import maneuverIcon from '@/assets/see/maneuver.png'
 import roadConditionsIcon from '@/assets/see/road-conditions.png'
 import roadwayIcon from '@/assets/see/roadway.png'
 import timeOfDayIcon from '@/assets/see/time-of-day.png'
+import { useObserveSummaryHeadings } from '@/lib/lesson/buttonLabel'
 import type { HazardClipSummary } from '@/types/see'
 
 defineProps<{
@@ -12,13 +14,14 @@ defineProps<{
   progress?: number
 }>()
 
-const rows = [
-  { key: 'maneuver' as const, label: 'Maneuver', icon: maneuverIcon },
-  { key: 'roadway' as const, label: 'Roadway', icon: roadwayIcon },
-  { key: 'trafficDensity' as const, label: 'Traffic Density', icon: densityIcon },
-  { key: 'timeOfDay' as const, label: 'Time of Day', icon: timeOfDayIcon },
-  { key: 'roadConditions' as const, label: 'Road Conditions', icon: roadConditionsIcon },
-]
+const headings = useObserveSummaryHeadings()
+const rows = computed(() => [
+  { key: 'maneuver' as const, label: headings.value.maneuver, icon: maneuverIcon },
+  { key: 'roadway' as const, label: headings.value.roadway, icon: roadwayIcon },
+  { key: 'trafficDensity' as const, label: headings.value.trafficDensity, icon: densityIcon },
+  { key: 'timeOfDay' as const, label: headings.value.timeOfDay, icon: timeOfDayIcon },
+  { key: 'roadConditions' as const, label: headings.value.roadConditions, icon: roadConditionsIcon },
+])
 </script>
 
 <template>

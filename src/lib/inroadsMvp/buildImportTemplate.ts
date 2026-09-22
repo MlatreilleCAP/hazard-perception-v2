@@ -29,6 +29,11 @@ export type ImportWorkbookContent = {
   submitLabel: string
   challengePassedLabel: string
   challengeFailedLabel: string
+  maneuverHeading: string
+  roadwayHeading: string
+  trafficDensityHeading: string
+  timeOfDayHeading: string
+  roadConditionsHeading: string
   observe: {
     instruction: string
     instructionPill: string
@@ -299,6 +304,11 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     submitLabel: 'Submit',
     challengePassedLabel: 'Challenge Complete',
     challengeFailedLabel: 'Challenge Failed',
+    maneuverHeading: 'Maneuver',
+    roadwayHeading: 'Roadway',
+    trafficDensityHeading: 'Traffic Density',
+    timeOfDayHeading: 'Time of Day',
+    roadConditionsHeading: 'Road Conditions',
     observe: {
       instruction:
         "You're about to watch a short driving video. \n\nThe primary hazard could be in front, behind, or to either side. Drag the screen side-to-side to scan the road and mirrors, then tap or click it as soon as you spot it. \n\nYou'll have a few seconds and three attempts. No replay, so watch closely.",
@@ -475,6 +485,11 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
   lesson.addRow(['submit', content.submitLabel])
   lesson.addRow(['challenge_passed', content.challengePassedLabel])
   lesson.addRow(['challenge_failed', content.challengeFailedLabel])
+  lesson.addRow(['Maneuver', content.maneuverHeading])
+  lesson.addRow(['Roadway', content.roadwayHeading])
+  lesson.addRow(['Traffic Density', content.trafficDensityHeading])
+  lesson.addRow(['Time of Day', content.timeOfDayHeading])
+  lesson.addRow(['Road Conditions', content.roadConditionsHeading])
   lesson.getRow(1).font = { bold: true }
   lesson.getColumn(1).width = 22
   lesson.getColumn(2).width = 48
