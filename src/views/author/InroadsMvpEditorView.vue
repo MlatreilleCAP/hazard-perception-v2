@@ -691,6 +691,13 @@ async function remove(): Promise<void> {
           :key="`see-${mvp.seeActivityId}-${sectionReload}`"
           :activity-id-prop="mvp.seeActivityId"
           embedded
+          :summary-headings="{
+            maneuver: mvp.maneuverLabel,
+            roadway: mvp.roadwayLabel,
+            trafficDensity: mvp.trafficDensityLabel,
+            timeOfDay: mvp.timeOfDayLabel,
+            roadConditions: mvp.roadConditionsLabel,
+          }"
         />
       </div>
       <div v-else-if="activeSection === 'process'" class="mvp-embedded-editor">

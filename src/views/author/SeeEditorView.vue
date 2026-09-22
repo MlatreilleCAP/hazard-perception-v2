@@ -15,6 +15,11 @@ import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 import type { ActivityDefinition } from '@/types/activity'
 import type { MediaRef } from '@/types/media'
+import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
+import {
+  DEFAULT_OBSERVE_SUMMARY_HEADINGS,
+  type ObserveSummaryHeadings,
+} from '@/lib/lesson/buttonLabel'
 import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
 import {
   isSeeActivity,
@@ -27,8 +32,10 @@ const props = withDefaults(
     /** When set with embedded, loads this activity instead of the route param. */
     activityIdProp?: string
     embedded?: boolean
+    /** Lesson-sheet clip intro headings. Empty values keep the English field names. */
+    summaryHeadings?: Partial<ObserveSummaryHeadings>
   }>(),
-  { activityIdProp: undefined, embedded: false },
+  { activityIdProp: undefined, embedded: false, summaryHeadings: undefined },
 )
 
 const route = useRoute()
@@ -47,6 +54,21 @@ const title = ref('')
 const description = ref('')
 const sourceActivity = ref<ActivityDefinition | null>(null)
 const see = ref<SeeDefinition | null>(null)
+const loadedSummaryHeadings = ref<ObserveSummaryHeadings>({ ...DEFAULT_OBSERVE_SUMMARY_HEADINGS })
+
+function summaryHeadingsFrom(source: Partial<ObserveSummaryHeadings> | null | undefined): ObserveSummaryHeadings {
+  return {
+    maneuver: source?.maneuver?.trim() || DEFAULT_OBSERVE_SUMMARY_HEADINGS.maneuver,
+    roadway: source?.roadway?.trim() || DEFAULT_OBSERVE_SUMMARY_HEADINGS.roadway,
+    trafficDensity: source?.trafficDensity?.trim() || DEFAULT_OBSERVE_SUMMARY_HEADINGS.trafficDensity,
+    timeOfDay: source?.timeOfDay?.trim() || DEFAULT_OBSERVE_SUMMARY_HEADINGS.timeOfDay,
+    roadConditions: source?.roadConditions?.trim() || DEFAULT_OBSERVE_SUMMARY_HEADINGS.roadConditions,
+  }
+}
+
+const clipIntroLabels = computed(() =>
+  summaryHeadingsFrom(props.summaryHeadings ?? loadedSummaryHeadings.value),
+)
 
 const activityId = computed(
   () => props.activityIdProp?.trim() || String(route.params.id ?? ''),
@@ -110,6 +132,22 @@ async function load(): Promise<void> {
     title.value = current.metadata.title
     description.value = current.metadata.description
     see.value = readSeeDefinition(current)
+    if (!props.summaryHeadings && isInroadsMvpChildActivity(current.metadata.tags)) {
+      const match = await findInroadsMvpParent(activityId.value)
+      const parent = match ? await services.persistence.getById(match.parentId) : null
+      const parentMvp = parent ? readInroadsMvpDefinition(parent) : null
+      loadedSummaryHeadings.value = summaryHeadingsFrom(
+        parentMvp
+          ? {
+              maneuver: parentMvp.maneuverLabel,
+              roadway: parentMvp.roadwayLabel,
+              trafficDensity: parentMvp.trafficDensityLabel,
+              timeOfDay: parentMvp.timeOfDayLabel,
+              roadConditions: parentMvp.roadConditionsLabel,
+            }
+          : null,
+      )
+    }
   } catch (cause) {
     if (generation !== loadGeneration) return
     see.value = null
@@ -368,35 +406,35 @@ defineExpose({ save })
         <AuthorField
           :id="`${activityId}-maneuver`"
           :model-value="see.maneuver"
-          label="Maneuver"
+          :label="clipIntroLabels.maneuver"
           placeholder="Travelling Straight"
           @update:model-value="patchSee({ maneuver: $event })"
         />
         <AuthorField
           :id="`${activityId}-roadway`"
           :model-value="see.roadway"
-          label="Roadway"
+          :label="clipIntroLabels.roadway"
           placeholder="Divided 2-Lane"
           @update:model-value="patchSee({ roadway: $event })"
         />
         <AuthorField
           :id="`${activityId}-density`"
           :model-value="see.trafficDensity"
-          label="Traffic Density"
+          :label="clipIntroLabels.trafficDensity"
           placeholder="Moderate"
           @update:model-value="patchSee({ trafficDensity: $event })"
         />
         <AuthorField
           :id="`${activityId}-time-of-day`"
           :model-value="see.timeOfDay"
-          label="Time of Day"
+          :label="clipIntroLabels.timeOfDay"
           placeholder="Daytime"
           @update:model-value="patchSee({ timeOfDay: $event })"
         />
         <AuthorField
           :id="`${activityId}-road-conditions`"
           :model-value="see.roadConditions"
-          label="Road Conditions"
+          :label="clipIntroLabels.roadConditions"
           placeholder="Dry"
           @update:model-value="patchSee({ roadConditions: $event })"
         />
