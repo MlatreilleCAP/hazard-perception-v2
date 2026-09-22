@@ -61,7 +61,7 @@ async function signOut(): Promise<void> {
         </p>
 
         <div class="landing-hero-actions landing-fade" style="--delay: 800ms">
-          <RouterLink to="/login?mode=signup&next=/" class="landing-demo-button">
+          <RouterLink to="/login?next=/" class="landing-demo-button">
             Request Demo
           </RouterLink>
         </div>

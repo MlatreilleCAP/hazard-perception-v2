@@ -4,14 +4,11 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { safeNextPath } from '@/app/safeNextPath'
 import { useAuthStore } from '@/stores/authStore'
 
-type Mode = 'signin' | 'signup'
-
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
 const nextPath = computed(() => safeNextPath(String(route.query.next ?? '')) ?? '/')
-const mode = ref<Mode>(route.query.mode === 'signup' ? 'signup' : 'signin')
 const email = ref('')
 const password = ref('')
 const error = ref<string | null>(
@@ -19,54 +16,21 @@ const error = ref<string | null>(
     ? 'Sign-in link expired or failed. Please try again.'
     : null,
 )
-const info = ref<string | null>(null)
 const loading = ref(false)
 
-const title = computed(() =>
-  mode.value === 'signin' ? 'Welcome back' : 'Create your account',
-)
-const subtitle = computed(() =>
-  mode.value === 'signin'
-    ? 'Sign in to save progress and continue training.'
-    : 'Create an account to build activities, scenarios, and train.',
-)
-const submitLabel = computed(() => {
-  if (loading.value) return 'Please wait…'
-  return mode.value === 'signin' ? 'Sign in' : 'Create account'
-})
+const submitLabel = computed(() => (loading.value ? 'Please wait…' : 'Sign in'))
 
 async function handleEmailAuth(): Promise<void> {
   loading.value = true
   error.value = null
-  info.value = null
 
   try {
-    if (mode.value === 'signin') {
-      const signInError = await auth.signIn(email.value, password.value)
-      if (signInError) {
-        error.value = signInError
-        return
-      }
-      await router.push(nextPath.value)
+    const signInError = await auth.signIn(email.value, password.value)
+    if (signInError) {
+      error.value = signInError
       return
     }
-
-    const result = await auth.signUp(email.value, password.value, nextPath.value)
-    if (result.error) {
-      error.value = result.error
-      if (result.needsSignIn) {
-        mode.value = 'signin'
-      }
-      return
-    }
-
-    if (auth.isSignedIn) {
-      await router.push(nextPath.value)
-      return
-    }
-
-    info.value = 'Account created. You can sign in now.'
-    mode.value = 'signin'
+    await router.push(nextPath.value)
   } finally {
     loading.value = false
   }
@@ -75,7 +39,6 @@ async function handleEmailAuth(): Promise<void> {
 async function handleGoogle(): Promise<void> {
   loading.value = true
   error.value = null
-  info.value = null
   const googleError = await auth.signInWithGoogle(nextPath.value)
   if (googleError) {
     error.value = googleError
@@ -83,11 +46,6 @@ async function handleGoogle(): Promise<void> {
   }
 }
 
-function setMode(next: Mode): void {
-  mode.value = next
-  error.value = null
-  info.value = null
-}
 </script>
 
 <template>
@@ -101,8 +59,8 @@ function setMode(next: Mode): void {
           <RouterLink to="/" class="auth-logo">
             <img src="/AD_Logo.svg" alt="AlertDriving" />
           </RouterLink>
-          <h1>{{ title }}</h1>
-          <p>{{ subtitle }}</p>
+          <h1>Welcome back</h1>
+          <p>Sign in to save progress and continue training.</p>
         </div>
 
         <div class="auth-card">
@@ -153,30 +111,18 @@ function setMode(next: Mode): void {
                 type="password"
                 required
                 minlength="6"
-                :autocomplete="mode === 'signin' ? 'current-password' : 'new-password'"
+                autocomplete="current-password"
                 placeholder="••••••••"
               />
             </label>
 
             <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
-            <p v-if="info" class="auth-info" role="status">{{ info }}</p>
 
             <button type="submit" class="auth-submit" :disabled="loading">
               {{ submitLabel }}
             </button>
           </form>
         </div>
-
-        <p class="auth-switch">
-          <template v-if="mode === 'signin'">
-            New here?
-            <button type="button" @click="setMode('signup')">Create an account</button>
-          </template>
-          <template v-else>
-            Already have an account?
-            <button type="button" @click="setMode('signin')">Sign in</button>
-          </template>
-        </p>
       </div>
     </div>
   </div>
