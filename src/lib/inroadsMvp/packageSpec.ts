@@ -95,6 +95,7 @@ export const LESSON_COUNTRY_OPTIONS = [
   'USA',
   'Mexico',
   'Germany',
+  'France',
   'United Kingdom',
 ] as const
 
@@ -108,6 +109,9 @@ const COUNTRY_ALIASES: Record<string, string> = {
   'u.s.': 'USA',
   'u.s.a.': 'USA',
   deutschland: 'Germany',
+  france: 'France',
+  fr: 'France',
+  fra: 'France',
   'great britain': 'United Kingdom',
   uk: 'United Kingdom',
   gb: 'United Kingdom',
