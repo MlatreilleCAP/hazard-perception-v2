@@ -17,6 +17,7 @@
   overflow: hidden;
   background: #fff;
   color: var(--editor-ink);
+  color-scheme: light;
   font-family: var(--font-poppins);
   text-align: left;
 }
@@ -281,6 +282,13 @@ fieldset.author-stack {
   color: var(--editor-charcoal);
   outline: none;
   resize: none;
+  color-scheme: light;
+}
+
+.author-field select option,
+.question-add option {
+  color: var(--editor-ink);
+  background: #fff;
 }
 
 .author-field textarea.author-field-control {
@@ -824,6 +832,7 @@ fieldset.author-stack {
   text-align: left;
   font-family: var(--font-raleway);
   font-size: 13px;
+  color: var(--editor-ink);
   cursor: pointer;
 }
 
