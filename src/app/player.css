@@ -1328,6 +1328,10 @@ body:has(.player-page) {
   max-width: 100%;
 }
 
+.lesson-preloader-lottie.is-circle {
+  width: min(220px, 56%);
+}
+
 .lesson-preloader-lottie .process-results-lottie {
   width: 100%;
   height: auto;

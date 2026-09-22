@@ -5,9 +5,11 @@ import { cloneJson } from '@/app/clone'
 import { services } from '@/app/container'
 import { expandInroadsMvpForPlayback, expandIntroductionForPlayback } from '@/activities/expandInroadsMvp'
 import { findInroadsMvpNode, readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
+import { readIntroductionDefinition } from '@/activities/introductionDefinition'
 import {
   provideLessonButtonLabel,
   provideLessonChallengeLabels,
+  provideLessonLanguage,
   provideLessonSubmitLabel,
 } from '@/lib/lesson/buttonLabel'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
@@ -73,9 +75,11 @@ const lessonSubmitLabel = ref('')
 const lessonCountry = ref('')
 const lessonChallengePassedLabel = ref('')
 const lessonChallengeFailedLabel = ref('')
+const lessonLanguage = ref('')
 provideLessonButtonLabel(lessonButtonLabel)
 provideLessonSubmitLabel(lessonSubmitLabel)
 provideLessonChallengeLabels(lessonChallengePassedLabel, lessonChallengeFailedLabel)
+provideLessonLanguage(lessonLanguage)
 
 async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
   button: string
@@ -83,6 +87,7 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
   country: string
   challengePassed: string
   challengeFailed: string
+  language: string
 }> {
   const fromDefinition = (definition: ActivityDefinition | null | undefined) => {
     const mvp = definition ? readInroadsMvpDefinition(definition) : null
@@ -92,6 +97,7 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
       country: mvp?.country.trim() ?? '',
       challengePassed: mvp?.challengePassedLabel.trim() ?? '',
       challengeFailed: mvp?.challengeFailedLabel.trim() ?? '',
+      language: mvp?.language.trim() ?? '',
     }
   }
   const empty = {
@@ -100,6 +106,10 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
     country: '',
     challengePassed: '',
     challengeFailed: '',
+    language: '',
+  }
+  if (isIntroductionActivity(activity.metadata.tags)) {
+    return { ...empty, language: readIntroductionDefinition(activity).language.trim() }
   }
   if (isInroadsMvpActivity(activity.metadata.tags)) return fromDefinition(activity)
   if (!isInroadsMvpChildActivity(activity.metadata.tags)) return empty
@@ -142,6 +152,7 @@ async function loadActivity(id: string): Promise<void> {
     lessonCountry.value = labels.country
     lessonChallengePassedLabel.value = labels.challengePassed
     lessonChallengeFailedLabel.value = labels.challengeFailed
+    lessonLanguage.value = labels.language
     if (isIntroductionActivity(next.metadata.tags)) {
       const expanded = expandIntroductionForPlayback(next)
       if (!expanded) {

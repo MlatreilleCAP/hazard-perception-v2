@@ -6,12 +6,11 @@ import { services } from '@/app/container'
 import { cloneJson } from '@/app/clone'
 import AnticipateExperience from '@/components/anticipate/AnticipateExperience.vue'
 import LessonResultsCard from '@/components/lesson/LessonResultsCard.vue'
+import LessonSegmentPreloader from '@/components/lesson/LessonSegmentPreloader.vue'
 import LessonTitleCard from '@/components/lesson/LessonTitleCard.vue'
 import ProcessExperience from '@/components/process/ProcessExperience.vue'
-import ProcessResultsLottie from '@/components/process/ProcessResultsLottie.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
 import SeeExperience from '@/components/see/SeeExperience.vue'
-import segmentLoadAnimation from '@/assets/lottie/lesson-segment-load.json'
 import {
   collectLessonWarmTargets,
   signAndWarmLessonMedia,
@@ -479,18 +478,7 @@ onBeforeUnmount(() => {
       'is-title': phase === 'title',
     }"
   >
-    <div
-      v-if="awaitingReady"
-      class="lesson-preloader"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-      aria-label="Loading"
-    >
-      <div class="lesson-preloader-lottie" aria-hidden="true">
-        <ProcessResultsLottie :animation-data="segmentLoadAnimation" loop />
-      </div>
-    </div>
+    <LessonSegmentPreloader v-if="awaitingReady" />
     <p v-if="phase === 'error'" class="process-player-message">{{ error }}</p>
     <LessonTitleCard
       v-else-if="phase === 'title'"
