@@ -3,7 +3,6 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { readSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
 import ProcessInstructionCard from '@/components/process/ProcessInstructionCard.vue'
-import ProcessResultsQuestionList from '@/components/process/ProcessResultsQuestionList.vue'
 import ProcessSeverityPopover from '@/components/process/ProcessSeverityPopover.vue'
 import ProcessTheoryPopover from '@/components/process/ProcessTheoryPopover.vue'
 import AttemptTouchFeedback from '@/components/see/AttemptTouchFeedback.vue'
@@ -37,8 +36,6 @@ import {
 import type { ActivityDefinition } from '@/types/activity'
 import {
   configuredSurveyQuestions,
-  processQuestionResults,
-  type ProcessQuestionResult,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 import { DEFAULT_SEE_INSTRUCTION_PILL, hazardClipSummary, resolveObserveHazardOutcome, type ObserveHazardOutcome } from '@/types/see'
@@ -266,14 +263,6 @@ const scenarioIntroAudioId = computed(
     sortedHazards.value[0]?.introAudio?.media_asset_id ??
     null,
 )
-const questions = computed(() =>
-  see.value.hazards.flatMap((hazard) =>
-    configuredSurveyQuestions(hazard.questions).map((question) => ({
-      hazard,
-      question,
-    })),
-  ),
-)
 const overlayHazard = computed(
   () => sortedHazards.value.find((hazard) => hazard.id === overlay.value?.hazardId) ?? null,
 )
@@ -290,13 +279,6 @@ const missedVideoSrc = computed(() => {
   if (!current) return null
   if (current.step !== 'missed-video' && current.step !== 'question') return null
   return missedVideoUrls.value[current.hazardId] ?? null
-})
-const questionResults = computed((): ProcessQuestionResult[] => {
-  const bank = {
-    version: 2 as const,
-    questions: questions.value.map((item) => item.question),
-  }
-  return processQuestionResults(bank, answers.value)
 })
 const clicksEnabled = computed(
   () =>
@@ -423,18 +405,39 @@ function measureStage(): void {
 const spotted = computed(() => resolvedIds.value.size)
 const totalHazards = computed(() => see.value.hazards.length)
 const allSpotted = computed(() => totalHazards.value > 0 && spotted.value >= totalHazards.value)
-const resultsHazard = computed(() => sortedHazards.value[0] ?? null)
+/** One hazard per clip. Extra records are trigger points; explanation media lives on the primary one. */
+const resultsHazard = computed(
+  () =>
+    sortedHazards.value.find((hazard) => hazard.explanationImage?.media_asset_id) ??
+    sortedHazards.value.find((hazard) => hazard.explanation.trim()) ??
+    sortedHazards.value[0] ??
+    null,
+)
 const hazardOutcome = computed((): ObserveHazardOutcome | null => {
-  if (totalHazards.value !== 1) return null
-  const hazard = resultsHazard.value
-  if (!hazard) return null
-  const correct = resolvedIds.value.has(hazard.id)
-  const attempts = hitAttempts.value[hazard.id] ?? 0
-  if (correct) {
-    return resolveObserveHazardOutcome({ correct: true, attempts })
+  const hazards = sortedHazards.value
+  if (hazards.length === 0) return null
+  const spottedHazard = hazards.reduce<(typeof hazards)[number] | null>((best, hazard) => {
+    if (!resolvedIds.value.has(hazard.id)) return best
+    if (!best) return hazard
+    const attempts = hitAttempts.value[hazard.id] ?? MAX_HAZARD_ATTEMPTS
+    const bestAttempts = hitAttempts.value[best.id] ?? MAX_HAZARD_ATTEMPTS
+    return attempts < bestAttempts ? hazard : best
+  }, null)
+  if (spottedHazard) {
+    return resolveObserveHazardOutcome({
+      correct: true,
+      attempts: hitAttempts.value[spottedHazard.id] ?? 1,
+    })
   }
-  const taps = tapAttemptsByHazard.value[hazard.id] ?? 0
-  const reason = missReasons.value[hazard.id] ?? resolveMissReason(hazard.id)
+  const taps = hazards.reduce(
+    (sum, hazard) => sum + (tapAttemptsByHazard.value[hazard.id] ?? 0),
+    0,
+  )
+  const reason = hazards.some(
+    (hazard) => (missReasons.value[hazard.id] ?? resolveMissReason(hazard.id)) === 'attempts',
+  )
+    ? 'attempts'
+    : 'time'
   return resolveObserveHazardOutcome({
     correct: false,
     missReason: reason,
@@ -449,8 +452,16 @@ const resultsImageUrl = computed(() => {
 })
 const postResultsHazardId = computed(() => {
   if (hazardOutcome.value === 'success_first_attempt') return null
-  const lateHit = sortedHazards.value.find((hazard) => (hitAttempts.value[hazard.id] ?? 0) >= 2)
+  const withCoaching = sortedHazards.value.filter(
+    (hazard) =>
+      Boolean(hazard.missedVideo?.media_asset_id) ||
+      configuredSurveyQuestions(hazard.questions).length > 0,
+  )
+  const lateHit = withCoaching.find((hazard) => (hitAttempts.value[hazard.id] ?? 0) >= 2)
   if (lateHit) return lateHit.id
+  if (withCoaching[0]) return withCoaching[0].id
+  const anyLate = sortedHazards.value.find((hazard) => (hitAttempts.value[hazard.id] ?? 0) >= 2)
+  if (anyLate) return anyLate.id
   return sortedHazards.value.find((hazard) => hitAttempts.value[hazard.id] == null)?.id ?? null
 })
 
@@ -1388,7 +1399,6 @@ onBeforeUnmount(() => {
         <p class="see-results-score">
           {{ spotted }} of {{ totalHazards }} hazard{{ totalHazards === 1 ? '' : 's' }} spotted
         </p>
-        <ProcessResultsQuestionList v-if="questionResults.length > 0" :results="questionResults" />
         <button type="button" class="process-instruction-begin" @click="emitFinished">
           Continue
         </button>
