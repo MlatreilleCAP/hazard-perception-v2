@@ -60,12 +60,9 @@ const selectedHazard = computed(
 )
 const draftHazard = ref<SeeHazard | null>(null)
 const editingHazard = computed(() => selectedHazard.value ?? draftHazard.value)
-/** Spreadsheet import writes the coaching clip onto the first hazard. */
+/** Spreadsheet import writes the coaching clip and explanation image onto the first hazard. */
 const coachingHazard = computed(
   () => selectedHazard.value ?? props.hazards[0] ?? draftHazard.value,
-)
-const showHazardEditor = computed(
-  () => props.hazards.length <= 1 || selectedHazard.value != null,
 )
 
 function createDraftHazard(): SeeHazard {
@@ -353,7 +350,7 @@ function commitCoachingHazard(patch: Partial<SeeHazard>): void {
 }
 
 function onDetailsChange(details: SeeHazard): void {
-  commitEditingHazard(details)
+  commitCoachingHazard(details)
 }
 
 function onQuestionsChange(questions: ProcessQuestionBank): void {
@@ -490,10 +487,10 @@ watch(previewUrl, () => {
 
   <div v-if="coachingHazard || editingHazard" class="author-stack">
     <SeeHazardDetailsForm
-      v-if="showHazardEditor && editingHazard"
-      :hazard-id="editingHazard.id"
+      v-if="coachingHazard"
+      :hazard-id="coachingHazard.id"
       :activity-id="activityId"
-      :model-value="editingHazard"
+      :model-value="coachingHazard"
       @update:model-value="onDetailsChange"
     />
 
@@ -539,10 +536,6 @@ watch(previewUrl, () => {
         />
       </section>
     </template>
-
-    <div v-if="hazards.length > 1 && !selectedHazard" class="see-empty-select">
-      Select a hazard on the timeline to edit its details.
-    </div>
 
     <ProcessQuestionsForm
       v-if="coachingHazard"
