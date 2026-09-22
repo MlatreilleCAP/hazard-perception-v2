@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
 
 const route = useRoute()
+const auth = useAuthStore()
 const mvpOpen = computed(
   () =>
     route.path === '/studio/inroads-mvp' || route.path.startsWith('/studio/inroads-mvp/'),
@@ -24,6 +26,9 @@ const scoringOpen = computed(
 const publishedOpen = computed(
   () =>
     route.path === '/studio/published' || route.path.startsWith('/studio/published/'),
+)
+const peopleOpen = computed(
+  () => route.path === '/studio/people' || route.path.startsWith('/studio/people/'),
 )
 </script>
 
@@ -79,6 +84,14 @@ const publishedOpen = computed(
         :class="{ active: publishedOpen }"
       >
         Published
+      </RouterLink>
+      <RouterLink
+        v-if="auth.isAdmin"
+        to="/studio/people"
+        class="author-nav-link"
+        :class="{ active: peopleOpen }"
+      >
+        People
       </RouterLink>
     </nav>
   </aside>

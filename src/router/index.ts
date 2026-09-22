@@ -24,6 +24,7 @@ import LessonListView from '@/views/author/LessonListView.vue'
 import LessonNewView from '@/views/author/LessonNewView.vue'
 import MediaLibraryView from '@/views/author/MediaLibraryView.vue'
 import PublishedActivitiesView from '@/views/author/PublishedActivitiesView.vue'
+import StudioPeopleView from '@/views/author/StudioPeopleView.vue'
 import SeeEditorView from '@/views/author/SeeEditorView.vue'
 import SeeListView from '@/views/author/SeeListView.vue'
 import SeeNewView from '@/views/author/SeeNewView.vue'
@@ -254,6 +255,18 @@ export const router = createRouter({
             requiresStudio: true,
           },
         },
+        {
+          path: 'people',
+          name: 'studio-people',
+          component: StudioPeopleView,
+          meta: {
+            layout: 'author',
+            title: 'People',
+            requiresAuth: true,
+            requiresStudio: true,
+            requiresAdmin: true,
+          },
+        },
       ],
     },
     {
@@ -278,6 +291,10 @@ router.beforeEach(async (to) => {
 
   if (to.matched.some((record) => record.meta.requiresStudio) && !auth.canAccessStudio) {
     return { path: '/' }
+  }
+
+  if (to.matched.some((record) => record.meta.requiresAdmin) && !auth.isAdmin) {
+    return { path: '/studio' }
   }
 
   if (to.name === 'login' && auth.isSignedIn) {
