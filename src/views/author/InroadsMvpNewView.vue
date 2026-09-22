@@ -72,7 +72,7 @@ async function create(): Promise<void> {
 
       <p class="author-muted">
         Creates Observe, Process, and Anticipate authoring pages nested in this lesson.
-        Add the stand alone video from Stand Alone Video in the sidebar.
+        After creating, pick a published Stand Alone Video on the lesson page.
       </p>
 
       <div class="author-actions">

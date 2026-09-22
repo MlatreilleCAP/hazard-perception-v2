@@ -61,6 +61,7 @@ const versions = ref<LessonVersionOption[]>([])
 type IntroductionVersionOption = {
   id: string
   label: string
+  titleKey: string
   country: string
   language: string
 }
@@ -178,39 +179,47 @@ async function loadVersions(
   return rows.sort((a, b) => a.label.localeCompare(b.label))
 }
 
+function introductionOptionLabel(
+  title: string,
+  country: string,
+  language: string,
+  published: boolean,
+): string {
+  const name = title.trim() || 'Untitled'
+  return `${name} · ${lessonVersionLabel(country, language, published)}`
+}
+
 async function loadIntroductionVersions(
-  lessonTitle: string,
   selectedId: string,
 ): Promise<IntroductionVersionOption[]> {
-  const key = lessonVersionKey(lessonTitle)
-  const siblings = activities.summaries.filter(
-    (item) => isIntroductionActivity(item.tags) && lessonVersionKey(item.title) === key,
+  const catalog = activities.summaries.filter(
+    (item) => isIntroductionActivity(item.tags) && item.published,
   )
-  if (selectedId && !siblings.some((item) => item.id === selectedId)) {
+  if (selectedId && !catalog.some((item) => item.id === selectedId)) {
     const selected = activities.summaries.find((item) => item.id === selectedId)
-    if (selected) siblings.unshift(selected)
+    if (selected) catalog.unshift(selected)
   }
   const rows = await Promise.all(
-    siblings.map(async (item) => {
+    catalog.map(async (item) => {
       try {
         const definition = await services.persistence.getById(item.id)
         const parsed = definition ? readIntroductionDefinition(definition) : null
+        const country = parsed?.country ?? ''
+        const language = parsed?.language ?? ''
         return {
           id: item.id,
-          country: parsed?.country ?? '',
-          language: parsed?.language ?? '',
-          label: lessonVersionLabel(
-            parsed?.country ?? '',
-            parsed?.language ?? '',
-            item.published,
-          ),
+          titleKey: lessonVersionKey(item.title),
+          country,
+          language,
+          label: introductionOptionLabel(item.title, country, language, item.published),
         }
       } catch {
         return {
           id: item.id,
+          titleKey: lessonVersionKey(item.title),
           country: '',
           language: '',
-          label: lessonVersionLabel('', '', item.published),
+          label: introductionOptionLabel(item.title, '', '', item.published),
         }
       }
     }),
@@ -220,8 +229,14 @@ async function loadIntroductionVersions(
 
 function syncIntroductionToLocale(): void {
   if (!mvp.value?.introductionActivityId) return
-  const match = introductionVersions.value.find((item) =>
-    lessonLocalesMatch(item.country, item.language, country.value, language.value),
+  const current = introductionVersions.value.find(
+    (item) => item.id === mvp.value?.introductionActivityId,
+  )
+  if (!current) return
+  const match = introductionVersions.value.find(
+    (item) =>
+      item.titleKey === current.titleKey &&
+      lessonLocalesMatch(item.country, item.language, country.value, language.value),
   )
   if (!match || mvp.value.introductionActivityId === match.id) return
   mvp.value = { ...mvp.value, introductionActivityId: match.id }
@@ -285,7 +300,6 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
     mvp.value = parsed
     const nextVersions = await loadVersions(current.metadata.title, parsed)
     const nextIntroductionVersions = await loadIntroductionVersions(
-      current.metadata.title,
       parsed.introductionActivityId,
     )
     if (generation !== loadGeneration) return
@@ -373,7 +387,6 @@ async function saveLesson(): Promise<boolean> {
     await activities.save(next)
     versions.value = await loadVersions(next.metadata.title, mvp.value)
     introductionVersions.value = await loadIntroductionVersions(
-      next.metadata.title,
       mvp.value.introductionActivityId,
     )
     syncIntroductionToLocale()
@@ -636,17 +649,28 @@ async function remove(): Promise<void> {
 
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Stand Alone Video" />
+          <p class="author-muted">
+            Optional. Choose a published Stand Alone Video to play before Observe.
+          </p>
           <AuthorSelectField
             v-if="mvp"
             :id="`${activityId}-introduction`"
             :model-value="mvp.introductionActivityId"
-            label="Version"
+            label="Published video"
             :options="introductionSelectOptions"
             :disabled="!editable"
             @update:model-value="setIntroductionActivityId"
           />
-          <p v-if="mvp && !introductionVersions.length" class="author-muted">
-            No stand alone video versions match this lesson title yet.
+          <RouterLink
+            v-if="mvp?.introductionActivityId"
+            :to="`/studio/stand-alone-video/${mvp.introductionActivityId}`"
+            class="lesson-composer-edit-link"
+          >
+            Edit stand alone video
+          </RouterLink>
+          <p v-else-if="mvp && !introductionVersions.length" class="author-muted">
+            No published stand alone videos yet.
+            <RouterLink to="/studio/stand-alone-video/new">Create one</RouterLink>
           </p>
         </section>
 
