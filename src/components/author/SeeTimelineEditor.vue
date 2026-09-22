@@ -60,6 +60,13 @@ const selectedHazard = computed(
 )
 const draftHazard = ref<SeeHazard | null>(null)
 const editingHazard = computed(() => selectedHazard.value ?? draftHazard.value)
+/** Spreadsheet import writes the coaching clip onto the first hazard. */
+const coachingHazard = computed(
+  () => selectedHazard.value ?? props.hazards[0] ?? draftHazard.value,
+)
+const showHazardEditor = computed(
+  () => props.hazards.length <= 1 || selectedHazard.value != null,
+)
 
 function createDraftHazard(): SeeHazard {
   const span = duration.value > 0 ? duration.value : 10
@@ -335,24 +342,34 @@ function commitEditingHazard(patch: Partial<SeeHazard> | SeeHazard): void {
   updateHazard(current.id, patch)
 }
 
+function commitCoachingHazard(patch: Partial<SeeHazard>): void {
+  if (props.readonly) return
+  const current = coachingHazard.value
+  if (!current || !props.hazards.some((hazard) => hazard.id === current.id)) {
+    commitEditingHazard(patch)
+    return
+  }
+  updateHazard(current.id, patch)
+}
+
 function onDetailsChange(details: SeeHazard): void {
   commitEditingHazard(details)
 }
 
 function onQuestionsChange(questions: ProcessQuestionBank): void {
-  commitEditingHazard({ questions })
+  commitCoachingHazard({ questions })
 }
 
 function onMissedVideoChange(video: MediaRef | null): void {
-  commitEditingHazard({ missedVideo: video })
+  commitCoachingHazard({ missedVideo: video })
 }
 
 function onInstructionTextChange(value: string): void {
-  commitEditingHazard({ instructionText: value })
+  commitCoachingHazard({ instructionText: value })
 }
 
 function onInstructionPillChange(value: string): void {
-  commitEditingHazard({ instructionPill: value })
+  commitCoachingHazard({ instructionPill: value })
 }
 
 async function replaceVideo(file: File): Promise<void> {
@@ -471,61 +488,67 @@ watch(previewUrl, () => {
     />
   </section>
 
-  <div v-if="hazards.length > 1 && !selectedHazard" class="see-empty-select">
-    Select a hazard on the timeline to edit its details and questions.
-  </div>
-
-  <div v-else-if="editingHazard" class="author-stack">
+  <div v-if="coachingHazard || editingHazard" class="author-stack">
     <SeeHazardDetailsForm
+      v-if="showHazardEditor && editingHazard"
       :hazard-id="editingHazard.id"
       :activity-id="activityId"
       :model-value="editingHazard"
       @update:model-value="onDetailsChange"
     />
-    <section class="author-stack-sm">
-      <AuthorSectionHeader title="Instruction" />
-      <p class="author-muted">
-        Shown over the paused first frame of the hazard video until the learner taps Start.
-      </p>
-      <AuthorField
-        :id="`${editingHazard.id}-instruction-pill`"
-        :model-value="editingHazard.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
-        label="Pill label"
-        :disabled="readonly"
-        @update:model-value="onInstructionPillChange"
-      />
-      <AuthorField
-        :id="`${editingHazard.id}-instruction`"
-        :model-value="editingHazard.instructionText ?? ''"
-        label="Instruction text"
-        placeholder="Instruction text goes here"
-        multiline
-        :rows="3"
-        :disabled="readonly"
-        @update:model-value="onInstructionTextChange"
-      />
-    </section>
-    <section class="author-stack-sm">
-      <AuthorSectionHeader title="Video" />
-      <p class="author-muted">
-        Shown when the learner misses this hazard. After Continue, this video plays,
-        then any configured severity and theory questions.
-      </p>
-      <MediaUploadField
-        :id="`${editingHazard.id}-missed-video`"
-        :activity-id="activityId"
-        label="Hazard video"
-        :model-value="editingHazard.missedVideo ?? null"
-        :instruction-text="editingHazard.instructionText"
-        :instruction-pill="editingHazard.instructionPill"
-        :readonly="readonly"
-        @update:model-value="onMissedVideoChange"
-      />
-    </section>
+
+    <template v-if="coachingHazard">
+      <section class="author-stack-sm">
+        <AuthorSectionHeader title="Instruction" />
+        <p class="author-muted">
+          Shown over the paused first frame of the coaching video until the learner taps Start.
+        </p>
+        <AuthorField
+          :id="`${coachingHazard.id}-instruction-pill`"
+          :model-value="coachingHazard.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
+          label="Pill label"
+          :disabled="readonly"
+          @update:model-value="onInstructionPillChange"
+        />
+        <AuthorField
+          :id="`${coachingHazard.id}-instruction`"
+          :model-value="coachingHazard.instructionText ?? ''"
+          label="Instruction text"
+          placeholder="Instruction text goes here"
+          multiline
+          :rows="3"
+          :disabled="readonly"
+          @update:model-value="onInstructionTextChange"
+        />
+      </section>
+      <section class="author-stack-sm">
+        <AuthorSectionHeader title="Video" />
+        <p class="author-muted">
+          Coaching clip. After Continue, this video plays, then any configured severity
+          and theory questions.
+        </p>
+        <MediaUploadField
+          :id="`${coachingHazard.id}-missed-video`"
+          :activity-id="activityId"
+          label="Coaching video"
+          :model-value="coachingHazard.missedVideo ?? null"
+          :instruction-text="coachingHazard.instructionText"
+          :instruction-pill="coachingHazard.instructionPill"
+          :readonly="readonly"
+          @update:model-value="onMissedVideoChange"
+        />
+      </section>
+    </template>
+
+    <div v-if="hazards.length > 1 && !selectedHazard" class="see-empty-select">
+      Select a hazard on the timeline to edit its details.
+    </div>
+
     <ProcessQuestionsForm
-      :key="editingHazard.id"
-      :segment-id="editingHazard.id"
-      :model-value="editingHazard.questions"
+      v-if="coachingHazard"
+      :key="coachingHazard.id"
+      :segment-id="coachingHazard.id"
+      :model-value="coachingHazard.questions"
       @update:model-value="onQuestionsChange"
     />
   </div>
