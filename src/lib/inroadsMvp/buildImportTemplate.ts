@@ -25,6 +25,7 @@ export type ImportWorkbookContent = {
   introFirstVisit: boolean
   country: string
   language: string
+  sku: string
   buttonLabel: string
   submitLabel: string
   challengePassedLabel: string
@@ -311,6 +312,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     introFirstVisit: false,
     country: 'Canada',
     language: 'English',
+    sku: '',
     buttonLabel: 'Continue',
     submitLabel: 'Submit',
     challengePassedLabel: 'Challenge Complete',
@@ -500,6 +502,7 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
   lesson.addRow(['key', 'value'])
   lesson.addRow(['title', content.title])
   lesson.addRow(['description', content.description])
+  lesson.addRow(['sku', content.sku])
   lesson.addRow(['intro_first_visit', content.introFirstVisit ? 'true' : 'false'])
   lesson.addRow(['country', content.country])
   lesson.addRow(['language', content.language])

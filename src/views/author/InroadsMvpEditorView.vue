@@ -130,6 +130,14 @@ const language = computed({
   },
 })
 
+const sku = computed({
+  get: () => mvp.value?.sku ?? '',
+  set: (value: string) => {
+    if (!mvp.value) return
+    mvp.value = { ...mvp.value, sku: value }
+  },
+})
+
 async function loadVersions(
   currentTitle: string,
   currentMvp: InroadsMvpDefinition,
@@ -571,6 +579,16 @@ async function remove(): Promise<void> {
       </nav>
 
       <template v-if="activeSection === 'lesson'">
+        <section class="author-stack-sm">
+          <AuthorField
+            :id="`${activityId}-sku`"
+            v-model="sku"
+            label="SKU"
+            placeholder="SKU"
+            :disabled="!editable"
+          />
+        </section>
+
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Language" />
           <div class="mvp-version-row">

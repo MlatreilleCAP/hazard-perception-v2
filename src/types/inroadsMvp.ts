@@ -18,6 +18,8 @@ export type InroadsMvpDefinition = {
   introductionActivityId: string
   country: string
   language: string
+  /** Product identifier for this lesson, imported from the Lesson sheet. */
+  sku: string
   /** Label for every learner Continue / Start button in this lesson. */
   buttonLabel: string
   /** Label for every severity-question Submit button in this lesson. */
@@ -86,6 +88,7 @@ export function createDefaultInroadsMvpDefinition(
     introductionActivityId: '',
     country: 'Canada',
     language: 'English',
+    sku: '',
     buttonLabel: '',
     submitLabel: '',
     challengePassedLabel: '',
@@ -124,6 +127,7 @@ export function cloneInroadsMvpDefinition(
     introductionActivityId: definition.introductionActivityId.trim(),
     country: canonicalizeLessonCountry(definition.country),
     language: canonicalizeLessonLanguage(definition.language),
+    sku: definition.sku.trim(),
     buttonLabel: definition.buttonLabel.trim(),
     submitLabel: definition.submitLabel.trim(),
     challengePassedLabel: definition.challengePassedLabel.trim(),
@@ -183,6 +187,7 @@ export function normalizeInroadsMvpDefinition(
     language: canonicalizeLessonLanguage(
       typeof raw.language === 'string' ? raw.language : '',
     ),
+    sku: typeof raw.sku === 'string' ? raw.sku.trim() : '',
     buttonLabel: typeof raw.buttonLabel === 'string' ? raw.buttonLabel.trim() : '',
     submitLabel: typeof raw.submitLabel === 'string' ? raw.submitLabel.trim() : '',
     challengePassedLabel:

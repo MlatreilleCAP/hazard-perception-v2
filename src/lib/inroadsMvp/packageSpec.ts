@@ -91,6 +91,7 @@ export const COPY_SHEET_ALIASES = [
 export const LESSON_KEYS = [
   'title',
   'description',
+  'sku',
   'intro_first_visit',
   'country',
   'language',
@@ -376,6 +377,7 @@ Workbook sheets
 Lesson: column A = key, column B = value
   title
   description
+  sku                   product identifier for this lesson
   intro_first_visit     true or false (hidden)
   country
   language

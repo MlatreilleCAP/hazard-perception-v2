@@ -780,6 +780,7 @@ export async function importInroadsMvpPackage(
       payload.lesson.introFirstVisit ?? mvp.introShowOnFirstVisitOnly,
     country: payload.lesson.country.trim() || mvp.country,
     language: payload.lesson.language.trim() || mvp.language,
+    sku: payload.lesson.sku != null ? payload.lesson.sku : mvp.sku,
     buttonLabel: payload.lesson.button != null ? payload.lesson.button : mvp.buttonLabel,
     submitLabel: payload.lesson.submit != null ? payload.lesson.submit : mvp.submitLabel,
     challengePassedLabel:

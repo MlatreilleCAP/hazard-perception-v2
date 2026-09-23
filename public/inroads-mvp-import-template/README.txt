@@ -28,6 +28,7 @@ Workbook sheets
 Lesson: column A = key, column B = value
   title
   description
+  sku
   intro_first_visit     true or false
 
 Copy: header row, then section | field | text

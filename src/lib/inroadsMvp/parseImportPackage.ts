@@ -51,6 +51,8 @@ export type ImportedLessonFields = {
   introFirstVisit: boolean | null
   country: string
   language: string
+  /** Null when the Lesson sheet has no sku row. */
+  sku: string | null
   /** Null when the Lesson sheet has no button row. */
   button: string | null
   /** Null when the Lesson sheet has no submit row. */
@@ -289,6 +291,7 @@ function parseLessonSheet(
       introFirstVisit: null,
       country: '',
       language: '',
+      sku: null,
       button: null,
       submit: null,
       challengePassed: null,
@@ -318,6 +321,7 @@ function parseLessonSheet(
     introFirstVisit: null,
     country: '',
     language: '',
+    sku: null,
     button: null,
     submit: null,
     challengePassed: null,
@@ -353,6 +357,7 @@ function parseLessonSheet(
     else if (key === 'description') lesson.description = value
     else if (key === 'country') lesson.country = canonicalizeLessonCountry(value)
     else if (key === 'language') lesson.language = canonicalizeLessonLanguage(value)
+    else if (key === 'sku') lesson.sku = value
     else if (key === 'button') lesson.button = value
     else if (key === 'submit') lesson.submit = value
     else if (key === 'challenge_passed') lesson.challengePassed = value
