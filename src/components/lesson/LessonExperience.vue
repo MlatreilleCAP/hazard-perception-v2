@@ -22,6 +22,7 @@ import {
   buildLessonResultsModel,
   buildObserveMetrics,
   hasSeenLessonIntro,
+  randomLessonSectionResults,
   markLessonIntroSeen,
   orderedInroadsCompositionItems,
   type LessonCompositionItem,
@@ -37,8 +38,10 @@ const props = withDefaults(
     country?: string
     /** Studio preview loads draft section snapshots; learners use published. */
     preview?: boolean
+    /** Open the results card immediately with a random score. */
+    randomResults?: boolean
   }>(),
-  { country: '', preview: false },
+  { country: '', preview: false, randomResults: false },
 )
 
 const emit = defineEmits<{
@@ -451,13 +454,27 @@ function onAnticipateFinished(payload?: {
   advanceToNextSection()
 }
 
+function showRandomResults(): void {
+  sectionResults.value = randomLessonSectionResults()
+  phase.value = 'results'
+  awaitingReady.value = false
+}
+
 onMounted(() => {
+  if (props.randomResults) {
+    showRandomResults()
+    return
+  }
   void startLesson()
 })
 
 watch(
   () => props.definition.id,
   () => {
+    if (props.randomResults) {
+      showRandomResults()
+      return
+    }
     void startLesson()
   },
 )

@@ -356,7 +356,7 @@ defineExpose({ save })
             :disabled="saving || publishing || deleting"
             @click="openPreview"
           >
-            {{ saving ? 'Saving…' : 'Preview' }}
+            {{ saving ? 'Saving…' : 'Preview section' }}
           </AuthorPillButton>
           <AuthorPillButton
             v-if="editable && !embedded"

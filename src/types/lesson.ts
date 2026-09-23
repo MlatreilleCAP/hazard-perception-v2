@@ -383,6 +383,65 @@ export function buildObserveMetrics(
   ]
 }
 
+function randomQuestionMetrics(
+  kind: 'process' | 'anticipate',
+  count: number,
+): { correctCount: number; metrics: LessonMetricToken[] } {
+  const metrics = Array.from({ length: count }, (_, index) => ({
+    id: `${kind}-q${index + 1}`,
+    label: `Q${index + 1}`,
+    status: (Math.random() < 0.55 ? 'pass' : 'fail') as LessonMetricStatus,
+  }))
+  return {
+    correctCount: metrics.filter((metric) => metric.status === 'pass').length,
+    metrics,
+  }
+}
+
+/** Studio preview of the results card, with a new score each time it opens. */
+export function randomLessonSectionResults(): Partial<
+  Record<'see' | 'process' | 'anticipate', LessonSectionResult>
+> {
+  const hazardCount = 2 + Math.floor(Math.random() * 2)
+  const hazards: LessonSeeHazardResult[] = Array.from({ length: hazardCount }, (_, index) => {
+    const correct = Math.random() < 0.65
+    return {
+      id: `preview-hazard-${index + 1}`,
+      correct,
+      attempts: correct ? 1 + Math.floor(Math.random() * 3) : 3,
+      identifyRatio: correct ? Math.random() : null,
+    }
+  })
+  const spotted = hazards.filter((hazard) => hazard.correct).length
+  const process = randomQuestionMetrics('process', 4)
+  const anticipate = randomQuestionMetrics('anticipate', 4)
+  return {
+    see: {
+      kind: 'see',
+      spotted,
+      total: hazardCount,
+      hazards,
+      metrics: buildObserveMetrics(hazards, spotted, hazardCount),
+    },
+    process: {
+      kind: 'process',
+      percent: Math.round((process.correctCount / 4) * 100),
+      correctCount: process.correctCount,
+      totalCount: 4,
+      coachingRequired: process.correctCount < 4,
+      metrics: process.metrics,
+    },
+    anticipate: {
+      kind: 'anticipate',
+      percent: Math.round((anticipate.correctCount / 4) * 100),
+      correctCount: anticipate.correctCount,
+      totalCount: 4,
+      coachingRequired: anticipate.correctCount < 4,
+      metrics: anticipate.metrics,
+    },
+  }
+}
+
 export function buildLessonResultsModel(
   title: string,
   sectionResults: Partial<Record<'see' | 'process' | 'anticipate', LessonSectionResult>>,

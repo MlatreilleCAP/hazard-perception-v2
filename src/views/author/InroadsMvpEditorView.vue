@@ -4,7 +4,9 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { readAnticipateDefinition } from '@/activities/anticipateDefinition'
 import {
   readInroadsMvpDefinition,
+  readInroadsMvpEnglishTextReference,
   writeInroadsMvpDefinition,
+  writeInroadsMvpEnglishTextReference,
 } from '@/activities/inroadsMvpDefinition'
 import { readProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition } from '@/activities/seeDefinition'
@@ -42,6 +44,7 @@ import {
   LESSON_COUNTRY_OPTIONS,
   LESSON_LANGUAGE_OPTIONS,
 } from '@/lib/inroadsMvp/packageSpec'
+import type { InroadsMvpEnglishTextReference } from '@/types/inroadsMvpEnglishReference'
 import type { AnticipateDefinition } from '@/types/anticipate'
 import type { ProcessDefinition } from '@/types/process'
 import type { SeeDefinition } from '@/types/see'
@@ -85,7 +88,7 @@ const introductionVersions = ref<IntroductionVersionOption[]>([])
 
 function sectionFromQuery(): InroadsMvpSectionId {
   const section = route.query.section
-  if (section === 'see' || section === 'process' || section === 'anticipate') {
+  if (section === 'see' || section === 'process' || section === 'anticipate' || section === 'results') {
     return section
   }
   return 'lesson'
@@ -186,7 +189,7 @@ const englishDescription = computed(() => englishSource.value?.description ?? ''
 const englishCountry = computed(() => englishSource.value?.mvp.country ?? '')
 const englishLanguageName = computed(() => englishSource.value?.mvp.language ?? '')
 
-const lessonCopyPairs = computed(() => {
+const lessonCopyGroups = computed(() => {
   const source = englishSource.value
   if (!showEnglishReference.value || !mvp.value || !source) return []
   const current = lessonEnglishGroups(title.value, description.value, mvp.value)
@@ -206,6 +209,15 @@ const lessonCopyPairs = computed(() => {
     })
 })
 
+const lessonCopyPairs = computed(() =>
+  lessonCopyGroups.value.filter(
+    (group) => group.title !== 'Results' && group.title !== 'Clip intro headings',
+  ),
+)
+const resultsCopyPairs = computed(() =>
+  lessonCopyGroups.value.filter((group) => group.title === 'Results'),
+)
+
 type EnglishLessonSource = {
   id: string
   label: string
@@ -224,7 +236,7 @@ const referenceInput = ref<HTMLInputElement | null>(null)
 const referenceReading = ref(false)
 const referenceError = ref<string | null>(null)
 const referenceStatus = ref<string | null>(null)
-const fileReference = ref<ReturnType<typeof buildEnglishReferenceFromWorkbook> | null>(null)
+const fileReference = ref<InroadsMvpEnglishTextReference | null>(null)
 let englishLoadGeneration = 0
 
 const referenceRequired = computed(
@@ -510,12 +522,23 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
     const parsed = current ? readInroadsMvpDefinition(current) : null
     if (!current || !parsed) {
       mvp.value = null
+      fileReference.value = null
+      referenceStatus.value = null
       loadError.value = 'Inroads MVP not found'
       return
     }
     title.value = current.metadata.title
     description.value = current.metadata.description
     mvp.value = parsed
+    const storedReference = readInroadsMvpEnglishTextReference(current)
+    fileReference.value = storedReference
+    referenceStatus.value = storedReference
+      ? `Using ${storedReference.fileName} as the English reference.`
+      : null
+    referenceError.value = null
+    if (storedReference) {
+      applyFileReference()
+    }
     const nextVersions = await loadVersions(current.metadata.title, parsed)
     const nextIntroductionVersions = await loadIntroductionVersions(
       parsed.introductionActivityId,
@@ -524,9 +547,14 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
     versions.value = nextVersions
     introductionVersions.value = nextIntroductionVersions
     syncIntroductionToLocale()
+    if (!storedReference && showEnglishReference.value) {
+      void loadEnglishReference(selectedEnglishId.value)
+    }
   } catch (cause) {
     if (generation !== loadGeneration) return
     mvp.value = null
+    fileReference.value = null
+    referenceStatus.value = null
     loadError.value = cause instanceof Error ? cause.message : 'Failed to load Inroads MVP'
   } finally {
     if (generation === loadGeneration) loading.value = false
@@ -538,6 +566,7 @@ onMounted(() => {
 })
 
 watch(activityId, () => {
+  referenceError.value = null
   void load()
 })
 
@@ -567,7 +596,7 @@ watch([country, language, isPublished], () => {
 })
 
 watch(activeSection, async (section) => {
-  if (section === 'lesson') {
+  if (section === 'lesson' || section === 'results') {
     await ensureParentLoaded()
   }
 })
@@ -581,14 +610,18 @@ watch(
   { immediate: true },
 )
 
-watch(activityId, () => {
-  fileReference.value = null
-  referenceStatus.value = null
-  referenceError.value = null
-})
-
 function chooseReferenceFile(): void {
   referenceInput.value?.click()
+}
+
+async function persistEnglishReference(
+  reference: InroadsMvpEnglishTextReference | null,
+): Promise<void> {
+  if (!editable.value || !activityId.value) return
+  await ensureParentLoaded()
+  if (!activities.current) return
+  const next = writeInroadsMvpEnglishTextReference(activities.current, reference)
+  await activities.save(next)
 }
 
 async function onReferenceFile(event: Event): Promise<void> {
@@ -600,9 +633,20 @@ async function onReferenceFile(event: Event): Promise<void> {
   referenceError.value = null
   try {
     const payload = await parseImportWorkbook(file)
-    fileReference.value = buildEnglishReferenceFromWorkbook(payload)
+    const built = buildEnglishReferenceFromWorkbook(payload)
+    const reference: InroadsMvpEnglishTextReference = {
+      fileName: file.name,
+      title: built.title,
+      description: built.description,
+      mvp: built.mvp,
+      see: built.see,
+      process: built.process,
+      anticipate: built.anticipate,
+    }
+    fileReference.value = reference
     referenceStatus.value = `Using ${file.name} as the English reference.`
     applyFileReference()
+    await persistEnglishReference(reference)
   } catch (cause) {
     referenceError.value = cause instanceof Error ? cause.message : 'Could not read that workbook.'
   } finally {
@@ -669,8 +713,19 @@ async function saveLesson(): Promise<boolean> {
 }
 
 async function openPreview(): Promise<void> {
+  await openPlayerPreview(activeSection.value)
+}
+
+async function openResultsPreview(): Promise<void> {
+  await openPlayerPreview('results', { results: 'random' })
+}
+
+async function openPlayerPreview(
+  section: InroadsMvpSectionId,
+  extraQuery: Record<string, string> = {},
+): Promise<void> {
   if (!activityId.value) return
-  if (editable.value && activeSection.value === 'lesson') {
+  if (editable.value && (section === 'lesson' || section === 'results')) {
     const saved = await saveLesson()
     if (!saved) return
   }
@@ -684,7 +739,8 @@ async function openPreview(): Promise<void> {
       activity: activityId.value,
       preview: '1',
       mvp: '1',
-      section: activeSection.value,
+      section,
+      ...extraQuery,
     },
   })
 }
@@ -705,7 +761,7 @@ async function saveActiveSection(): Promise<boolean> {
 async function publish(): Promise<void> {
   if (!editable.value || !mvp.value) return
   if (!(await saveActiveSection())) return
-  if (activeSection.value !== 'lesson' && !(await saveLesson())) return
+  if (activeSection.value !== 'lesson' && activeSection.value !== 'results' && !(await saveLesson())) return
   if (!(await ensureParentLoaded())) return
   publishing.value = true
   try {
@@ -772,7 +828,7 @@ async function remove(): Promise<void> {
 </script>
 
 <template>
-  <div class="author-page">
+  <div class="author-page mvp-editor-page">
     <div v-if="loading" class="author-page-inner">
       <p class="author-muted">Loading Inroads MVP…</p>
     </div>
@@ -805,7 +861,7 @@ async function remove(): Promise<void> {
             :disabled="saving || publishing || deleting"
             @click="openPreview"
           >
-            Preview
+            Preview lesson
           </AuthorPillButton>
           <AuthorPillButton
             v-if="editable"
@@ -1026,6 +1082,34 @@ async function remove(): Promise<void> {
           </AuthorPillButton>
           <p v-if="saveMessage" class="author-success">{{ saveMessage }}</p>
         </div>
+      </template>
+
+      <template v-else-if="activeSection === 'results'">
+        <div class="author-actions">
+          <AuthorPillButton variant="primary" :disabled="saving || deleting" @click="openResultsPreview">
+            Preview section
+          </AuthorPillButton>
+        </div>
+        <section
+          v-for="group in resultsCopyPairs"
+          :key="group.title"
+          class="author-stack-sm"
+        >
+          <AuthorSectionHeader :title="group.title" />
+          <FieldPair
+            v-for="row in group.rows"
+            :key="`${group.title}-${row.label}`"
+            enabled
+            :label="row.label"
+            :value="row.english"
+            multiline
+          >
+            <AuthorMirrorField :label="row.label" :value="row.current" multiline />
+          </FieldPair>
+        </section>
+        <p v-if="resultsCopyPairs.length === 0" class="author-muted">
+          No results labels yet.
+        </p>
       </template>
 
       <div v-else-if="activeSection === 'see'" class="mvp-embedded-editor">

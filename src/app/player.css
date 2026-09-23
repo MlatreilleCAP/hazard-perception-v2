@@ -1398,7 +1398,6 @@ body:has(.player-page) {
 .lesson-results-card {
   display: flex;
   width: 100%;
-  max-width: 370px;
   flex-direction: column;
   gap: 16px;
   background: transparent;

@@ -223,6 +223,7 @@ export const INROADS_MVP_SECTIONS = [
   { id: 'see', label: '1 · Observe' },
   { id: 'process', label: '2 · Process' },
   { id: 'anticipate', label: '3 · Anticipate' },
+  { id: 'results', label: 'Results' },
 ] as const
 
 export type InroadsMvpSectionId = (typeof INROADS_MVP_SECTIONS)[number]['id']

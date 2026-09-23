@@ -74,6 +74,9 @@ const activityId = computed(() =>
   typeof route.query.activity === 'string' ? route.query.activity : null,
 )
 const isPreview = computed(() => route.query.preview === '1')
+const previewRandomResults = computed(
+  () => isPreview.value && route.query.results === 'random',
+)
 const lessonButtonLabel = ref('')
 const lessonSubmitLabel = ref('')
 const lessonCountry = ref('')
@@ -309,7 +312,10 @@ function mvpPreviewReturn(): { path: string; query?: { section: string } } | nul
     return { path: `/studio/stand-alone-video/${parentId}` }
   }
   const query =
-    section === 'see' || section === 'process' || section === 'anticipate'
+    section === 'see' ||
+    section === 'process' ||
+    section === 'anticipate' ||
+    section === 'results'
       ? { section }
       : undefined
   return { path: `/studio/inroads-mvp/${parentId}`, query }
@@ -359,6 +365,7 @@ function onExperienceFinished(): void {
           :definition="definition"
           :country="lessonCountry"
           :preview="isPreview"
+          :random-results="previewRandomResults"
           @finished="onExperienceFinished"
         />
         <SeeExperience

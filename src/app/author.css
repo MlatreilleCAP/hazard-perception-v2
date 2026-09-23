@@ -177,6 +177,11 @@
   margin: 0 auto;
 }
 
+.mvp-editor-page > .author-page-inner {
+  max-width: none;
+  margin: 0;
+}
+
 .author-stack {
   display: flex;
   flex-direction: column;
@@ -1833,7 +1838,8 @@ fieldset.author-stack {
 
 .mvp-language-note {
   margin: 0;
-  max-width: 46rem;
+  width: 100%;
+  max-width: none;
 }
 
 .mvp-reference-row {
@@ -1936,6 +1942,11 @@ fieldset.author-stack {
 .author-page-inner:has(.mvp-field-pair:not(.is-single)),
 .author-page-inner:has(.mvp-compare.has-english) {
   max-width: 92rem;
+}
+
+.mvp-editor-page > .author-page-inner:has(.mvp-field-pair:not(.is-single)),
+.mvp-editor-page > .author-page-inner:has(.mvp-compare.has-english) {
+  max-width: none;
 }
 
 .mvp-compare.has-english {
