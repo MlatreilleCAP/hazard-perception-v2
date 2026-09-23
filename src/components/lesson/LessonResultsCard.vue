@@ -89,13 +89,12 @@ function metricDelay(sectionIndex: number, metricIndex: number): string {
     role="main"
     aria-label="Challenge results"
   >
-    <p class="process-results-announcement is-emphasis">
-      {{ passed ? challengePassedLabel : challengeFailedLabel }}
-    </p>
-
     <div class="lesson-results-card">
       <header class="lesson-results-hero">
         <div class="lesson-results-hero-copy">
+          <p class="process-results-announcement is-emphasis">
+            {{ passed ? challengePassedLabel : challengeFailedLabel }}
+          </p>
           <p class="lesson-results-title">{{ title }}</p>
         </div>
         <p class="lesson-results-percent">{{ percent }}%</p>
