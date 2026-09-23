@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import audioPreviewImage from '@/assets/media/audio-preview.png'
 import { services } from '@/app/container'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
@@ -40,7 +40,18 @@ const error = ref<string | null>(null)
 const libraryOpen = ref(false)
 const libraryLoading = ref(false)
 const libraryAssets = ref<MediaAsset[]>([])
+const libraryQuery = ref('')
+const librarySearchInput = ref<HTMLInputElement | null>(null)
 const previewUrl = ref<string | null>(null)
+
+const filteredLibraryAssets = computed(() => {
+  const query = libraryQuery.value.trim().toLowerCase()
+  if (!query) return libraryAssets.value
+  return libraryAssets.value.filter((asset) => {
+    const name = mediaAssetDisplayName(asset).toLowerCase()
+    return name.includes(query) || asset.mimeType.toLowerCase().includes(query)
+  })
+})
 
 async function refreshPreview(media: MediaRef | null): Promise<void> {
   if (!media?.media_asset_id) {
@@ -142,8 +153,11 @@ async function handleFile(event: Event): Promise<void> {
 
 async function openLibrary(): Promise<void> {
   libraryOpen.value = true
+  libraryQuery.value = ''
   libraryLoading.value = true
   error.value = null
+  await nextTick()
+  librarySearchInput.value?.focus()
   try {
     libraryAssets.value = isImage.value
       ? await services.media.listImageAssets()
@@ -203,18 +217,31 @@ function clear(): void {
     <p v-if="error" class="author-error">{{ error }}</p>
 
     <div v-if="libraryOpen" class="media-library">
-      <p v-if="libraryLoading" class="author-muted">Loading media…</p>
-      <p v-else-if="libraryAssets.length === 0" class="author-muted">
-        {{ emptyLibraryLabel }}
-      </p>
-      <button
-        v-for="asset in libraryAssets"
-        :key="asset.id"
-        type="button"
-        @click="selectAsset(asset)"
-      >
-        {{ mediaAssetDisplayName(asset) }} · {{ asset.mimeType }}
-      </button>
+      <label class="media-library-search media-library-picker-search">
+        <span class="sr-only">Search media</span>
+        <input
+          ref="librarySearchInput"
+          v-model="libraryQuery"
+          type="search"
+          placeholder="Search"
+          autocomplete="off"
+        />
+      </label>
+      <div class="media-library-results">
+        <p v-if="libraryLoading" class="author-muted">Loading media…</p>
+        <p v-else-if="libraryAssets.length === 0" class="author-muted">
+          {{ emptyLibraryLabel }}
+        </p>
+        <p v-else-if="filteredLibraryAssets.length === 0" class="author-muted">No matches.</p>
+        <button
+          v-for="asset in filteredLibraryAssets"
+          :key="asset.id"
+          type="button"
+          @click="selectAsset(asset)"
+        >
+          {{ mediaAssetDisplayName(asset) }} · {{ asset.mimeType }}
+        </button>
+      </div>
     </div>
 
     <img
