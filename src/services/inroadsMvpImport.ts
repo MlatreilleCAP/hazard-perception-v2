@@ -9,7 +9,7 @@ import {
 import { readProcessDefinition, writeProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
-import { INROADS_MVP_CHILD_TAG } from '@/types/inroadsMvp'
+import { INROADS_MVP_CHILD_TAG, createDefaultInroadsMvpDefinition, type InroadsMvpDefinition } from '@/types/inroadsMvp'
 import {
   AUDIO_SLOT_IDS,
   IMAGE_SLOT_IDS,
@@ -33,6 +33,7 @@ import { loadActivityOrThrow } from '@/services/createInroadsMvp'
 import type { ActivityDefinition } from '@/types/activity'
 import {
   buildPersistableAnticipateDefinition,
+  createDefaultAnticipateDefinition,
   createEmptyAnticipateSegment,
   type AnticipateDefinition,
 } from '@/types/anticipate'
@@ -40,6 +41,7 @@ import type { MediaClipMetadata, MediaRef } from '@/types/media'
 import { mediaAssetDisplayName, mediaClipMetadataHasContent } from '@/types/media'
 import {
   buildPersistableProcessDefinition,
+  createDefaultProcessDefinition,
   createEmptyProcessSegment,
   type ProcessDefinition,
   type ProcessSegment,
@@ -52,7 +54,7 @@ import {
   type ProcessQuestionBank,
   type ProcessSurveyQuestion,
 } from '@/types/questions'
-import { createEmptySeeHazard, DEFAULT_OBSERVE_RESULT_COPY, type SeeDefinition } from '@/types/see'
+import { createDefaultSeeDefinition, createEmptySeeHazard, DEFAULT_OBSERVE_RESULT_COPY, type SeeDefinition } from '@/types/see'
 
 export type InroadsMvpOccupancy = {
   introMedia: boolean
@@ -424,6 +426,94 @@ function patchSee(
       ),
     },
     hazards,
+  }
+}
+
+const BLANK_RESULT_COPY = {
+  successResult: '',
+  failScreen: '',
+  twoAttempts: '',
+  threeAttempts: '',
+  timeOut: '',
+  missed1Attempt: '',
+  missed2Attempt: '',
+}
+
+/** Text-only English comparison built from a lesson workbook. Media is ignored. */
+export function buildEnglishReferenceFromWorkbook(payload: ParsedImportPackage): {
+  title: string
+  description: string
+  mvp: InroadsMvpDefinition
+  see: SeeDefinition
+  process: ProcessDefinition
+  anticipate: AnticipateDefinition
+} {
+  const lesson = payload.lesson
+  const mvp: InroadsMvpDefinition = {
+    ...createDefaultInroadsMvpDefinition('', '', ''),
+    country: lesson.country.trim(),
+    language: lesson.language.trim() || 'English',
+    sku: lesson.sku ?? '',
+    buttonLabel: lesson.button ?? '',
+    submitLabel: lesson.submit ?? '',
+    challengePassedLabel: lesson.challengePassed ?? '',
+    challengeFailedLabel: lesson.challengeFailed ?? '',
+    maneuverLabel: lesson.maneuverHeading ?? '',
+    roadwayLabel: lesson.roadwayHeading ?? '',
+    trafficDensityLabel: lesson.trafficDensityHeading ?? '',
+    timeOfDayLabel: lesson.timeOfDayHeading ?? '',
+    roadConditionsLabel: lesson.roadConditionsHeading ?? '',
+    ptsLabel: lesson.pts ?? '',
+    detectionLabel: lesson.detection ?? '',
+    accuracyLabel: lesson.accuracy ?? '',
+    coachingLabel: lesson.coaching ?? '',
+    q1Label: lesson.q1 ?? '',
+    q2Label: lesson.q2 ?? '',
+    q3Label: lesson.q3 ?? '',
+    q4Label: lesson.q4 ?? '',
+    observeLabel: lesson.observation ?? '',
+    processLabel: lesson.processSection ?? '',
+    anticipateLabel: lesson.anticipation ?? '',
+  }
+  const see = patchSee(
+    {
+      ...createDefaultSeeDefinition(),
+      instructionText: '',
+      instructionPill: '',
+      resultCopy: { ...BLANK_RESULT_COPY },
+    },
+    payload,
+    {},
+  )
+  const process = patchProcess(
+    {
+      ...createDefaultProcessDefinition(),
+      instructionText: '',
+      instructionPill: '',
+      secondInstructionText: '',
+      secondInstructionPill: '',
+    },
+    payload,
+    {},
+  )
+  const anticipate = patchAnticipate(
+    {
+      ...createDefaultAnticipateDefinition(),
+      instructionText: '',
+      instructionPill: '',
+      secondInstructionText: '',
+      secondInstructionPill: '',
+    },
+    payload,
+    {},
+  )
+  return {
+    title: lesson.title.trim(),
+    description: lesson.description.trim(),
+    mvp,
+    see,
+    process,
+    anticipate,
   }
 }
 

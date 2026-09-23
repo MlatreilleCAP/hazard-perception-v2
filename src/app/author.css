@@ -1817,6 +1817,28 @@ fieldset.author-stack {
   }
 }
 
+.mvp-language-note {
+  margin: 0;
+  max-width: 46rem;
+}
+
+.mvp-reference-row {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.mvp-reference-row input[type='file'] {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .mvp-version-row {
   display: flex;
   flex-wrap: wrap;
@@ -1848,18 +1870,6 @@ fieldset.author-stack {
 .mvp-version-row .author-field {
   min-width: 0;
   flex: 1;
-}
-
-.mvp-compare-lesson {
-  margin-left: auto;
-  width: 360px;
-  max-width: 100%;
-  flex: 0 0 auto;
-}
-
-.mvp-compare-lesson .author-select-wrap,
-.mvp-compare-lesson .author-field {
-  width: 100%;
 }
 
 .mvp-locale-row {

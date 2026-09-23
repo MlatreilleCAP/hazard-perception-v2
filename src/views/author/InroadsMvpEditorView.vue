@@ -23,6 +23,9 @@ import SeeEditorView from '@/views/author/SeeEditorView.vue'
 import { services } from '@/app/container'
 import { duplicateInroadsMvpVersion } from '@/services/createInroadsMvp'
 import { publishInroadsMvpLesson } from '@/services/publishInroadsMvp'
+import { buildEnglishReferenceFromWorkbook } from '@/services/inroadsMvpImport'
+import { parseImportWorkbook } from '@/lib/inroadsMvp/parseImportPackage'
+import { WORKBOOK_FILE_ACCEPT } from '@/lib/inroadsMvp/packageSpec'
 import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
@@ -163,7 +166,6 @@ type EnglishCandidate = {
 
 const englishCandidates = ref<EnglishCandidate[]>([])
 const englishCandidatesLoading = ref(false)
-const englishChoice = ref('')
 let englishCandidateGeneration = 0
 
 function preferredEnglishId(candidates: EnglishCandidate[], currentTitle: string): string {
@@ -171,22 +173,12 @@ function preferredEnglishId(candidates: EnglishCandidate[], currentTitle: string
     (item) => lessonVersionKey(item.title) === lessonVersionKey(currentTitle),
   )
   if (sameTitle) return sameTitle.id
-  const published = candidates.filter((item) => item.published)
-  return published.length === 1 ? published[0]?.id ?? '' : ''
+  const published = candidates.find((item) => item.published)
+  return published?.id ?? candidates[0]?.id ?? ''
 }
 
-const selectedEnglishId = computed(() => {
-  if (
-    englishChoice.value &&
-    englishCandidates.value.some((item) => item.id === englishChoice.value)
-  ) {
-    return englishChoice.value
-  }
-  return preferredEnglishId(englishCandidates.value, title.value)
-})
-
-const englishLessonOptions = computed(() =>
-  englishCandidates.value.map((item) => ({ value: item.id, label: item.label })),
+const selectedEnglishId = computed(() =>
+  preferredEnglishId(englishCandidates.value, title.value),
 )
 
 const englishTitle = computed(() => englishSource.value?.title ?? '')
@@ -228,7 +220,39 @@ const englishProcess = ref<ProcessDefinition | null>(null)
 const englishAnticipate = ref<AnticipateDefinition | null>(null)
 const englishLoading = ref(false)
 const englishError = ref<string | null>(null)
+const referenceInput = ref<HTMLInputElement | null>(null)
+const referenceReading = ref(false)
+const referenceError = ref<string | null>(null)
+const referenceStatus = ref<string | null>(null)
+const fileReference = ref<ReturnType<typeof buildEnglishReferenceFromWorkbook> | null>(null)
 let englishLoadGeneration = 0
+
+const referenceRequired = computed(
+  () =>
+    showEnglishReference.value &&
+    !englishCandidatesLoading.value &&
+    !selectedEnglishId.value &&
+    !fileReference.value,
+)
+
+function applyFileReference(): void {
+  englishLoadGeneration += 1
+  const file = fileReference.value
+  englishSee.value = file?.see ?? null
+  englishProcess.value = file?.process ?? null
+  englishAnticipate.value = file?.anticipate ?? null
+  englishSource.value = file
+    ? {
+        id: '',
+        label: referenceStatus.value ?? 'Reference file',
+        title: file.title,
+        description: file.description,
+        mvp: file.mvp,
+      }
+    : null
+  englishError.value = null
+  englishLoading.value = false
+}
 
 async function loadEnglishCandidates(): Promise<void> {
   const generation = ++englishCandidateGeneration
@@ -261,14 +285,14 @@ async function loadEnglishCandidates(): Promise<void> {
 }
 
 async function loadEnglishReference(id: string): Promise<void> {
+  if (fileReference.value) {
+    applyFileReference()
+    return
+  }
   const generation = ++englishLoadGeneration
   if (!id) {
-    englishSource.value = null
-    englishSee.value = null
-    englishProcess.value = null
-    englishAnticipate.value = null
-    englishError.value = null
     englishLoading.value = false
+    applyFileReference()
     return
   }
   englishLoading.value = true
@@ -558,8 +582,33 @@ watch(
 )
 
 watch(activityId, () => {
-  englishChoice.value = ''
+  fileReference.value = null
+  referenceStatus.value = null
+  referenceError.value = null
 })
+
+function chooseReferenceFile(): void {
+  referenceInput.value?.click()
+}
+
+async function onReferenceFile(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  referenceReading.value = true
+  referenceError.value = null
+  try {
+    const payload = await parseImportWorkbook(file)
+    fileReference.value = buildEnglishReferenceFromWorkbook(payload)
+    referenceStatus.value = `Using ${file.name} as the English reference.`
+    applyFileReference()
+  } catch (cause) {
+    referenceError.value = cause instanceof Error ? cause.message : 'Could not read that workbook.'
+  } finally {
+    referenceReading.value = false
+  }
+}
 
 watch(
   selectedEnglishId,
@@ -790,6 +839,30 @@ async function remove(): Promise<void> {
         <div class="author-stack mvp-compare-editor">
       <template v-if="activeSection === 'lesson'">
         <section class="author-stack-sm">
+          <p class="author-muted mvp-language-note">
+            Please upload a full English version first. It will be used to compare subsequent
+            languages. If no English version exists, upload the English XLSX file.
+          </p>
+          <div class="mvp-reference-row">
+            <input
+              ref="referenceInput"
+              type="file"
+              :accept="WORKBOOK_FILE_ACCEPT"
+              @change="onReferenceFile"
+            />
+            <AuthorPillButton
+              variant="white"
+              :disabled="referenceReading"
+              @click="chooseReferenceFile"
+            >
+              {{ referenceReading ? 'Reading…' : 'Upload reference file' }}
+            </AuthorPillButton>
+            <p v-if="referenceStatus" class="author-muted">{{ referenceStatus }}</p>
+            <p v-if="referenceError" class="author-error">{{ referenceError }}</p>
+            <p v-else-if="referenceRequired" class="author-error">
+              An English version or an XLS reference file is required.
+            </p>
+          </div>
           <AuthorSectionHeader title="Language" />
           <div class="mvp-version-row">
             <div class="mvp-sku-field">
@@ -834,23 +907,7 @@ async function remove(): Promise<void> {
             :parent-id="activityId"
             :disabled="saving || publishing || deleting"
             @imported="onImported"
-          >
-            <template #actions-end>
-              <div
-                v-if="showEnglishReference && englishLessonOptions.length"
-                class="mvp-compare-lesson"
-              >
-                <AuthorSelectField
-                  id="english-lesson"
-                  :model-value="selectedEnglishId"
-                  label="Comparison Lesson"
-                  :options="englishLessonOptions"
-                  :disabled="englishCandidatesLoading"
-                  @update:model-value="englishChoice = $event"
-                />
-              </div>
-            </template>
-          </InroadsMvpImportPanel>
+          />
         </section>
 
         <section class="author-stack-sm">
