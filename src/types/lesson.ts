@@ -413,8 +413,8 @@ export function randomLessonSectionResults(): Partial<
     }
   })
   const spotted = hazards.filter((hazard) => hazard.correct).length
-  const process = randomQuestionMetrics('process', 4)
-  const anticipate = randomQuestionMetrics('anticipate', 4)
+  const process = randomQuestionMetrics('process', 3)
+  const anticipate = randomQuestionMetrics('anticipate', 3)
   return {
     see: {
       kind: 'see',
@@ -425,18 +425,18 @@ export function randomLessonSectionResults(): Partial<
     },
     process: {
       kind: 'process',
-      percent: Math.round((process.correctCount / 4) * 100),
+      percent: Math.round((process.correctCount / 3) * 100),
       correctCount: process.correctCount,
-      totalCount: 4,
-      coachingRequired: process.correctCount < 4,
+      totalCount: 3,
+      coachingRequired: process.correctCount < 3,
       metrics: process.metrics,
     },
     anticipate: {
       kind: 'anticipate',
-      percent: Math.round((anticipate.correctCount / 4) * 100),
+      percent: Math.round((anticipate.correctCount / 3) * 100),
       correctCount: anticipate.correctCount,
-      totalCount: 4,
-      coachingRequired: anticipate.correctCount < 4,
+      totalCount: 3,
+      coachingRequired: anticipate.correctCount < 3,
       metrics: anticipate.metrics,
     },
   }
