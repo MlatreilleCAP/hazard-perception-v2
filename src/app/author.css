@@ -1807,6 +1807,22 @@ fieldset.author-stack {
   flex: 1;
 }
 
+.mvp-version-row .mvp-sku-field {
+  min-width: 160px;
+  flex: 1;
+}
+
+.mvp-version-row .mvp-sku-field .author-field {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mvp-version-row .mvp-sku-field .author-field-control {
+  display: block;
+  height: 18px;
+  line-height: 18px;
+}
+
 .mvp-version-row .author-field {
   min-width: 0;
   flex: 1;

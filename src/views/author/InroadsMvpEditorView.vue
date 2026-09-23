@@ -580,18 +580,17 @@ async function remove(): Promise<void> {
 
       <template v-if="activeSection === 'lesson'">
         <section class="author-stack-sm">
-          <AuthorField
-            :id="`${activityId}-sku`"
-            v-model="sku"
-            label="SKU"
-            placeholder="SKU"
-            :disabled="!editable"
-          />
-        </section>
-
-        <section class="author-stack-sm">
           <AuthorSectionHeader title="Language" />
           <div class="mvp-version-row">
+            <div class="mvp-sku-field">
+              <AuthorField
+                :id="`${activityId}-sku`"
+                v-model="sku"
+                label="SKU"
+                placeholder="SKU"
+                :disabled="!editable"
+              />
+            </div>
             <AuthorSelectField
               :id="`${activityId}-version`"
               :model-value="activityId"
