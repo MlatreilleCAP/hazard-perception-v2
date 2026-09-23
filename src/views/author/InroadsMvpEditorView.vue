@@ -572,12 +572,12 @@ async function remove(): Promise<void> {
 
       <template v-if="activeSection === 'lesson'">
         <section class="author-stack-sm">
-          <AuthorSectionHeader title="Version" />
+          <AuthorSectionHeader title="Language" />
           <div class="mvp-version-row">
             <AuthorSelectField
               :id="`${activityId}-version`"
               :model-value="activityId"
-              label="Version"
+              label="Language"
               :options="versionSelectOptions"
               :disabled="creatingVersion || deleting"
               @update:model-value="onVersionSelect"
@@ -588,7 +588,7 @@ async function remove(): Promise<void> {
               :disabled="saving || publishing || deleting || creatingVersion"
               @click="createVersion"
             >
-              {{ creatingVersion ? 'Creating…' : 'New Version' }}
+              {{ creatingVersion ? 'Creating…' : 'New Language' }}
             </AuthorPillButton>
             <AuthorPillButton
               v-if="editable"
@@ -596,7 +596,7 @@ async function remove(): Promise<void> {
               :disabled="saving || publishing || deleting || creatingVersion"
               @click="removeVersion"
             >
-              {{ deleting ? 'Removing…' : 'Remove Version' }}
+              {{ deleting ? 'Removing…' : 'Remove Language' }}
             </AuthorPillButton>
           </div>
         </section>
