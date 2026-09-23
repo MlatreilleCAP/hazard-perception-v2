@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { services } from '@/app/container'
 import AuthorField from '@/components/author/AuthorField.vue'
+import FieldPair from '@/components/author/FieldPair.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
@@ -30,9 +31,10 @@ const props = withDefaults(
     media: MediaRef | null
     duration: number
     hazards: SeeHazard[]
+    englishHazards?: SeeHazard[] | null
     readonly?: boolean
   }>(),
-  { readonly: false },
+  { readonly: false, englishHazards: null },
 )
 
 const emit = defineEmits<{
@@ -64,6 +66,13 @@ const editingHazard = computed(() => selectedHazard.value ?? draftHazard.value)
 const coachingHazard = computed(
   () => selectedHazard.value ?? props.hazards[0] ?? draftHazard.value,
 )
+const englishHazard = computed(() => {
+  const hazards = props.englishHazards
+  const current = coachingHazard.value
+  if (!hazards?.length || !current) return null
+  const index = props.hazards.findIndex((hazard) => hazard.id === current.id)
+  return hazards[index >= 0 ? index : 0] ?? null
+})
 
 function createDraftHazard(): SeeHazard {
   const span = duration.value > 0 ? duration.value : 10
@@ -491,6 +500,7 @@ watch(previewUrl, () => {
       :hazard-id="coachingHazard.id"
       :activity-id="activityId"
       :model-value="coachingHazard"
+      :english="englishHazard"
       @update:model-value="onDetailsChange"
     />
 
@@ -500,23 +510,36 @@ watch(previewUrl, () => {
         <p class="author-muted">
           Shown over the paused first frame of the coaching video until the learner taps Continue.
         </p>
-        <AuthorField
-          :id="`${coachingHazard.id}-instruction-pill`"
-          :model-value="coachingHazard.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
+        <FieldPair
+          :enabled="!!englishHazard"
           label="Pill label"
-          :disabled="readonly"
-          @update:model-value="onInstructionPillChange"
-        />
-        <AuthorField
-          :id="`${coachingHazard.id}-instruction`"
-          :model-value="coachingHazard.instructionText ?? ''"
+          :value="englishHazard?.instructionPill"
+        >
+          <AuthorField
+            :id="`${coachingHazard.id}-instruction-pill`"
+            :model-value="coachingHazard.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
+            label="Pill label"
+            :disabled="readonly"
+            @update:model-value="onInstructionPillChange"
+          />
+        </FieldPair>
+        <FieldPair
+          :enabled="!!englishHazard"
           label="Instruction text"
-          placeholder="Instruction text goes here"
+          :value="englishHazard?.instructionText"
           multiline
-          :rows="3"
-          :disabled="readonly"
-          @update:model-value="onInstructionTextChange"
-        />
+        >
+          <AuthorField
+            :id="`${coachingHazard.id}-instruction`"
+            :model-value="coachingHazard.instructionText ?? ''"
+            label="Instruction text"
+            placeholder="Instruction text goes here"
+            multiline
+            :rows="3"
+            :disabled="readonly"
+            @update:model-value="onInstructionTextChange"
+          />
+        </FieldPair>
       </section>
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Video" />
@@ -542,6 +565,7 @@ watch(previewUrl, () => {
       :key="coachingHazard.id"
       :segment-id="coachingHazard.id"
       :model-value="coachingHazard.questions"
+      :english-questions="englishHazard?.questions ?? null"
       @update:model-value="onQuestionsChange"
     />
   </div>

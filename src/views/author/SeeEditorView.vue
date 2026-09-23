@@ -3,6 +3,8 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
 import AuthorField from '@/components/author/AuthorField.vue'
+import AuthorMirrorField from '@/components/author/AuthorMirrorField.vue'
+import FieldPair from '@/components/author/FieldPair.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
@@ -34,8 +36,10 @@ const props = withDefaults(
     embedded?: boolean
     /** Lesson-sheet clip intro headings. Empty values keep the English field names. */
     summaryHeadings?: Partial<ObserveSummaryHeadings>
+    /** English lesson text shown beside each field. Media is not compared. */
+    english?: SeeDefinition | null
   }>(),
-  { activityIdProp: undefined, embedded: false, summaryHeadings: undefined },
+  { activityIdProp: undefined, embedded: false, summaryHeadings: undefined, english: null },
 )
 
 const route = useRoute()
@@ -375,18 +379,27 @@ defineExpose({ save })
         <p class="author-muted">
           Shown over the paused first frame of the scenario video until the learner taps Continue.
         </p>
-        <AuthorField
-          id="see-instruction-pill"
-          v-model="instructionPill"
-          label="Pill label"
-        />
-        <AuthorField
-          id="see-instruction"
-          v-model="instructionText"
+        <FieldPair :enabled="!!english" label="Pill label" :value="english?.instructionPill">
+          <AuthorField
+            id="see-instruction-pill"
+            v-model="instructionPill"
+            label="Pill label"
+          />
+        </FieldPair>
+        <FieldPair
+          :enabled="!!english"
           label="Instruction text"
+          :value="english?.instructionText"
           multiline
-          :rows="1"
-        />
+        >
+          <AuthorField
+            id="see-instruction"
+            v-model="instructionText"
+            label="Instruction text"
+            multiline
+            :rows="1"
+          />
+        </FieldPair>
       </section>
 
       <section class="author-stack-sm">
@@ -403,41 +416,88 @@ defineExpose({ save })
           :readonly="!editable"
           @update:model-value="patchSee({ introAudio: $event })"
         />
-        <AuthorField
-          :id="`${activityId}-maneuver`"
-          :model-value="see.maneuver"
-          :label="clipIntroLabels.maneuver"
-          placeholder="Travelling Straight"
-          @update:model-value="patchSee({ maneuver: $event })"
-        />
-        <AuthorField
-          :id="`${activityId}-roadway`"
-          :model-value="see.roadway"
-          :label="clipIntroLabels.roadway"
-          placeholder="Divided 2-Lane"
-          @update:model-value="patchSee({ roadway: $event })"
-        />
-        <AuthorField
-          :id="`${activityId}-density`"
-          :model-value="see.trafficDensity"
+        <FieldPair :enabled="!!english" :label="clipIntroLabels.maneuver" :value="english?.maneuver">
+          <AuthorField
+            :id="`${activityId}-maneuver`"
+            :model-value="see.maneuver"
+            :label="clipIntroLabels.maneuver"
+            placeholder="Travelling Straight"
+            @update:model-value="patchSee({ maneuver: $event })"
+          />
+        </FieldPair>
+        <FieldPair :enabled="!!english" :label="clipIntroLabels.roadway" :value="english?.roadway">
+          <AuthorField
+            :id="`${activityId}-roadway`"
+            :model-value="see.roadway"
+            :label="clipIntroLabels.roadway"
+            placeholder="Divided 2-Lane"
+            @update:model-value="patchSee({ roadway: $event })"
+          />
+        </FieldPair>
+        <FieldPair
+          :enabled="!!english"
           :label="clipIntroLabels.trafficDensity"
-          placeholder="Moderate"
-          @update:model-value="patchSee({ trafficDensity: $event })"
-        />
-        <AuthorField
-          :id="`${activityId}-time-of-day`"
-          :model-value="see.timeOfDay"
+          :value="english?.trafficDensity"
+        >
+          <AuthorField
+            :id="`${activityId}-density`"
+            :model-value="see.trafficDensity"
+            :label="clipIntroLabels.trafficDensity"
+            placeholder="Moderate"
+            @update:model-value="patchSee({ trafficDensity: $event })"
+          />
+        </FieldPair>
+        <FieldPair
+          :enabled="!!english"
           :label="clipIntroLabels.timeOfDay"
-          placeholder="Daytime"
-          @update:model-value="patchSee({ timeOfDay: $event })"
-        />
-        <AuthorField
-          :id="`${activityId}-road-conditions`"
-          :model-value="see.roadConditions"
+          :value="english?.timeOfDay"
+        >
+          <AuthorField
+            :id="`${activityId}-time-of-day`"
+            :model-value="see.timeOfDay"
+            :label="clipIntroLabels.timeOfDay"
+            placeholder="Daytime"
+            @update:model-value="patchSee({ timeOfDay: $event })"
+          />
+        </FieldPair>
+        <FieldPair
+          :enabled="!!english"
           :label="clipIntroLabels.roadConditions"
-          placeholder="Dry"
-          @update:model-value="patchSee({ roadConditions: $event })"
-        />
+          :value="english?.roadConditions"
+        >
+          <AuthorField
+            :id="`${activityId}-road-conditions`"
+            :model-value="see.roadConditions"
+            :label="clipIntroLabels.roadConditions"
+            placeholder="Dry"
+            @update:model-value="patchSee({ roadConditions: $event })"
+          />
+        </FieldPair>
+      </section>
+
+      <section v-if="english" class="author-stack-sm">
+        <AuthorSectionHeader title="Results" />
+        <FieldPair enabled label="First attempt" :value="english.resultCopy.successResult" multiline>
+          <AuthorMirrorField label="First attempt" :value="see.resultCopy.successResult" multiline />
+        </FieldPair>
+        <FieldPair enabled label="Other outcomes" :value="english.resultCopy.failScreen" multiline>
+          <AuthorMirrorField label="Other outcomes" :value="see.resultCopy.failScreen" multiline />
+        </FieldPair>
+        <FieldPair enabled label="Second attempt" :value="english.resultCopy.twoAttempts" multiline>
+          <AuthorMirrorField label="Second attempt" :value="see.resultCopy.twoAttempts" multiline />
+        </FieldPair>
+        <FieldPair enabled label="Third attempt" :value="english.resultCopy.threeAttempts" multiline>
+          <AuthorMirrorField label="Third attempt" :value="see.resultCopy.threeAttempts" multiline />
+        </FieldPair>
+        <FieldPair enabled label="Time out" :value="english.resultCopy.timeOut" multiline>
+          <AuthorMirrorField label="Time out" :value="see.resultCopy.timeOut" multiline />
+        </FieldPair>
+        <FieldPair enabled label="Missed after 1 attempt" :value="english.resultCopy.missed1Attempt" multiline>
+          <AuthorMirrorField label="Missed after 1 attempt" :value="see.resultCopy.missed1Attempt" multiline />
+        </FieldPair>
+        <FieldPair enabled label="Missed after 2 attempts" :value="english.resultCopy.missed2Attempt" multiline>
+          <AuthorMirrorField label="Missed after 2 attempts" :value="see.resultCopy.missed2Attempt" multiline />
+        </FieldPair>
       </section>
 
       <section v-if="!see.media" class="author-stack-sm">
@@ -461,6 +521,7 @@ defineExpose({ save })
         :media="see.media"
         :duration="see.duration"
         :hazards="see.hazards"
+        :english-hazards="english?.hazards ?? null"
         :readonly="!editable"
         @update:media="setMedia"
         @update:duration="setDurationSeconds"

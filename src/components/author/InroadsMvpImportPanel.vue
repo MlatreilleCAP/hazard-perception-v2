@@ -298,6 +298,7 @@ async function runImport(file: File): Promise<void> {
           </button>
         </div>
       </div>
+      <slot name="actions-end" />
     </div>
 
     <p v-if="progress" class="author-muted">{{ progress }}</p>

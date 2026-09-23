@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { readAnticipateDefinition } from '@/activities/anticipateDefinition'
 import {
   readInroadsMvpDefinition,
   writeInroadsMvpDefinition,
 } from '@/activities/inroadsMvpDefinition'
+import { readProcessDefinition } from '@/activities/processDefinition'
+import { readSeeDefinition } from '@/activities/seeDefinition'
 import { readIntroductionDefinition } from '@/activities/introductionDefinition'
 import AnticipateEditorView from '@/views/author/AnticipateEditorView.vue'
 import AuthorField from '@/components/author/AuthorField.vue'
+import AuthorMirrorField from '@/components/author/AuthorMirrorField.vue'
+import FieldPair from '@/components/author/FieldPair.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
@@ -28,10 +33,15 @@ import {
   type InroadsMvpSectionId,
 } from '@/types/inroadsMvp'
 import { isIntroductionActivity } from '@/types/introduction'
+import { lessonEnglishGroups } from '@/lib/inroadsMvp/englishTextReference'
 import {
+  canonicalizeLessonLanguage,
   LESSON_COUNTRY_OPTIONS,
   LESSON_LANGUAGE_OPTIONS,
 } from '@/lib/inroadsMvp/packageSpec'
+import type { AnticipateDefinition } from '@/types/anticipate'
+import type { ProcessDefinition } from '@/types/process'
+import type { SeeDefinition } from '@/types/see'
 import { lessonVersionKey, lessonVersionLabel, lessonLocalesMatch } from '@/lib/inroadsMvp/lessonVersions'
 
 const route = useRoute()
@@ -54,6 +64,8 @@ const mvp = ref<InroadsMvpDefinition | null>(null)
 type LessonVersionOption = {
   id: string
   label: string
+  country: string
+  language: string
 }
 
 const versions = ref<LessonVersionOption[]>([])
@@ -138,6 +150,174 @@ const sku = computed({
   },
 })
 
+const showEnglishReference = computed(
+  () => canonicalizeLessonLanguage(language.value) !== 'English',
+)
+
+type EnglishCandidate = {
+  id: string
+  title: string
+  label: string
+  published: boolean
+}
+
+const englishCandidates = ref<EnglishCandidate[]>([])
+const englishCandidatesLoading = ref(false)
+const englishChoice = ref('')
+let englishCandidateGeneration = 0
+
+function preferredEnglishId(candidates: EnglishCandidate[], currentTitle: string): string {
+  const sameTitle = candidates.find(
+    (item) => lessonVersionKey(item.title) === lessonVersionKey(currentTitle),
+  )
+  if (sameTitle) return sameTitle.id
+  const published = candidates.filter((item) => item.published)
+  return published.length === 1 ? published[0]?.id ?? '' : ''
+}
+
+const selectedEnglishId = computed(() => {
+  if (
+    englishChoice.value &&
+    englishCandidates.value.some((item) => item.id === englishChoice.value)
+  ) {
+    return englishChoice.value
+  }
+  return preferredEnglishId(englishCandidates.value, title.value)
+})
+
+const englishLessonOptions = computed(() =>
+  englishCandidates.value.map((item) => ({ value: item.id, label: item.label })),
+)
+
+const englishTitle = computed(() => englishSource.value?.title ?? '')
+const englishDescription = computed(() => englishSource.value?.description ?? '')
+const englishCountry = computed(() => englishSource.value?.mvp.country ?? '')
+const englishLanguageName = computed(() => englishSource.value?.mvp.language ?? '')
+
+const lessonCopyPairs = computed(() => {
+  const source = englishSource.value
+  if (!showEnglishReference.value || !mvp.value || !source) return []
+  const current = lessonEnglishGroups(title.value, description.value, mvp.value)
+  const english = lessonEnglishGroups(source.title, source.description, source.mvp)
+  return english
+    .filter((group) => group.title !== 'Details')
+    .map((group) => {
+      const match = current.find((item) => item.title === group.title)
+      return {
+        title: group.title,
+        rows: group.rows.map((row) => ({
+          label: row.label,
+          current: match?.rows.find((item) => item.label === row.label)?.value ?? '',
+          english: row.value,
+        })),
+      }
+    })
+})
+
+type EnglishLessonSource = {
+  id: string
+  label: string
+  title: string
+  description: string
+  mvp: InroadsMvpDefinition
+}
+
+const englishSource = ref<EnglishLessonSource | null>(null)
+const englishSee = ref<SeeDefinition | null>(null)
+const englishProcess = ref<ProcessDefinition | null>(null)
+const englishAnticipate = ref<AnticipateDefinition | null>(null)
+const englishLoading = ref(false)
+const englishError = ref<string | null>(null)
+let englishLoadGeneration = 0
+
+async function loadEnglishCandidates(): Promise<void> {
+  const generation = ++englishCandidateGeneration
+  englishCandidatesLoading.value = true
+  const items = activities.summaries.filter(
+    (item) => isInroadsMvpActivity(item.tags) && item.id !== activityId.value,
+  )
+  const rows = await Promise.all(
+    items.map(async (item) => {
+      try {
+        const definition = await services.persistence.getById(item.id)
+        const parsed = definition ? readInroadsMvpDefinition(definition) : null
+        if (!parsed || canonicalizeLessonLanguage(parsed.language) !== 'English') return null
+        return {
+          id: item.id,
+          title: definition?.metadata.title ?? item.title,
+          published: item.published,
+          label: `${definition?.metadata.title || item.title} · ${lessonVersionLabel(parsed.country, parsed.language, item.published)}`,
+        }
+      } catch {
+        return null
+      }
+    }),
+  )
+  if (generation !== englishCandidateGeneration) return
+  englishCandidates.value = rows
+    .filter((item): item is EnglishCandidate => item != null)
+    .sort((a, b) => a.label.localeCompare(b.label))
+  englishCandidatesLoading.value = false
+}
+
+async function loadEnglishReference(id: string): Promise<void> {
+  const generation = ++englishLoadGeneration
+  if (!id) {
+    englishSource.value = null
+    englishSee.value = null
+    englishProcess.value = null
+    englishAnticipate.value = null
+    englishError.value = null
+    englishLoading.value = false
+    return
+  }
+  englishLoading.value = true
+  englishError.value = null
+  try {
+    const definition = await services.persistence.getById(id)
+    if (generation !== englishLoadGeneration) return
+    const parsed = definition ? readInroadsMvpDefinition(definition) : null
+    if (!definition || !parsed) {
+      englishSource.value = null
+      englishError.value = 'English version was not found.'
+      return
+    }
+    const [seeDefinition, processDefinition, anticipateDefinition] = await Promise.all([
+      parsed.seeActivityId
+        ? services.persistence.getById(parsed.seeActivityId)
+        : Promise.resolve(null),
+      parsed.processActivityId
+        ? services.persistence.getById(parsed.processActivityId)
+        : Promise.resolve(null),
+      parsed.anticipateActivityId
+        ? services.persistence.getById(parsed.anticipateActivityId)
+        : Promise.resolve(null),
+    ])
+    if (generation !== englishLoadGeneration) return
+    const candidate = englishCandidates.value.find((item) => item.id === id)
+    englishSource.value = {
+      id,
+      label:
+        candidate?.label ??
+        `${definition.metadata.title} · ${lessonVersionLabel(parsed.country, parsed.language, true)}`,
+      title: definition.metadata.title,
+      description: definition.metadata.description,
+      mvp: parsed,
+    }
+    englishSee.value = seeDefinition ? readSeeDefinition(seeDefinition) : null
+    englishProcess.value = processDefinition ? readProcessDefinition(processDefinition) : null
+    englishAnticipate.value = anticipateDefinition
+      ? readAnticipateDefinition(anticipateDefinition)
+      : null
+  } catch (cause) {
+    if (generation !== englishLoadGeneration) return
+    englishSource.value = null
+    englishError.value = cause instanceof Error ? cause.message : 'Failed to load English text'
+  } finally {
+    if (generation === englishLoadGeneration) englishLoading.value = false
+  }
+}
+
 async function loadVersions(
   currentTitle: string,
   currentMvp: InroadsMvpDefinition,
@@ -162,6 +342,8 @@ async function loadVersions(
       if (item.id === activityId.value) {
         return {
           id: item.id,
+          country: currentMvp.country,
+          language: currentMvp.language,
           label: lessonVersionLabel(currentMvp.country, currentMvp.language, item.published),
         }
       }
@@ -170,6 +352,8 @@ async function loadVersions(
         const parsed = definition ? readInroadsMvpDefinition(definition) : null
         return {
           id: item.id,
+          country: parsed?.country ?? '',
+          language: parsed?.language ?? '',
           label: lessonVersionLabel(
             parsed?.country ?? '',
             parsed?.language ?? '',
@@ -179,6 +363,8 @@ async function loadVersions(
       } catch {
         return {
           id: item.id,
+          country: '',
+          language: '',
           label: lessonVersionLabel('', '', item.published),
         }
       }
@@ -361,6 +547,28 @@ watch(activeSection, async (section) => {
     await ensureParentLoaded()
   }
 })
+
+watch(
+  [showEnglishReference, activityId, () => activities.summaries.length],
+  ([show]) => {
+    if (!show) return
+    void loadEnglishCandidates()
+  },
+  { immediate: true },
+)
+
+watch(activityId, () => {
+  englishChoice.value = ''
+})
+
+watch(
+  selectedEnglishId,
+  (id) => {
+    if (!showEnglishReference.value) return
+    void loadEnglishReference(id)
+  },
+  { immediate: true },
+)
 
 function setIntroductionActivityId(id: string): void {
   if (!mvp.value) return
@@ -578,6 +786,8 @@ async function remove(): Promise<void> {
         </button>
       </nav>
 
+      <div class="mvp-compare" :class="{ 'is-lesson': activeSection === 'lesson' }">
+        <div class="author-stack mvp-compare-editor">
       <template v-if="activeSection === 'lesson'">
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Language" />
@@ -624,44 +834,103 @@ async function remove(): Promise<void> {
             :parent-id="activityId"
             :disabled="saving || publishing || deleting"
             @imported="onImported"
-          />
+          >
+            <template #actions-end>
+              <div
+                v-if="showEnglishReference && englishLessonOptions.length"
+                class="mvp-compare-lesson"
+              >
+                <AuthorSelectField
+                  id="english-lesson"
+                  :model-value="selectedEnglishId"
+                  label="Comparison Lesson"
+                  :options="englishLessonOptions"
+                  :disabled="englishCandidatesLoading"
+                  @update:model-value="englishChoice = $event"
+                />
+              </div>
+            </template>
+          </InroadsMvpImportPanel>
         </section>
 
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Details" />
-          <AuthorField
-            :id="`${activityId}-title`"
-            v-model="title"
+          <FieldPair
+            :enabled="showEnglishReference"
             label="Title"
-            :error="titleError ?? undefined"
-            placeholder="Inroads MVP title"
-            :disabled="!editable"
-          />
-          <AuthorField
-            :id="`${activityId}-description`"
-            v-model="description"
+            :value="englishTitle"
+          >
+            <AuthorField
+              :id="`${activityId}-title`"
+              v-model="title"
+              label="Title"
+              :error="titleError ?? undefined"
+              placeholder="Inroads MVP title"
+              :disabled="!editable"
+            />
+          </FieldPair>
+          <FieldPair
+            :enabled="showEnglishReference"
             label="Description"
+            :value="englishDescription"
             multiline
-            :rows="2"
-            placeholder="What learners will cover"
-            :disabled="!editable"
-          />
-          <AuthorField
-            :id="`${activityId}-country`"
-            v-model="country"
+          >
+            <AuthorField
+              :id="`${activityId}-description`"
+              v-model="description"
+              label="Description"
+              multiline
+              :rows="2"
+              placeholder="What learners will cover"
+              :disabled="!editable"
+            />
+          </FieldPair>
+          <FieldPair
+            :enabled="showEnglishReference"
             label="Country"
-            placeholder="Select country"
-            :options="selectOptions(LESSON_COUNTRY_OPTIONS, country)"
-            :disabled="!editable"
-          />
-          <AuthorField
-            :id="`${activityId}-language`"
-            v-model="language"
+            :value="englishCountry"
+          >
+            <AuthorField
+              :id="`${activityId}-country`"
+              v-model="country"
+              label="Country"
+              placeholder="Select country"
+              :options="selectOptions(LESSON_COUNTRY_OPTIONS, country)"
+              :disabled="!editable"
+            />
+          </FieldPair>
+          <FieldPair
+            :enabled="showEnglishReference"
             label="Language"
-            placeholder="Select language"
-            :options="selectOptions(LESSON_LANGUAGE_OPTIONS, language)"
-            :disabled="!editable"
-          />
+            :value="englishLanguageName"
+          >
+            <AuthorField
+              :id="`${activityId}-language`"
+              v-model="language"
+              label="Language"
+              placeholder="Select language"
+              :options="selectOptions(LESSON_LANGUAGE_OPTIONS, language)"
+              :disabled="!editable"
+            />
+          </FieldPair>
+        </section>
+
+        <section
+          v-for="group in lessonCopyPairs"
+          :key="group.title"
+          class="author-stack-sm"
+        >
+          <AuthorSectionHeader :title="group.title" />
+          <FieldPair
+            v-for="row in group.rows"
+            :key="`${group.title}-${row.label}`"
+            enabled
+            :label="row.label"
+            :value="row.english"
+            multiline
+          >
+            <AuthorMirrorField :label="row.label" :value="row.current" multiline />
+          </FieldPair>
         </section>
 
         <section class="author-stack-sm">
@@ -715,6 +984,7 @@ async function remove(): Promise<void> {
             timeOfDay: mvp.timeOfDayLabel,
             roadConditions: mvp.roadConditionsLabel,
           }"
+          :english="showEnglishReference ? englishSee : null"
         />
       </div>
       <div v-else-if="activeSection === 'process'" class="mvp-embedded-editor">
@@ -723,6 +993,7 @@ async function remove(): Promise<void> {
           :key="`process-${mvp.processActivityId}-${sectionReload}`"
           :activity-id-prop="mvp.processActivityId"
           embedded
+          :english="showEnglishReference ? englishProcess : null"
         />
       </div>
       <div v-else-if="activeSection === 'anticipate'" class="mvp-embedded-editor">
@@ -731,7 +1002,10 @@ async function remove(): Promise<void> {
           :key="`anticipate-${mvp.anticipateActivityId}-${sectionReload}`"
           :activity-id-prop="mvp.anticipateActivityId"
           embedded
+          :english="showEnglishReference ? englishAnticipate : null"
         />
+      </div>
+        </div>
       </div>
     </div>
   </div>

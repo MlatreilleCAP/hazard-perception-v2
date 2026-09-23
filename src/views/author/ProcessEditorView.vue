@@ -6,6 +6,7 @@ import {
   writeProcessDefinition,
 } from '@/activities/processDefinition'
 import AuthorField from '@/components/author/AuthorField.vue'
+import FieldPair from '@/components/author/FieldPair.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
@@ -32,8 +33,10 @@ const props = withDefaults(
   defineProps<{
     activityIdProp?: string
     embedded?: boolean
+    /** English lesson text shown beside each field. Media is not compared. */
+    english?: ProcessDefinition | null
   }>(),
-  { activityIdProp: undefined, embedded: false },
+  { activityIdProp: undefined, embedded: false, english: null },
 )
 
 const route = useRoute()
@@ -376,18 +379,27 @@ defineExpose({ save })
         <p class="author-muted">
           Shown over the paused first frame of Video 1 until the learner taps Continue.
         </p>
-        <AuthorField
-          id="process-instruction-pill"
-          v-model="instructionPill"
-          label="Pill label"
-        />
-        <AuthorField
-          id="process-instruction"
-          v-model="instructionText"
+        <FieldPair :enabled="!!english" label="Pill label" :value="english?.instructionPill">
+          <AuthorField
+            id="process-instruction-pill"
+            v-model="instructionPill"
+            label="Pill label"
+          />
+        </FieldPair>
+        <FieldPair
+          :enabled="!!english"
           label="Instruction text"
+          :value="english?.instructionText"
           multiline
-          :rows="3"
-        />
+        >
+          <AuthorField
+            id="process-instruction"
+            v-model="instructionText"
+            label="Instruction text"
+            multiline
+            :rows="3"
+          />
+        </FieldPair>
       </section>
 
       <section class="author-stack-sm">
@@ -409,6 +421,7 @@ defineExpose({ save })
         ref="video1Questions"
         :segment-id="process?.segments[0]?.id ?? 'segment-1'"
         :model-value="process?.segments[0]?.questions ?? { version: 2, questions: [] }"
+        :english-questions="english?.segments[0]?.questions ?? null"
         @update:model-value="setQuestions(0, $event)"
       />
 
@@ -418,18 +431,31 @@ defineExpose({ save })
           <p class="author-muted">
             Shown over the paused first frame of Video 2 until the learner taps Continue.
           </p>
-          <AuthorField
-            id="process-second-instruction-pill"
-            v-model="secondInstructionPill"
+          <FieldPair
+            :enabled="!!english"
             label="Pill label"
-          />
-          <AuthorField
-            id="process-second-instruction"
-            v-model="secondInstructionText"
+            :value="english?.secondInstructionPill"
+          >
+            <AuthorField
+              id="process-second-instruction-pill"
+              v-model="secondInstructionPill"
+              label="Pill label"
+            />
+          </FieldPair>
+          <FieldPair
+            :enabled="!!english"
             label="Instruction text"
+            :value="english?.secondInstructionText"
             multiline
-            :rows="3"
-          />
+          >
+            <AuthorField
+              id="process-second-instruction"
+              v-model="secondInstructionText"
+              label="Instruction text"
+              multiline
+              :rows="3"
+            />
+          </FieldPair>
         </section>
 
         <section class="author-stack-sm">
@@ -453,6 +479,7 @@ defineExpose({ save })
           :key="working.segments[1].id"
           :segment-id="working.segments[1].id"
           :model-value="working.segments[1].questions"
+          :english-questions="english?.segments[1]?.questions ?? null"
           @update:model-value="setQuestions(1, $event)"
         />
       </template>

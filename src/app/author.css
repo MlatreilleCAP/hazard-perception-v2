@@ -1293,6 +1293,11 @@ fieldset.author-stack {
   }
 }
 
+.answer-row .answer-pair {
+  flex: 1;
+  min-width: 0;
+}
+
 .answer-select {
   display: flex;
   min-height: 44px;
@@ -1300,6 +1305,23 @@ fieldset.author-stack {
   align-items: center;
   gap: 12px;
   text-align: left;
+}
+
+.answer-row.is-compared {
+  align-items: stretch;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.answer-row.is-compared .answer-select {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 52px;
+  border-radius: 6px;
+  border: 1px solid var(--editor-border);
+  background: #fff;
+  padding: 10px 24px;
 }
 
 .answer-dot {
@@ -1828,6 +1850,18 @@ fieldset.author-stack {
   flex: 1;
 }
 
+.mvp-compare-lesson {
+  margin-left: auto;
+  width: 360px;
+  max-width: 100%;
+  flex: 0 0 auto;
+}
+
+.mvp-compare-lesson .author-select-wrap,
+.mvp-compare-lesson .author-field {
+  width: 100%;
+}
+
 .mvp-locale-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1873,6 +1907,69 @@ fieldset.author-stack {
 
 .mvp-embedded-editor {
   min-width: 0;
+}
+
+.author-page-inner:has(.mvp-field-pair:not(.is-single)),
+.author-page-inner:has(.mvp-compare.has-english) {
+  max-width: 92rem;
+}
+
+.mvp-compare.has-english {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 36px;
+  align-items: start;
+}
+
+.mvp-field-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.mvp-field-pair.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.mvp-field-pair .author-field,
+.mvp-field-pair .author-select-wrap,
+.mvp-mirror-field,
+.mvp-mirror-field .author-field {
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.mvp-field-pair .author-field,
+.mvp-mirror-field .author-field {
+  align-items: flex-start;
+}
+
+.mvp-mirror-field.is-english .author-field {
+  background: var(--editor-soft);
+  cursor: default;
+}
+
+.mvp-mirror-field.is-english .mvp-mirror-value {
+  color: var(--editor-muted);
+  cursor: default;
+}
+
+.mvp-mirror-value {
+  display: block;
+  min-height: 18px;
+  white-space: pre-wrap;
+}
+
+.mvp-english-ref {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .mvp-compare.has-english,
+  .mvp-field-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .author-page.is-embedded {

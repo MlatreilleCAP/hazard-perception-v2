@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { cloneJson } from '@/app/clone'
 import AuthorField from '@/components/author/AuthorField.vue'
+import FieldPair from '@/components/author/FieldPair.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import {
@@ -27,9 +28,11 @@ const props = withDefaults(
     modelValue: ProcessQuestionBank
     title?: string
     description?: string
+    englishQuestions?: ProcessQuestionBank | null
   }>(),
   {
     title: 'Theory',
+    englishQuestions: null,
     description:
       'Add severity or theory questions from the dropdown. Theory questions are optional — if one is configured it is asked; otherwise it is skipped. Customize the text, answers, and correct answer. Points for each Inroads question type are set in Inroads Scoring. Use Up/Down to set the learner order.',
   },
@@ -140,6 +143,21 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
   const correctIndex = Math.min(question.correctIndex, answers.length - 1)
   updateQuestion(question.id, { ...question, answers, correctIndex })
 }
+
+function englishQuestionAt(index: number): ProcessSurveyQuestion | null {
+  return props.englishQuestions?.questions[index] ?? null
+}
+
+function englishAnswerText(questionIndex: number, answerIndex: number): string {
+  return englishQuestionAt(questionIndex)?.answers[answerIndex]?.text ?? ''
+}
+
+function englishAnswerLabel(questionIndex: number, answerIndex: number): string {
+  const english = englishQuestionAt(questionIndex)
+  const letter = ANSWER_LABELS[answerIndex] ?? String(answerIndex + 1)
+  const correct = english?.correctIndex === answerIndex ? ' · Correct' : ''
+  return `Answer ${letter}${correct}`
+}
 </script>
 
 <template>
@@ -198,14 +216,21 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
           </div>
         </div>
 
-        <AuthorField
-          :id="`${question.id}-text`"
-          v-model="question.questionText"
+        <FieldPair
+          :enabled="!!englishQuestionAt(index)"
           label="Question text"
+          :value="englishQuestionAt(index)?.questionText"
           multiline
-          :rows="2"
-          @update:model-value="updateQuestion(question.id, { ...question, questionText: $event })"
-        />
+        >
+          <AuthorField
+            :id="`${question.id}-text`"
+            v-model="question.questionText"
+            label="Question text"
+            multiline
+            :rows="2"
+            @update:model-value="updateQuestion(question.id, { ...question, questionText: $event })"
+          />
+        </FieldPair>
 
         <div>
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px">
@@ -220,7 +245,14 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
               v-for="(answer, answerIndex) in question.answers"
               :key="`${question.id}-answer-${answerIndex}`"
               class="answer-row"
+              :class="{ 'is-compared': !!englishQuestionAt(index) }"
             >
+              <FieldPair
+                class="answer-pair"
+                :enabled="!!englishQuestionAt(index)"
+                :label="englishAnswerLabel(index, answerIndex)"
+                :value="englishAnswerText(index, answerIndex)"
+              >
               <div class="answer-select">
                 <button
                   type="button"
@@ -261,6 +293,7 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
                   />
                 </span>
               </div>
+              </FieldPair>
               <button
                 type="button"
                 class="link-button"
@@ -281,14 +314,21 @@ function removeAnswer(question: ProcessSurveyQuestion, index: number): void {
           :options="EXPLANATION_WHEN_OPTIONS"
           @update:model-value="setExplanationWhen(question, $event)"
         />
-        <AuthorField
-          :id="`${question.id}-explanation`"
-          :model-value="question.explanation"
+        <FieldPair
+          :enabled="!!englishQuestionAt(index)"
           label="Explanation text"
+          :value="englishQuestionAt(index)?.explanation"
           multiline
-          :rows="2"
-          @update:model-value="updateQuestion(question.id, { ...question, explanation: $event })"
-        />
+        >
+          <AuthorField
+            :id="`${question.id}-explanation`"
+            :model-value="question.explanation"
+            label="Explanation text"
+            multiline
+            :rows="2"
+            @update:model-value="updateQuestion(question.id, { ...question, explanation: $event })"
+          />
+        </FieldPair>
       </article>
     </div>
   </section>

@@ -59,8 +59,8 @@ function groupLessonRows(summaries: ActivitySummary[]): LessonListRow[] {
 
 const lessonRows = computed(() => groupLessonRows(items.value))
 
-function versionsLabel(count: number): string {
-  return count === 1 ? '1 version' : `${count} versions`
+function languagesLabel(count: number): string {
+  return count === 1 ? '1 language' : `${count} languages`
 }
 
 const filtered = computed(() => {
@@ -80,7 +80,7 @@ async function remove(row: LessonListRow): Promise<void> {
   menuOpenId.value = null
   const message =
     row.versionCount > 1
-      ? `Remove "${row.title}" and all ${row.versionCount} versions from authoring and training? The records will be kept in the database.`
+      ? `Remove "${row.title}" and all ${row.versionCount} languages from authoring and training? The records will be kept in the database.`
       : `Remove "${row.title}" from authoring and training? The record will be kept in the database.`
   if (!window.confirm(message)) {
     return
@@ -160,7 +160,7 @@ async function remove(row: LessonListRow): Promise<void> {
               <p class="author-list-sub">
                 {{ item.published ? 'Published' : 'Draft'
                 }}{{ canEdit(item.createdBy) ? '' : ' · View only' }}
-                · {{ versionsLabel(item.versionCount) }}
+                · {{ languagesLabel(item.versionCount) }}
               </p>
             </div>
             <AuthorStatusChip :label="item.published ? 'PUBLISHED' : 'DRAFT'" />
