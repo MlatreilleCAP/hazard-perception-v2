@@ -13,7 +13,6 @@ import {
   COPY_SHEET_ALIASES,
   SHEET_NAMES,
   basename,
-  canonicalizeLessonCountry,
   canonicalizeLessonLanguage,
   isAudioName,
   isImageName,
@@ -349,13 +348,14 @@ function parseLessonSheet(
     const key = normalizeHeader(row[0])
     if (!key || key === 'key') continue
     const value = cellString(row[1])
+    // Legacy Lesson sheets may still include country; ignore without warning.
+    if (key === 'country') continue
     if (!known.has(key)) {
       warnings.push(`Unknown Lesson key "${key}".`)
       continue
     }
     if (key === 'title') lesson.title = value
     else if (key === 'description') lesson.description = value
-    else if (key === 'country') lesson.country = canonicalizeLessonCountry(value)
     else if (key === 'language') lesson.language = canonicalizeLessonLanguage(value)
     else if (key === 'sku') lesson.sku = value
     else if (key === 'button') lesson.button = value

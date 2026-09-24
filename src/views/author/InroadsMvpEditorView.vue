@@ -43,6 +43,7 @@ import {
   canonicalizeLessonLanguage,
   LESSON_COUNTRY_OPTIONS,
   LESSON_LANGUAGE_OPTIONS,
+  canonicalizeLessonCountry,
 } from '@/lib/inroadsMvp/packageSpec'
 import type { InroadsMvpEnglishTextReference } from '@/types/inroadsMvpEnglishReference'
 import type { AnticipateDefinition } from '@/types/anticipate'
@@ -188,6 +189,7 @@ const englishTitle = computed(() => englishSource.value?.title ?? '')
 const englishDescription = computed(() => englishSource.value?.description ?? '')
 const englishCountry = computed(() => englishSource.value?.mvp.country ?? '')
 const englishLanguageName = computed(() => englishSource.value?.mvp.language ?? '')
+const englishSku = computed(() => englishSource.value?.mvp.sku ?? '')
 
 const lessonCopyGroups = computed(() => {
   const source = englishSource.value
@@ -677,6 +679,25 @@ async function onImported(): Promise<void> {
   await load({ keepVisible: true })
 }
 
+async function syncCountryToSiblingVersions(sharedCountry: string): Promise<void> {
+  const country = canonicalizeLessonCountry(sharedCountry)
+  for (const version of versions.value) {
+    if (version.id === activityId.value) continue
+    if (canonicalizeLessonCountry(version.country) === country) continue
+    try {
+      const definition = await services.persistence.getById(version.id)
+      const parsed = definition ? readInroadsMvpDefinition(definition) : null
+      if (!definition || !parsed) continue
+      if (canonicalizeLessonCountry(parsed.country) === country) continue
+      await services.persistence.save(
+        writeInroadsMvpDefinition(definition, { ...parsed, country }),
+      )
+    } catch {
+      // Keep saving the current version even if a sibling update fails.
+    }
+  }
+}
+
 async function saveLesson(): Promise<boolean> {
   if (!editable.value || !mvp.value) return false
   titleError.value = title.value.trim() ? null : 'Title is required'
@@ -694,6 +715,7 @@ async function saveLesson(): Promise<boolean> {
       description: description.value.trim(),
     }
     await activities.save(next)
+    await syncCountryToSiblingVersions(mvp.value.country)
     versions.value = await loadVersions(next.metadata.title, mvp.value)
     introductionVersions.value = await loadIntroductionVersions(
       mvp.value.introductionActivityId,
@@ -776,13 +798,18 @@ async function publish(): Promise<void> {
   }
 }
 
-async function removeCurrentVersion(): Promise<void> {
-  if (!editable.value || !mvp.value) return
-  const siblingId = versions.value.find((item) => item.id !== activityId.value)?.id ?? ''
+async function deleteVersion(id: string): Promise<void> {
+  if (!editable.value || !id || deleting.value) return
+  const siblingId = versions.value.find((item) => item.id !== id)?.id ?? ''
   deleting.value = true
   try {
-    await removeInroadsMvpParent(activityId.value)
+    await removeInroadsMvpParent(id)
     await activities.refreshList()
+    if (id !== activityId.value) {
+      versions.value = versions.value.filter((item) => item.id !== id)
+      deleting.value = false
+      return
+    }
     await router.push(
       siblingId
         ? { path: `/studio/inroads-mvp/${siblingId}`, query: route.query }
@@ -792,17 +819,6 @@ async function removeCurrentVersion(): Promise<void> {
     deleting.value = false
     window.alert(cause instanceof Error ? cause.message : 'Failed to remove version')
   }
-}
-
-async function removeVersion(): Promise<void> {
-  if (!editable.value || !mvp.value || deleting.value) return
-  const label = lessonVersionLabel(country.value, language.value, isPublished.value)
-  const hasSibling = versions.value.some((item) => item.id !== activityId.value)
-  const message = hasSibling
-    ? `Remove the ${label} version? Other versions of this lesson will stay.`
-    : 'This is the only version. Remove the lesson from authoring and training?'
-  if (!window.confirm(message)) return
-  await removeCurrentVersion()
 }
 
 async function remove(): Promise<void> {
@@ -852,10 +868,12 @@ async function remove(): Promise<void> {
               />
             </svg>
           </RouterLink>
-          <h1 class="author-header-title">{{ title.trim() || 'Inroads MVP' }}</h1>
+          <h1 class="author-header-title">
+            {{ title.trim() || 'Inroads MVP' }}{{ country.trim() ? ` - ${country.trim()}` : '' }}
+          </h1>
           <AuthorStatusChip :label="isPublished ? 'PUBLISHED' : 'DRAFT'" />
         </div>
-        <div style="display: flex; flex-wrap: wrap; gap: 16px">
+        <div class="mvp-header-actions">
           <AuthorPillButton
             variant="white"
             :disabled="saving || publishing || deleting"
@@ -871,6 +889,14 @@ async function remove(): Promise<void> {
           >
             {{ publishing ? 'Publishing…' : 'Publish lesson' }}
           </AuthorPillButton>
+          <AuthorPillButton
+            v-if="editable"
+            variant="white"
+            :disabled="saving || publishing || deleting || creatingVersion"
+            @click="createVersion"
+          >
+            {{ creatingVersion ? 'Creating…' : 'New Language' }}
+          </AuthorPillButton>
         </div>
       </div>
 
@@ -878,18 +904,32 @@ async function remove(): Promise<void> {
         View only — you can open this lesson, but only the owner or an admin can edit it.
       </p>
 
-      <nav class="mvp-section-nav" aria-label="Inroads MVP sections">
-        <button
-          v-for="section in INROADS_MVP_SECTIONS"
-          :key="section.id"
-          type="button"
-          class="mvp-section-tab"
-          :class="{ active: activeSection === section.id }"
-          @click="activeSection = section.id"
-        >
-          {{ section.label }}
-        </button>
-      </nav>
+      <div class="mvp-section-bar">
+        <nav class="mvp-section-nav" aria-label="Inroads MVP sections">
+          <button
+            v-for="section in INROADS_MVP_SECTIONS"
+            :key="section.id"
+            type="button"
+            class="mvp-section-tab"
+            :class="{ active: activeSection === section.id }"
+            @click="activeSection = section.id"
+          >
+            {{ section.label }}
+          </button>
+        </nav>
+        <div class="mvp-section-language">
+          <AuthorSelectField
+            :id="`${activityId}-version`"
+            :model-value="activityId"
+            label="Now Editing"
+            :options="versionSelectOptions"
+            :disabled="creatingVersion || deleting"
+            :removable="editable"
+            @update:model-value="onVersionSelect"
+            @remove="deleteVersion"
+          />
+        </div>
+      </div>
 
       <div class="mvp-compare" :class="{ 'is-lesson': activeSection === 'lesson' }">
         <div class="author-stack mvp-compare-editor">
@@ -919,46 +959,10 @@ async function remove(): Promise<void> {
               An English version or an XLS reference file is required.
             </p>
           </div>
-          <AuthorSectionHeader title="Language" />
-          <div class="mvp-version-row">
-            <div class="mvp-sku-field">
-              <AuthorField
-                :id="`${activityId}-sku`"
-                v-model="sku"
-                label="SKU"
-                placeholder="SKU"
-                :disabled="!editable"
-              />
-            </div>
-            <AuthorSelectField
-              :id="`${activityId}-version`"
-              :model-value="activityId"
-              label="Language"
-              :options="versionSelectOptions"
-              :disabled="creatingVersion || deleting"
-              @update:model-value="onVersionSelect"
-            />
-            <AuthorPillButton
-              v-if="editable"
-              variant="white"
-              :disabled="saving || publishing || deleting || creatingVersion"
-              @click="createVersion"
-            >
-              {{ creatingVersion ? 'Creating…' : 'New Language' }}
-            </AuthorPillButton>
-            <AuthorPillButton
-              v-if="editable"
-              variant="ghost"
-              :disabled="saving || publishing || deleting || creatingVersion"
-              @click="removeVersion"
-            >
-              {{ deleting ? 'Removing…' : 'Remove Language' }}
-            </AuthorPillButton>
-          </div>
         </section>
 
         <section v-if="editable" class="author-stack-sm">
-          <AuthorSectionHeader title="File Upload" />
+          <AuthorSectionHeader title="Bulk import" />
           <InroadsMvpImportPanel
             :parent-id="activityId"
             :disabled="saving || publishing || deleting"
@@ -979,6 +983,19 @@ async function remove(): Promise<void> {
               label="Title"
               :error="titleError ?? undefined"
               placeholder="Inroads MVP title"
+              :disabled="!editable"
+            />
+          </FieldPair>
+          <FieldPair
+            :enabled="showEnglishReference"
+            label="SKU"
+            :value="englishSku"
+          >
+            <AuthorField
+              :id="`${activityId}-sku`"
+              v-model="sku"
+              label="SKU"
+              placeholder="SKU"
               :disabled="!editable"
             />
           </FieldPair>

@@ -86,6 +86,8 @@ export type ImportWorkbookContent = {
     segment: 1 | 2
     question: ProcessSurveyQuestion
   }>
+  /** When set, these rows replace the generated Metadata sheet body. */
+  metadata?: Array<[string, string, string]>
 }
 
 function copyRows(content: ImportWorkbookContent): string[][] {
@@ -160,6 +162,9 @@ const METADATA_TEMPLATE_FOLDERS: Array<{
 ]
 
 function metadataRows(content: ImportWorkbookContent): string[][] {
+  if (content.metadata) {
+    return [['Video Folder', 'Metadata Name', 'Metadata text'], ...content.metadata]
+  }
   const rows: string[][] = [['Video Folder', 'Metadata Name', 'Metadata text']]
   for (const item of METADATA_TEMPLATE_FOLDERS) {
     for (const [name, value] of item.names) {
@@ -504,7 +509,6 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
   lesson.addRow(['description', content.description])
   lesson.addRow(['sku', content.sku])
   lesson.addRow(['intro_first_visit', content.introFirstVisit ? 'true' : 'false'])
-  lesson.addRow(['country', content.country])
   lesson.addRow(['language', content.language])
   lesson.addRow(['button', content.buttonLabel])
   lesson.addRow(['submit', content.submitLabel])
@@ -614,10 +618,12 @@ async function loadBundledLessonWorkbook(): Promise<ArrayBuffer> {
   return response.arrayBuffer()
 }
 
-export async function buildImportFolderZip(): Promise<Blob> {
+export async function buildImportFolderZip(
+  workbook?: Uint8Array | ArrayBuffer,
+): Promise<Blob> {
   const zip = new JSZip()
   zip.file('README.txt', IMPORT_README)
-  zip.file('lesson.xlsx', await loadBundledLessonWorkbook())
+  zip.file('lesson.xlsx', workbook ?? (await loadBundledLessonWorkbook()))
   for (const slot of TEMPLATE_FOLDER_SLOT_IDS) {
     zip.folder(SLOT_FOLDER_LABELS[slot])?.file('.keep', '')
   }

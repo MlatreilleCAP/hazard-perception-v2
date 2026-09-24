@@ -10,12 +10,14 @@ import {
 import { readProcessDefinition, writeProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
+import { canonicalizeLessonCountry } from '@/lib/inroadsMvp/packageSpec'
 import { INROADS_MVP_CHILD_TAG } from '@/types/inroadsMvp'
 import type { ActivityDefinition } from '@/types/activity'
 
 export async function createBlankInroadsMvp(
   title: string,
   description = '',
+  country = '',
 ): Promise<string> {
   const base = title.trim() || 'Inroads MVP'
 
@@ -33,7 +35,15 @@ export async function createBlankInroadsMvp(
 
   const mvp = createInroadsMvpActivity(base, savedSee.id, savedProcess.id, savedAnticipate.id)
   mvp.metadata.description = description.trim()
-  const saved = await services.persistence.save(mvp)
+  const definition = readInroadsMvpDefinition(mvp)
+  const saved = await services.persistence.save(
+    definition
+      ? writeInroadsMvpDefinition(mvp, {
+          ...definition,
+          country: canonicalizeLessonCountry(country),
+        })
+      : mvp,
+  )
   return saved.id
 }
 
@@ -69,7 +79,6 @@ export async function duplicateInroadsMvpVersion(sourceId: string): Promise<stri
   copy.metadata.description = parent.metadata.description
   const next = writeInroadsMvpDefinition(copy, {
     ...mvp,
-    country: '',
     language: '',
     seeActivityId: savedSee.id,
     processActivityId: savedProcess.id,

@@ -4,13 +4,14 @@ import { RouterLink, useRouter } from 'vue-router'
 import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
+import { LESSON_COUNTRY_OPTIONS } from '@/lib/inroadsMvp/packageSpec'
 import { createBlankInroadsMvp } from '@/services/createInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 
 const router = useRouter()
 const activities = useActivityStore()
 const title = ref('')
-const description = ref('')
+const country = ref('')
 const titleError = ref<string | null>(null)
 const saving = ref(false)
 
@@ -20,7 +21,7 @@ async function create(): Promise<void> {
 
   saving.value = true
   try {
-    const id = await createBlankInroadsMvp(title.value.trim(), description.value.trim())
+    const id = await createBlankInroadsMvp(title.value.trim(), '', country.value)
     await activities.refreshList()
     await router.push(`/studio/inroads-mvp/${id}`)
   } catch (cause) {
@@ -61,12 +62,11 @@ async function create(): Promise<void> {
           placeholder="Inroads MVP title"
         />
         <AuthorField
-          id="mvp-description"
-          v-model="description"
-          label="Description"
-          multiline
-          :rows="3"
-          placeholder="What learners will cover"
+          id="mvp-country"
+          v-model="country"
+          label="Country"
+          placeholder="Select country"
+          :options="LESSON_COUNTRY_OPTIONS"
         />
       </section>
 

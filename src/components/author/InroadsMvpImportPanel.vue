@@ -9,7 +9,10 @@ import {
   slotFileAccept,
   type ReplaceSlotId,
 } from '@/lib/inroadsMvp/packageSpec'
-import { exportSampleInroadsMvpTemplateZip } from '@/services/exportInroadsMvpPackage'
+import {
+  exportLessonTemplateZip,
+  exportSampleInroadsMvpTemplateZip,
+} from '@/services/exportInroadsMvpPackage'
 import { parseImportZip } from '@/lib/inroadsMvp/parseImportPackage'
 import { createBlankInroadsMvp } from '@/services/createInroadsMvp'
 import {
@@ -103,8 +106,13 @@ async function downloadTemplate(): Promise<void> {
   exporting.value = true
   progress.value = 'Building template…'
   try {
-    const blob = await exportSampleInroadsMvpTemplateZip()
-    downloadBlob(blob, 'inroads-mvp-import-template.zip')
+    if (props.parentId) {
+      const packed = await exportLessonTemplateZip(props.parentId)
+      downloadBlob(packed.blob, packed.filename)
+    } else {
+      const blob = await exportSampleInroadsMvpTemplateZip()
+      downloadBlob(blob, 'inroads-mvp-import-template.zip')
+    }
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Failed to build template'
   } finally {
@@ -250,7 +258,13 @@ async function runImport(file: File): Promise<void> {
       Upload a zip with lesson.xls (or .xlsx) and media in the named folders. The workbook
       and those files are applied to the builder together, including the full Observe page
       (hazard clip, details, coaching clip, explanation image, summary audio, and questions).
-      Download template includes the lesson.xlsx workbook and empty named folders.
+      <template v-if="parentId">
+        Download template saves this lesson’s workbook, filled with the version on screen,
+        plus empty media folders.
+      </template>
+      <template v-else>
+        Download template includes the lesson.xlsx workbook and empty named folders.
+      </template>
     </p>
     <div class="author-actions" style="margin-top: 0">
       <input

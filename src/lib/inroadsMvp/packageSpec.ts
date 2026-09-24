@@ -93,7 +93,6 @@ export const LESSON_KEYS = [
   'description',
   'sku',
   'intro_first_visit',
-  'country',
   'language',
   'button',
   'submit',
@@ -379,7 +378,6 @@ Lesson: column A = key, column B = value
   description
   sku                   product identifier for this lesson
   intro_first_visit     true or false (hidden)
-  country
   language
   button                label on every Continue / Start button in the lesson
   submit                label on every severity-question Submit button in the lesson
