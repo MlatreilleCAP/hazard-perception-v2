@@ -41,6 +41,8 @@ export type LessonDefinition = {
   introCaptions: MediaRef | null
   /** When true, intro plays only on the learner’s first visit. */
   introShowOnFirstVisitOnly: boolean
+  /** Cover image for the lesson title card (from Inroads MVP preview image). */
+  previewImage: MediaRef | null
   composition: LessonComposition
 }
 
@@ -59,6 +61,7 @@ export function createDefaultLessonDefinition(): LessonDefinition {
     introMedia: null,
     introCaptions: null,
     introShowOnFirstVisitOnly: true,
+    previewImage: null,
     composition: { schemaVersion: 1, items: [] },
   }
 }
@@ -73,6 +76,9 @@ export function cloneLessonDefinition(definition: LessonDefinition): LessonDefin
       ? { media_asset_id: definition.introCaptions.media_asset_id }
       : null,
     introShowOnFirstVisitOnly: definition.introShowOnFirstVisitOnly !== false,
+    previewImage: definition.previewImage
+      ? { media_asset_id: definition.previewImage.media_asset_id }
+      : null,
     composition: {
       schemaVersion: 1,
       items: definition.composition.items.map((item) => ({ ...item })),
@@ -165,12 +171,21 @@ export function normalizeLessonDefinition(
       introCaptions = { media_asset_id: id.trim() }
     }
   }
+  const previewRaw = definition?.previewImage
+  let previewImage: MediaRef | null = null
+  if (previewRaw && typeof previewRaw === 'object') {
+    const id = (previewRaw as { media_asset_id?: unknown }).media_asset_id
+    if (typeof id === 'string' && id.trim()) {
+      previewImage = { media_asset_id: id.trim() }
+    }
+  }
 
   return {
     version: 1,
     introMedia,
     introCaptions,
     introShowOnFirstVisitOnly: definition?.introShowOnFirstVisitOnly !== false,
+    previewImage,
     composition: parseLessonComposition(definition?.composition),
   }
 }

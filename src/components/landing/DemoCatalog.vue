@@ -18,8 +18,18 @@ const auth = useAuthStore()
 
 const catalogLoading = ref(false)
 const localeById = ref(
-  new Map<string, { language: string; country: string; button: string; description: string }>(),
+  new Map<
+    string,
+    {
+      language: string
+      country: string
+      button: string
+      description: string
+      previewImageId: string
+    }
+  >(),
 )
+const coverUrlByMediaId = ref(new Map<string, string>())
 const selectedByGroup = ref<Record<string, string>>({})
 const userSelectedByGroup = ref<Record<string, boolean>>({})
 
@@ -80,11 +90,26 @@ const demoGroups = computed((): DemoLessonGroup[] => {
 })
 
 async function loadLocales(items: ActivitySummary[]): Promise<void> {
-  const next = new Map<string, { language: string; country: string; button: string; description: string }>()
+  const next = new Map<
+    string,
+    {
+      language: string
+      country: string
+      button: string
+      description: string
+      previewImageId: string
+    }
+  >()
   await Promise.all(
     items.map(async (item) => {
       if (!isInroadsMvpActivity(item.tags)) {
-        next.set(item.id, { language: '', country: '', button: '', description: '' })
+        next.set(item.id, {
+          language: '',
+          country: '',
+          button: '',
+          description: '',
+          previewImageId: '',
+        })
         return
       }
       try {
@@ -95,13 +120,39 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
           country: parsed?.country ?? '',
           button: parsed?.buttonLabel ?? '',
           description: definition?.metadata.description.trim() ?? '',
+          previewImageId: parsed?.previewImage?.media_asset_id ?? '',
         })
       } catch {
-        next.set(item.id, { language: '', country: '', button: '', description: '' })
+        next.set(item.id, {
+          language: '',
+          country: '',
+          button: '',
+          description: '',
+          previewImageId: '',
+        })
       }
     }),
   )
   localeById.value = next
+
+  const mediaIds = [
+    ...new Set(
+      [...next.values()]
+        .map((item) => item.previewImageId)
+        .filter((id) => Boolean(id)),
+    ),
+  ]
+  const covers = new Map<string, string>()
+  await Promise.all(
+    mediaIds.map(async (id) => {
+      try {
+        covers.set(id, await services.media.getSignedUrl(id))
+      } catch {
+        // Fall back to the rotating stock covers when a signed URL fails.
+      }
+    }),
+  )
+  coverUrlByMediaId.value = covers
 }
 
 function countryFor(id: string): string {
@@ -162,7 +213,19 @@ watch(demoGroups, (groups) => {
   syncGroupSelection(groups)
 })
 
-function coverFor(index: number): string {
+function coverFor(group: DemoLessonGroup, index: number): string {
+  const selected = selectedId(group.key)
+  const selectedPreview = localeById.value.get(selected)?.previewImageId ?? ''
+  if (selectedPreview) {
+    const url = coverUrlByMediaId.value.get(selectedPreview)
+    if (url) return url
+  }
+  for (const version of group.versions) {
+    const previewId = localeById.value.get(version.id)?.previewImageId ?? ''
+    if (!previewId) continue
+    const url = coverUrlByMediaId.value.get(previewId)
+    if (url) return url
+  }
   return catalogCoverAt(index)
 }
 
@@ -225,7 +288,7 @@ function setSelected(groupKey: string, id: string): void {
         <li v-for="(group, index) in demoGroups" :key="group.key">
           <article class="activity-card">
             <div class="activity-card-cover">
-              <img :src="coverFor(index)" alt="" />
+              <img :src="coverFor(group, index)" alt="" />
               <div class="activity-glyph" aria-hidden="true">{{ glyph(group.title) }}</div>
             </div>
             <div class="activity-card-body">

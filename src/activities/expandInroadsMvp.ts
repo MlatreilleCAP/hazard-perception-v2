@@ -16,6 +16,7 @@ export function inroadsMvpToLessonDefinition(
     ...base,
     introMedia: mvp.introMedia,
     introShowOnFirstVisitOnly: mvp.introShowOnFirstVisitOnly,
+    previewImage: mvp.previewImage,
     composition: {
       schemaVersion: 1,
       items: [
@@ -77,6 +78,7 @@ export async function expandInroadsMvpForPlayback(
   lesson.introMedia = null
   lesson.introCaptions = null
   lesson.introShowOnFirstVisitOnly = true
+  lesson.previewImage = mvp.previewImage
   if (mvp.introductionActivityId) {
     const loadIntro = options?.preview
       ? services.persistence.getById.bind(services.persistence)

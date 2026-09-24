@@ -20,6 +20,7 @@ import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import InroadsMvpImportPanel from '@/components/author/InroadsMvpImportPanel.vue'
+import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import ProcessEditorView from '@/views/author/ProcessEditorView.vue'
 import SeeEditorView from '@/views/author/SeeEditorView.vue'
 import { services } from '@/app/container'
@@ -47,6 +48,7 @@ import {
 } from '@/lib/inroadsMvp/packageSpec'
 import type { InroadsMvpEnglishTextReference } from '@/types/inroadsMvpEnglishReference'
 import type { AnticipateDefinition } from '@/types/anticipate'
+import type { MediaRef } from '@/types/media'
 import type { ProcessDefinition } from '@/types/process'
 import type { SeeDefinition } from '@/types/see'
 import { lessonVersionKey, lessonVersionLabel, lessonLocalesMatch } from '@/lib/inroadsMvp/lessonVersions'
@@ -711,6 +713,11 @@ function setIntroductionActivityId(id: string): void {
   }
 }
 
+function setPreviewImage(media: MediaRef | null): void {
+  if (!editable.value || !mvp.value) return
+  mvp.value = { ...mvp.value, previewImage: media }
+}
+
 async function onImported(): Promise<void> {
   sectionReload.value += 1
   await load({ keepVisible: true })
@@ -744,6 +751,31 @@ async function syncCountryToSiblingVersions(sharedCountry: string): Promise<void
   }
 }
 
+async function syncPreviewImageToSiblingVersions(
+  sharedPreview: MediaRef | null,
+): Promise<void> {
+  const nextId = sharedPreview?.media_asset_id ?? ''
+  for (const version of versions.value) {
+    if (version.id === activityId.value) continue
+    try {
+      const definition = await services.persistence.getById(version.id)
+      const parsed = definition ? readInroadsMvpDefinition(definition) : null
+      if (!definition || !parsed) continue
+      if ((parsed.previewImage?.media_asset_id ?? '') === nextId) continue
+      await services.persistence.save(
+        writeInroadsMvpDefinition(definition, {
+          ...parsed,
+          previewImage: sharedPreview
+            ? { media_asset_id: sharedPreview.media_asset_id }
+            : null,
+        }),
+      )
+    } catch {
+      // Keep saving the current version even if a sibling update fails.
+    }
+  }
+}
+
 async function saveLesson(): Promise<boolean> {
   if (!editable.value || !mvp.value) return false
   titleError.value = title.value.trim() ? null : 'Title is required'
@@ -762,6 +794,7 @@ async function saveLesson(): Promise<boolean> {
     }
     await activities.save(next)
     await syncCountryToSiblingVersions(mvp.value.country)
+    await syncPreviewImageToSiblingVersions(mvp.value.previewImage)
     versions.value = await loadVersions(next.metadata.title, mvp.value)
     introductionVersions.value = await loadIntroductionVersions(
       mvp.value.introductionActivityId,
@@ -1113,6 +1146,24 @@ async function deleteVersion(id: string): Promise<void> {
           >
             <AuthorMirrorField :label="row.label" :value="row.current" multiline />
           </FieldPair>
+        </section>
+
+        <section class="author-stack-sm">
+          <AuthorSectionHeader title="Demo tile" />
+          <p class="author-muted">
+            Cover image for the home page demo card and the lesson title screen. Shared across
+            language versions of this lesson.
+          </p>
+          <MediaUploadField
+            :id="`${activityId}-preview-image`"
+            :key="mvp.previewImage?.media_asset_id ?? 'preview-empty'"
+            :activity-id="activityId"
+            label="Preview image"
+            kind="image"
+            :model-value="mvp.previewImage"
+            :readonly="!editable"
+            @update:model-value="setPreviewImage"
+          />
         </section>
 
         <section class="author-stack-sm">

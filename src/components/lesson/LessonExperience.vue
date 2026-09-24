@@ -93,7 +93,9 @@ const resultsModel = computed(() =>
 const titlePageTitle = computed(() => props.definition.metadata.title.trim() || 'Activity')
 const titlePageDescription = computed(() => props.definition.metadata.description.trim())
 const titlePageCountry = computed(() => props.country.trim())
-const titlePageCover = computed(() => {
+const previewCoverUrl = ref<string | null>(null)
+
+const fallbackCover = computed(() => {
   const catalogTitles = activities.summaries
     .filter(
       (summary) =>
@@ -104,6 +106,24 @@ const titlePageCover = computed(() => {
     .map((summary) => summary.title)
   return catalogCoverForTitle(titlePageTitle.value, catalogTitles)
 })
+
+const titlePageCover = computed(() => previewCoverUrl.value || fallbackCover.value)
+
+watch(
+  () => lesson.value.previewImage?.media_asset_id ?? '',
+  async (mediaId) => {
+    if (!mediaId) {
+      previewCoverUrl.value = null
+      return
+    }
+    try {
+      previewCoverUrl.value = await services.media.getSignedUrl(mediaId)
+    } catch {
+      previewCoverUrl.value = null
+    }
+  },
+  { immediate: true },
+)
 
 function clearReadyDismissTimer(): void {
   window.clearTimeout(readyDismissTimer)

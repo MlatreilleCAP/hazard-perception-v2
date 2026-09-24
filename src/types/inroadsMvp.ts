@@ -16,6 +16,8 @@ export type InroadsMvpDefinition = {
   introShowOnFirstVisitOnly: boolean
   /** Stand Alone Video activity id; when empty, no intro plays before Observe. */
   introductionActivityId: string
+  /** Cover image for the home demo tile and lesson title card. */
+  previewImage: MediaRef | null
   country: string
   language: string
   /** Product identifier for this lesson, imported from the Lesson sheet. */
@@ -86,6 +88,7 @@ export function createDefaultInroadsMvpDefinition(
     introMedia: null,
     introShowOnFirstVisitOnly: true,
     introductionActivityId: '',
+    previewImage: null,
     country: 'Canada',
     language: 'English',
     sku: '',
@@ -125,6 +128,9 @@ export function cloneInroadsMvpDefinition(
       : null,
     introShowOnFirstVisitOnly: definition.introShowOnFirstVisitOnly !== false,
     introductionActivityId: definition.introductionActivityId.trim(),
+    previewImage: definition.previewImage
+      ? { media_asset_id: definition.previewImage.media_asset_id }
+      : null,
     country: canonicalizeLessonCountry(definition.country),
     language: canonicalizeLessonLanguage(definition.language),
     sku: definition.sku.trim(),
@@ -175,12 +181,22 @@ export function normalizeInroadsMvpDefinition(
     }
   }
 
+  const previewRaw = raw.previewImage
+  let previewImage: MediaRef | null = null
+  if (previewRaw && typeof previewRaw === 'object') {
+    const id = (previewRaw as { media_asset_id?: unknown }).media_asset_id
+    if (typeof id === 'string' && id.trim()) {
+      previewImage = { media_asset_id: id.trim() }
+    }
+  }
+
   return {
     version: 1,
     introMedia,
     introShowOnFirstVisitOnly: raw.introShowOnFirstVisitOnly !== false,
     introductionActivityId:
       typeof raw.introductionActivityId === 'string' ? raw.introductionActivityId.trim() : '',
+    previewImage,
     country: canonicalizeLessonCountry(
       typeof raw.country === 'string' ? raw.country : '',
     ),
