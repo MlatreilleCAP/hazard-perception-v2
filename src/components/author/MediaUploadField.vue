@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import audioPreviewImage from '@/assets/media/audio-preview.png'
 import { services } from '@/app/container'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
@@ -14,6 +13,15 @@ import {
   type MediaAsset,
   type MediaRef,
 } from '@/types/media'
+
+type LibrarySort = 'created-desc' | 'created-asc' | 'name-asc' | 'name-desc'
+
+const LIBRARY_SORT_OPTIONS: Array<{ value: LibrarySort; label: string }> = [
+  { value: 'created-desc', label: 'Date created ↓' },
+  { value: 'created-asc', label: 'Date created ↑' },
+  { value: 'name-asc', label: 'Alphabetical A–Z' },
+  { value: 'name-desc', label: 'Alphabetical Z–A' },
+]
 
 const props = withDefaults(
   defineProps<{
@@ -41,16 +49,31 @@ const libraryOpen = ref(false)
 const libraryLoading = ref(false)
 const libraryAssets = ref<MediaAsset[]>([])
 const libraryQuery = ref('')
+const librarySort = ref<LibrarySort>('created-desc')
 const librarySearchInput = ref<HTMLInputElement | null>(null)
 const previewUrl = ref<string | null>(null)
 
 const filteredLibraryAssets = computed(() => {
   const query = libraryQuery.value.trim().toLowerCase()
-  if (!query) return libraryAssets.value
-  return libraryAssets.value.filter((asset) => {
+  const filtered = libraryAssets.value.filter((asset) => {
+    if (!query) return true
     const name = mediaAssetDisplayName(asset).toLowerCase()
     return name.includes(query) || asset.mimeType.toLowerCase().includes(query)
   })
+
+  const sorted = [...filtered]
+  sorted.sort((a, b) => {
+    if (librarySort.value === 'created-asc' || librarySort.value === 'created-desc') {
+      const left = Date.parse(a.createdAt) || 0
+      const right = Date.parse(b.createdAt) || 0
+      return librarySort.value === 'created-asc' ? left - right : right - left
+    }
+    const left = mediaAssetDisplayName(a).localeCompare(mediaAssetDisplayName(b), undefined, {
+      sensitivity: 'base',
+    })
+    return librarySort.value === 'name-asc' ? left : -left
+  })
+  return sorted
 })
 
 async function refreshPreview(media: MediaRef | null): Promise<void> {
@@ -154,6 +177,7 @@ async function handleFile(event: Event): Promise<void> {
 async function openLibrary(): Promise<void> {
   libraryOpen.value = true
   libraryQuery.value = ''
+  librarySort.value = 'created-desc'
   libraryLoading.value = true
   error.value = null
   await nextTick()
@@ -217,16 +241,30 @@ function clear(): void {
     <p v-if="error" class="author-error">{{ error }}</p>
 
     <div v-if="libraryOpen" class="media-library">
-      <label class="media-library-search media-library-picker-search">
-        <span class="sr-only">Search media</span>
-        <input
-          ref="librarySearchInput"
-          v-model="libraryQuery"
-          type="search"
-          placeholder="Search"
-          autocomplete="off"
-        />
-      </label>
+      <div class="media-library-picker-toolbar">
+        <label class="media-library-search media-library-picker-search">
+          <span class="sr-only">Search media</span>
+          <input
+            ref="librarySearchInput"
+            v-model="libraryQuery"
+            type="search"
+            placeholder="Search"
+            autocomplete="off"
+          />
+        </label>
+        <label class="media-library-picker-filter">
+          <span class="sr-only">Sort</span>
+          <select v-model="librarySort">
+            <option
+              v-for="option in LIBRARY_SORT_OPTIONS"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+      </div>
       <div class="media-library-results">
         <p v-if="libraryLoading" class="author-muted">Loading media…</p>
         <p v-else-if="libraryAssets.length === 0" class="author-muted">
@@ -251,7 +289,6 @@ function clear(): void {
       alt=""
     />
     <div v-else-if="previewUrl && isAudio" class="author-audio-wrap">
-      <img class="author-audio-art" :src="audioPreviewImage" alt="" />
       <audio class="author-audio" :src="previewUrl" controls />
     </div>
     <ProcessVideoStage
