@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { createIntroductionActivity } from '@/activities/createIntroductionActivity'
 import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
+import { LESSON_COUNTRY_OPTIONS } from '@/lib/inroadsMvp/packageSpec'
+import { createBlankIntroduction } from '@/services/createIntroduction'
 import { useActivityStore } from '@/stores/activityStore'
 
 const router = useRouter()
 const activities = useActivityStore()
 const title = ref('')
-const description = ref('')
+const country = ref('')
 const titleError = ref<string | null>(null)
 const saving = ref(false)
 
@@ -20,13 +21,8 @@ async function create(): Promise<void> {
 
   saving.value = true
   try {
-    const definition = createIntroductionActivity(title.value.trim())
-    definition.metadata.description = description.value.trim()
-    await activities.save(definition)
-    const id = activities.current?.id
-    if (!id) {
-      throw new Error('Stand Alone Video was created but could not be loaded')
-    }
+    const id = await createBlankIntroduction(title.value.trim(), '', country.value)
+    await activities.refreshList()
     await router.push(`/studio/stand-alone-video/${id}`)
   } catch (cause) {
     window.alert(cause instanceof Error ? cause.message : 'Failed to create stand alone video')
@@ -66,12 +62,11 @@ async function create(): Promise<void> {
           :error="titleError ?? undefined"
         />
         <AuthorField
-          id="description"
-          v-model="description"
-          label="Description"
-          placeholder="Description"
-          multiline
-          :rows="2"
+          id="country"
+          v-model="country"
+          label="Country"
+          placeholder="Select country"
+          :options="LESSON_COUNTRY_OPTIONS"
         />
       </section>
 

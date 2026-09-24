@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   readIntroductionDefinition,
@@ -17,6 +17,8 @@ import { duplicateIntroductionVersion } from '@/services/createIntroduction'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
 import {
+  canonicalizeLessonCountry,
+  canonicalizeLessonLanguage,
   LESSON_COUNTRY_OPTIONS,
   LESSON_LANGUAGE_OPTIONS,
 } from '@/lib/inroadsMvp/packageSpec'
@@ -38,6 +40,8 @@ const saving = ref(false)
 const publishing = ref(false)
 const deleting = ref(false)
 const creatingVersion = ref(false)
+const newLanguageMenuOpen = ref(false)
+const newLanguageMenu = ref<HTMLElement | null>(null)
 const saveMessage = ref<string | null>(null)
 const title = ref('')
 const description = ref('')
@@ -46,6 +50,8 @@ const introduction = ref<IntroductionDefinition | null>(null)
 
 type IntroductionVersionOption = {
   id: string
+  country: string
+  language: string
   label: string
 }
 
@@ -68,6 +74,17 @@ const versionSelectOptions = computed(() => {
     ]
   }
   return versions.value.map((item) => ({ value: item.id, label: item.label }))
+})
+
+const availableNewLanguages = computed(() => {
+  const used = new Set(
+    versions.value
+      .map((item) => canonicalizeLessonLanguage(item.language))
+      .filter((item) => Boolean(item)),
+  )
+  const current = canonicalizeLessonLanguage(language.value)
+  if (current) used.add(current)
+  return LESSON_LANGUAGE_OPTIONS.filter((option) => !used.has(option))
 })
 
 function selectOptions(options: readonly string[], current: string): string[] {
@@ -115,6 +132,8 @@ async function loadVersions(
       if (item.id === activityId.value) {
         return {
           id: item.id,
+          country: currentIntro.country,
+          language: currentIntro.language,
           label: lessonVersionLabel(
             currentIntro.country,
             currentIntro.language,
@@ -127,6 +146,8 @@ async function loadVersions(
         const parsed = definition ? readIntroductionDefinition(definition) : null
         return {
           id: item.id,
+          country: parsed?.country ?? '',
+          language: parsed?.language ?? '',
           label: lessonVersionLabel(
             parsed?.country ?? '',
             parsed?.language ?? '',
@@ -136,6 +157,8 @@ async function loadVersions(
       } catch {
         return {
           id: item.id,
+          country: '',
+          language: '',
           label: lessonVersionLabel('', '', item.published),
         }
       }
@@ -149,13 +172,32 @@ function onVersionSelect(nextId: string): void {
   void router.push(`/studio/stand-alone-video/${nextId}`)
 }
 
-async function createVersion(): Promise<void> {
+function toggleNewLanguageMenu(): void {
+  if (!editable.value || creatingVersion.value || saving.value || publishing.value || deleting.value) {
+    return
+  }
+  newLanguageMenuOpen.value = !newLanguageMenuOpen.value
+}
+
+function onNewLanguageMenuPointerDown(event: PointerEvent): void {
+  if (!newLanguageMenuOpen.value) return
+  const el = newLanguageMenu.value
+  if (el && event.target instanceof Node && el.contains(event.target)) return
+  newLanguageMenuOpen.value = false
+}
+
+async function createVersion(nextLanguage: string): Promise<void> {
   if (!editable.value || !introduction.value || creatingVersion.value) return
+  const languageName = canonicalizeLessonLanguage(nextLanguage)
+  if (!languageName || !(availableNewLanguages.value as readonly string[]).includes(languageName)) {
+    return
+  }
+  newLanguageMenuOpen.value = false
   const saved = await saveIntro()
   if (!saved) return
   creatingVersion.value = true
   try {
-    const nextId = await duplicateIntroductionVersion(activityId.value)
+    const nextId = await duplicateIntroductionVersion(activityId.value, languageName)
     await activities.refreshList()
     await router.push(`/studio/stand-alone-video/${nextId}`)
   } catch (cause) {
@@ -195,7 +237,12 @@ async function load(): Promise<void> {
 }
 
 onMounted(() => {
+  document.addEventListener('pointerdown', onNewLanguageMenuPointerDown)
   void load()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', onNewLanguageMenuPointerDown)
 })
 
 watch(activityId, () => {
@@ -208,6 +255,8 @@ watch([country, language, isPublished], () => {
     item.id === id
       ? {
           ...item,
+          country: country.value,
+          language: language.value,
           label: lessonVersionLabel(country.value, language.value, isPublished.value),
         }
       : item,
@@ -229,6 +278,25 @@ function setIntroFirstVisit(value: boolean): void {
   introduction.value = { ...introduction.value, introShowOnFirstVisitOnly: value }
 }
 
+async function syncCountryToSiblingVersions(sharedCountry: string): Promise<void> {
+  const nextCountry = canonicalizeLessonCountry(sharedCountry)
+  for (const version of versions.value) {
+    if (version.id === activityId.value) continue
+    if (canonicalizeLessonCountry(version.country) === nextCountry) continue
+    try {
+      const definition = await services.persistence.getById(version.id)
+      const parsed = definition ? readIntroductionDefinition(definition) : null
+      if (!definition || !parsed) continue
+      if (canonicalizeLessonCountry(parsed.country) === nextCountry) continue
+      await services.persistence.save(
+        writeIntroductionDefinition(definition, { ...parsed, country: nextCountry }),
+      )
+    } catch {
+      // Keep saving the current version even if a sibling update fails.
+    }
+  }
+}
+
 async function saveIntro(): Promise<boolean> {
   if (!editable.value || !introduction.value) return false
   titleError.value = title.value.trim() ? null : 'Title is required'
@@ -248,6 +316,7 @@ async function saveIntro(): Promise<boolean> {
       description: description.value.trim(),
     }
     await activities.save(next)
+    await syncCountryToSiblingVersions(introduction.value.country)
     versions.value = await loadVersions(next.metadata.title, introduction.value)
     saveMessage.value = 'Saved'
     window.setTimeout(() => {
@@ -300,12 +369,28 @@ async function publish(): Promise<void> {
   }
 }
 
-async function removeCurrentVersion(): Promise<void> {
-  if (!editable.value || !introduction.value) return
-  const siblingId = versions.value.find((item) => item.id !== activityId.value)?.id ?? ''
+async function deleteVersion(id: string): Promise<void> {
+  if (!editable.value || !id || deleting.value) return
+  const target = versions.value.find((item) => item.id === id)
+  const label =
+    target?.label ??
+    lessonVersionLabel(country.value, language.value, isPublished.value)
+  const hasSibling = versions.value.some((item) => item.id !== id)
+  const message = hasSibling
+    ? `Remove the ${label} version? Other versions of this stand alone video will stay.`
+    : 'This is the only version. Remove the stand alone video from authoring and training?'
+  if (!window.confirm(message)) return
+
+  const siblingId = versions.value.find((item) => item.id !== id)?.id ?? ''
   deleting.value = true
   try {
-    await activities.remove(activityId.value)
+    await activities.remove(id)
+    await activities.refreshList()
+    if (id !== activityId.value) {
+      versions.value = versions.value.filter((item) => item.id !== id)
+      deleting.value = false
+      return
+    }
     await router.push(
       siblingId ? `/studio/stand-alone-video/${siblingId}` : '/studio/stand-alone-video',
     )
@@ -313,17 +398,6 @@ async function removeCurrentVersion(): Promise<void> {
     deleting.value = false
     window.alert(cause instanceof Error ? cause.message : 'Failed to remove version')
   }
-}
-
-async function removeVersion(): Promise<void> {
-  if (!editable.value || !introduction.value || deleting.value) return
-  const label = lessonVersionLabel(country.value, language.value, isPublished.value)
-  const hasSibling = versions.value.some((item) => item.id !== activityId.value)
-  const message = hasSibling
-    ? `Remove the ${label} version? Other versions of this stand alone video will stay.`
-    : 'This is the only version. Remove the stand alone video from authoring and training?'
-  if (!window.confirm(message)) return
-  await removeCurrentVersion()
 }
 
 async function remove(): Promise<void> {
@@ -335,7 +409,7 @@ async function remove(): Promise<void> {
   ) {
     return
   }
-  await removeCurrentVersion()
+  await deleteVersion(activityId.value)
 }
 </script>
 
@@ -364,10 +438,12 @@ async function remove(): Promise<void> {
               />
             </svg>
           </RouterLink>
-          <h1 class="author-header-title">{{ title.trim() || 'Stand Alone Video' }}</h1>
+          <h1 class="author-header-title">
+            {{ title.trim() || 'Stand Alone Video' }}{{ country.trim() ? ` - ${country.trim()}` : '' }}
+          </h1>
           <AuthorStatusChip :label="isPublished ? 'PUBLISHED' : 'DRAFT'" />
         </div>
-        <div style="display: flex; flex-wrap: wrap; gap: 16px">
+        <div class="mvp-header-actions">
           <AuthorPillButton
             variant="ghost"
             :disabled="saving || publishing || deleting || creatingVersion"
@@ -383,6 +459,40 @@ async function remove(): Promise<void> {
           >
             {{ publishing ? 'Publishing…' : 'Publish' }}
           </AuthorPillButton>
+          <div v-if="editable" ref="newLanguageMenu" class="author-menu mvp-new-language-menu">
+            <AuthorPillButton
+              variant="white"
+              :disabled="
+                saving ||
+                publishing ||
+                deleting ||
+                creatingVersion ||
+                availableNewLanguages.length === 0
+              "
+              :aria-expanded="newLanguageMenuOpen"
+              aria-haspopup="menu"
+              @click="toggleNewLanguageMenu"
+            >
+              {{ creatingVersion ? 'Creating…' : 'New Language' }}
+            </AuthorPillButton>
+            <div
+              v-if="newLanguageMenuOpen"
+              class="author-menu-panel"
+              role="menu"
+              aria-label="New language"
+            >
+              <button
+                v-for="option in availableNewLanguages"
+                :key="option"
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                @click="createVersion(option)"
+              >
+                {{ option }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -390,35 +500,20 @@ async function remove(): Promise<void> {
         View only — you can open this stand alone video, but only the owner or an admin can edit it.
       </p>
 
-      <section class="author-stack-sm">
-        <AuthorSectionHeader title="Version" />
-        <div class="mvp-version-row">
+      <div class="mvp-section-bar intro-language-bar">
+        <div class="mvp-section-language">
           <AuthorSelectField
             :id="`${activityId}-version`"
             :model-value="activityId"
-            label="Version"
+            label="Now Editing"
             :options="versionSelectOptions"
             :disabled="creatingVersion || deleting"
+            :removable="editable"
             @update:model-value="onVersionSelect"
+            @remove="deleteVersion"
           />
-          <AuthorPillButton
-            v-if="editable"
-            variant="white"
-            :disabled="saving || publishing || deleting || creatingVersion"
-            @click="createVersion"
-          >
-            {{ creatingVersion ? 'Creating…' : 'New Version' }}
-          </AuthorPillButton>
-          <AuthorPillButton
-            v-if="editable"
-            variant="ghost"
-            :disabled="saving || publishing || deleting || creatingVersion"
-            @click="removeVersion"
-          >
-            {{ deleting ? 'Removing…' : 'Remove Version' }}
-          </AuthorPillButton>
         </div>
-      </section>
+      </div>
 
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Details" />
@@ -510,3 +605,9 @@ async function remove(): Promise<void> {
     </div>
   </div>
 </template>
+
+<style scoped>
+.intro-language-bar {
+  justify-content: flex-end;
+}
+</style>
