@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { readAnticipateDefinition } from '@/activities/anticipateDefinition'
 import {
@@ -62,6 +62,8 @@ const saving = ref(false)
 const publishing = ref(false)
 const deleting = ref(false)
 const creatingVersion = ref(false)
+const newLanguageMenuOpen = ref(false)
+const newLanguageMenu = ref<HTMLElement | null>(null)
 const saveMessage = ref<string | null>(null)
 const title = ref('')
 const description = ref('')
@@ -118,6 +120,17 @@ const versionSelectOptions = computed(() => {
     ]
   }
   return versions.value.map((item) => ({ value: item.id, label: item.label }))
+})
+
+const availableNewLanguages = computed(() => {
+  const used = new Set(
+    versions.value
+      .map((item) => canonicalizeLessonLanguage(item.language))
+      .filter((item) => Boolean(item)),
+  )
+  const current = canonicalizeLessonLanguage(language.value)
+  if (current) used.add(current)
+  return LESSON_LANGUAGE_OPTIONS.filter((option) => !used.has(option))
 })
 
 const introductionSelectOptions = computed(() => [
@@ -487,13 +500,32 @@ function onVersionSelect(nextId: string): void {
   })
 }
 
-async function createVersion(): Promise<void> {
+function toggleNewLanguageMenu(): void {
+  if (!editable.value || creatingVersion.value || saving.value || publishing.value || deleting.value) {
+    return
+  }
+  newLanguageMenuOpen.value = !newLanguageMenuOpen.value
+}
+
+function onNewLanguageMenuPointerDown(event: PointerEvent): void {
+  if (!newLanguageMenuOpen.value) return
+  const el = newLanguageMenu.value
+  if (el && event.target instanceof Node && el.contains(event.target)) return
+  newLanguageMenuOpen.value = false
+}
+
+async function createVersion(nextLanguage: string): Promise<void> {
   if (!editable.value || !mvp.value || creatingVersion.value) return
+  const languageName = canonicalizeLessonLanguage(nextLanguage)
+  if (!languageName || !(availableNewLanguages.value as readonly string[]).includes(languageName)) {
+    return
+  }
+  newLanguageMenuOpen.value = false
   const saved = await saveLesson()
   if (!saved) return
   creatingVersion.value = true
   try {
-    const nextId = await duplicateInroadsMvpVersion(activityId.value)
+    const nextId = await duplicateInroadsMvpVersion(activityId.value, languageName)
     await activities.refreshList()
     await router.push({
       path: `/studio/inroads-mvp/${nextId}`,
@@ -564,7 +596,12 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
 }
 
 onMounted(() => {
+  document.addEventListener('pointerdown', onNewLanguageMenuPointerDown)
   void load()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', onNewLanguageMenuPointerDown)
 })
 
 watch(activityId, () => {
@@ -868,14 +905,40 @@ async function deleteVersion(id: string): Promise<void> {
           >
             {{ publishing ? 'Publishing…' : 'Publish lesson' }}
           </AuthorPillButton>
-          <AuthorPillButton
-            v-if="editable"
-            variant="white"
-            :disabled="saving || publishing || deleting || creatingVersion"
-            @click="createVersion"
-          >
-            {{ creatingVersion ? 'Creating…' : 'New Language' }}
-          </AuthorPillButton>
+          <div v-if="editable" ref="newLanguageMenu" class="author-menu mvp-new-language-menu">
+            <AuthorPillButton
+              variant="white"
+              :disabled="
+                saving ||
+                publishing ||
+                deleting ||
+                creatingVersion ||
+                availableNewLanguages.length === 0
+              "
+              :aria-expanded="newLanguageMenuOpen"
+              aria-haspopup="menu"
+              @click="toggleNewLanguageMenu"
+            >
+              {{ creatingVersion ? 'Creating…' : 'New Language' }}
+            </AuthorPillButton>
+            <div
+              v-if="newLanguageMenuOpen"
+              class="author-menu-panel"
+              role="menu"
+              aria-label="New language"
+            >
+              <button
+                v-for="option in availableNewLanguages"
+                :key="option"
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                @click="createVersion(option)"
+              >
+                {{ option }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

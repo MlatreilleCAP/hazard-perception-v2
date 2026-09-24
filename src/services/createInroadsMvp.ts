@@ -10,7 +10,7 @@ import {
 import { readProcessDefinition, writeProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
-import { canonicalizeLessonCountry } from '@/lib/inroadsMvp/packageSpec'
+import { canonicalizeLessonCountry, canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
 import { INROADS_MVP_CHILD_TAG } from '@/types/inroadsMvp'
 import type { ActivityDefinition } from '@/types/activity'
 
@@ -47,7 +47,10 @@ export async function createBlankInroadsMvp(
   return saved.id
 }
 
-export async function duplicateInroadsMvpVersion(sourceId: string): Promise<string> {
+export async function duplicateInroadsMvpVersion(
+  sourceId: string,
+  language = '',
+): Promise<string> {
   const parent = await loadActivityOrThrow(sourceId)
   const mvp = readInroadsMvpDefinition(parent)
   if (!mvp) throw new Error('Inroads MVP definition was not found')
@@ -79,7 +82,9 @@ export async function duplicateInroadsMvpVersion(sourceId: string): Promise<stri
   copy.metadata.description = parent.metadata.description
   const next = writeInroadsMvpDefinition(copy, {
     ...mvp,
-    language: '',
+    language: language.trim()
+      ? canonicalizeLessonLanguage(language)
+      : '',
     seeActivityId: savedSee.id,
     processActivityId: savedProcess.id,
     anticipateActivityId: savedAnticipate.id,
