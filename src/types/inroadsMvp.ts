@@ -220,9 +220,9 @@ export function normalizeInroadsMvpDefinition(
 
 export const INROADS_MVP_SECTIONS = [
   { id: 'lesson', label: 'Lesson' },
-  { id: 'see', label: '1 · Observe' },
-  { id: 'process', label: '2 · Process' },
-  { id: 'anticipate', label: '3 · Anticipate' },
+  { id: 'see', label: 'Observe' },
+  { id: 'process', label: 'Process' },
+  { id: 'anticipate', label: 'Anticipate' },
   { id: 'results', label: 'Results' },
 ] as const
 

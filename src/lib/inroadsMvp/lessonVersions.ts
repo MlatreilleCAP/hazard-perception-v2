@@ -12,7 +12,10 @@ export function lessonVersionLabel(
   language: string,
   published = true,
 ): string {
-  const locale = [country.trim(), language.trim()].filter(Boolean).join(' · ') || 'Untitled version'
+  const locale = [country.trim(), language.trim()].filter(Boolean).join(' · ')
+  if (!locale) {
+    return 'Upload file or Enter Details Below to Configure'
+  }
   return published ? locale : `${locale} · Draft`
 }
 

@@ -337,7 +337,7 @@ defineExpose({ save })
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 16px">
           <AuthorPillButton
-            variant="ghost"
+            variant="white"
             :disabled="saving || publishing || deleting"
             @click="openPreview"
           >
@@ -353,21 +353,6 @@ defineExpose({ save })
           </AuthorPillButton>
         </div>
       </div>
-      <div v-else class="author-header-row">
-        <div class="author-header-left">
-          <h1 class="author-header-title">Observe</h1>
-          <AuthorStatusChip :label="isPublished ? 'PUBLISHED' : 'DRAFT'" />
-        </div>
-        <div style="display: flex; flex-wrap: wrap; gap: 16px">
-          <AuthorPillButton
-            variant="ghost"
-            :disabled="saving || publishing || deleting"
-            @click="openPreview"
-          >
-            {{ saving ? 'Saving…' : 'Preview section' }}
-          </AuthorPillButton>
-        </div>
-      </div>
 
       <p v-if="!editable" class="author-readonly-banner">
         View only — you can open this scenario, but only the owner or an admin can edit it.
@@ -375,7 +360,17 @@ defineExpose({ save })
 
       <fieldset class="author-stack" :disabled="!editable">
       <section class="author-stack-sm">
-        <AuthorSectionHeader title="Instruction" />
+        <AuthorSectionHeader title="Instruction">
+          <template v-if="embedded" #action>
+            <AuthorPillButton
+              variant="white"
+              :disabled="saving || publishing || deleting"
+              @click="openPreview"
+            >
+              {{ saving ? 'Saving…' : 'Preview section' }}
+            </AuthorPillButton>
+          </template>
+        </AuthorSectionHeader>
         <p class="author-muted">
           Shown over the paused first frame of the scenario video until the learner taps Continue.
         </p>

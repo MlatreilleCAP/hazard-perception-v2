@@ -335,10 +335,9 @@ defineExpose({ save })
     </div>
 
     <div v-else class="author-page-inner author-stack">
-      <div class="author-header-row">
+      <div v-if="!embedded" class="author-header-row">
         <div class="author-header-left">
           <RouterLink
-            v-if="!embedded"
             to="/studio/anticipate"
             class="author-back"
             aria-label="Back"
@@ -347,19 +346,19 @@ defineExpose({ save })
               <path d="M10 3.5 5.5 8 10 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </RouterLink>
-          <h1 class="author-header-title">{{ embedded ? 'Anticipate' : 'Edit Anticipate' }}</h1>
+          <h1 class="author-header-title">Edit Anticipate</h1>
           <AuthorStatusChip :label="isPublished ? 'PUBLISHED' : 'DRAFT'" />
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 16px">
           <AuthorPillButton
-            variant="ghost"
+            variant="white"
             :disabled="saving || publishing || deleting"
             @click="openPreview"
           >
             {{ saving ? 'Saving…' : 'Preview section' }}
           </AuthorPillButton>
           <AuthorPillButton
-            v-if="editable && !embedded"
+            v-if="editable"
             variant="primary"
             :disabled="saving || publishing || deleting"
             @click="publish"
@@ -375,7 +374,17 @@ defineExpose({ save })
 
       <fieldset class="author-stack" :disabled="!editable">
       <section class="author-stack-sm">
-        <AuthorSectionHeader title="Instruction" />
+        <AuthorSectionHeader title="Instruction">
+          <template v-if="embedded" #action>
+            <AuthorPillButton
+              variant="white"
+              :disabled="saving || publishing || deleting"
+              @click="openPreview"
+            >
+              {{ saving ? 'Saving…' : 'Preview section' }}
+            </AuthorPillButton>
+          </template>
+        </AuthorSectionHeader>
         <p class="author-muted">
           Shown over the paused first frame of Video 1 until the learner taps Continue.
         </p>

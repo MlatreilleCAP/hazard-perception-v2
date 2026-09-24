@@ -246,13 +246,10 @@ async function runImport(file: File): Promise<void> {
 
 <template>
   <section class="author-stack-sm inroads-import-panel">
-    <p class="inroads-import-title">Import zip</p>
     <p class="author-muted">
       Upload a zip with lesson.xls (or .xlsx) and media in the named folders. The workbook
       and those files are applied to the builder together, including the full Observe page
       (hazard clip, details, coaching clip, explanation image, summary audio, and questions).
-    </p>
-    <p class="author-muted">
       Download template includes the lesson.xlsx workbook and empty named folders.
     </p>
     <div class="author-actions" style="margin-top: 0">

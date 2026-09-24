@@ -857,7 +857,7 @@ async function remove(): Promise<void> {
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 16px">
           <AuthorPillButton
-            variant="ghost"
+            variant="white"
             :disabled="saving || publishing || deleting"
             @click="openPreview"
           >
@@ -958,7 +958,7 @@ async function remove(): Promise<void> {
         </section>
 
         <section v-if="editable" class="author-stack-sm">
-          <AuthorSectionHeader title="Bulk import" />
+          <AuthorSectionHeader title="File Upload" />
           <InroadsMvpImportPanel
             :parent-id="activityId"
             :disabled="saving || publishing || deleting"
@@ -1086,7 +1086,7 @@ async function remove(): Promise<void> {
 
       <template v-else-if="activeSection === 'results'">
         <div class="author-actions">
-          <AuthorPillButton variant="primary" :disabled="saving || deleting" @click="openResultsPreview">
+          <AuthorPillButton variant="white" :disabled="saving || deleting" @click="openResultsPreview">
             Preview section
           </AuthorPillButton>
         </div>
