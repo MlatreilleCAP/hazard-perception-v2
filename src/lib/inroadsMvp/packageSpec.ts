@@ -50,7 +50,7 @@ export function slotFileAccept(slot: VideoSlotId): string {
   if (kind === 'audio') {
     return 'audio/mpeg,audio/mp4,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg'
   }
-  return 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov'
+  return 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,text/vtt,.vtt'
 }
 
 export function fileMatchesSlot(slot: VideoSlotId, file: File): boolean {
@@ -282,8 +282,27 @@ export function isAudioName(filename: string): boolean {
   return /\.(mp3|m4a|wav|ogg)$/i.test(basename(filename))
 }
 
+export function isVttName(filename: string): boolean {
+  return /\.vtt$/i.test(basename(filename))
+}
+
 export function isMediaName(filename: string): boolean {
   return isVideoName(filename) || isImageName(filename) || isAudioName(filename)
+}
+
+/** Video slots that may include a sibling .vtt captions file in the same folder. */
+export function slotSupportsCaptions(slot: VideoSlotId): boolean {
+  // Lesson/scenario clips are interactive or silent; captions belong on coaching / intro.
+  return (
+    slot === 'intro' ||
+    slot === 'observe-coaching' ||
+    slot === 'process-2' ||
+    slot === 'anticipate-2'
+  )
+}
+
+export function captionsFileAccept(): string {
+  return 'text/vtt,.vtt'
 }
 
 export function videoMimeForName(filename: string): string {
@@ -298,6 +317,7 @@ export function videoMimeForName(filename: string): string {
   if (ext === 'm4a') return 'audio/mp4'
   if (ext === 'wav') return 'audio/wav'
   if (ext === 'ogg') return 'audio/ogg'
+  if (ext === 'vtt') return 'text/vtt'
   return 'video/mp4'
 }
 
@@ -352,10 +372,12 @@ export const IMPORT_README = `Inroads MVP import
 Upload one zip that contains:
   - lesson.xls or lesson.xlsx (workbook)
   - one video per named folder (the folder name is how the system places the file)
+  - optional .vtt closed-caption file in the same folder as each video
 
 Download template is that zip with lesson.xlsx and the named folders already created.
 Put one video in each folder you want filled. On import, the workbook and those videos
 are applied to the builder together (intro, Observe, Process, Anticipate slots).
+Put a .vtt next to a video (same folder; same basename preferred) to attach captions.
 
 Folder names (case-insensitive):
 

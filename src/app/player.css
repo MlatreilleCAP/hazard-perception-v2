@@ -256,6 +256,70 @@ body:has(.player-page) {
   cursor: pointer;
 }
 
+.process-captions-toggle {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 5;
+  display: inline-flex;
+  min-width: 40px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1.5px solid rgb(255 255 255 / 85%);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 45%);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+.process-captions-toggle:hover {
+  background: rgb(0 0 0 / 62%);
+}
+
+.process-captions-toggle.is-on {
+  border-color: #fff;
+  background: rgb(255 255 255 / 92%);
+  color: #1a1a1a;
+}
+
+.process-captions-toggle.is-on:hover {
+  background: #fff;
+}
+
+.process-captions-overlay {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 52px;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.process-captions-cue {
+  margin: 0;
+  max-width: min(92%, 36rem);
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 72%);
+  color: #fff;
+  font: inherit;
+  font-size: clamp(0.9rem, 2.6vw, 1.1rem);
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  white-space: pre-line;
+}
+
 .process-instruction-card {
   --process-charcoal: #403b3b;
   --process-lilac: #e3e5ef;

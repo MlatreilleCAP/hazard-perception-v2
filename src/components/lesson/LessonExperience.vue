@@ -54,6 +54,7 @@ const activities = useActivityStore()
 const phase = ref<Phase>('title')
 const error = ref<string | null>(null)
 const introSrc = ref<string | null>(null)
+const introCaptionsMediaId = ref<string | null>(null)
 const sectionIndex = ref(0)
 const sectionDefinition = ref<ActivityDefinition | null>(null)
 const sectionCache = ref<Map<string, ActivityDefinition>>(new Map())
@@ -257,12 +258,14 @@ async function startIntro(): Promise<boolean> {
   showSegmentLoader()
   sectionDefinition.value = null
   introSrc.value = null
+  introCaptionsMediaId.value = null
   error.value = null
 
   try {
     await warmCurrentTargets(generation, mediaId, [])
     if (generation !== loadGeneration) return true
     introSrc.value = await services.media.getSignedUrl(mediaId)
+    introCaptionsMediaId.value = lesson.value.introCaptions?.media_asset_id ?? null
     phase.value = 'intro'
     return true
   } catch (cause) {
@@ -287,6 +290,7 @@ async function enterSection(index: number): Promise<void> {
   showSegmentLoader()
   sectionDefinition.value = null
   introSrc.value = null
+  introCaptionsMediaId.value = null
   error.value = null
 
   try {
@@ -316,12 +320,14 @@ function onIntroEnded(): void {
   }
   if (orderedItems.value.length === 0) {
     introSrc.value = null
+  introCaptionsMediaId.value = null
     emit('finished')
     return
   }
   // Leave intro immediately so the last frame cannot stick over the Observe loader.
   showSegmentLoader()
   introSrc.value = null
+  introCaptionsMediaId.value = null
   sectionDefinition.value = null
   phase.value = 'playing'
   void enterSection(0)
@@ -337,6 +343,7 @@ async function startLesson(): Promise<void> {
   sectionResults.value = {}
   sectionIndex.value = 0
   introSrc.value = null
+  introCaptionsMediaId.value = null
   sectionDefinition.value = null
   sectionCache.value = new Map()
   error.value = null
@@ -509,6 +516,7 @@ onBeforeUnmount(() => {
       v-else-if="phase === 'intro' && introSrc"
       class="lesson-intro-cover"
       :src="introSrc"
+      :captions-media-id="introCaptionsMediaId || undefined"
       instruction-text=""
       @ready="onSegmentReady"
       @ended="onIntroEnded"

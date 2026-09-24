@@ -269,15 +269,15 @@ function updateHazard(id: string, patch: Partial<SeeHazard>): void {
 }
 
 function addHazard(): void {
-  if (props.readonly) return
+  if (props.readonly || props.hazards.length >= 1) return
   pause()
   const created = createEmptySeeHazard(
-    props.hazards.length + 1,
+    1,
     currentTime.value,
     duration.value,
     newHazardRadius.value,
   )
-  patchHazards([...props.hazards, created])
+  patchHazards([created])
   selectedHazardId.value = created.id
 }
 
@@ -368,6 +368,10 @@ function onQuestionsChange(questions: ProcessQuestionBank): void {
 
 function onMissedVideoChange(video: MediaRef | null): void {
   commitCoachingHazard({ missedVideo: video })
+}
+
+function onMissedVideoCaptionsChange(captions: MediaRef | null): void {
+  commitCoachingHazard({ missedVideoCaptions: captions })
 }
 
 function onInstructionTextChange(value: string): void {
@@ -478,7 +482,7 @@ watch(previewUrl, () => {
       :hazards="hazards"
       :selected-hazard-id="selectedHazardId"
       :selected-trigger-index="selectedTriggerIndex"
-      :add-disabled="readonly || duration <= 0"
+      :add-disabled="readonly || duration <= 0 || hazards.length >= 1"
       :remove-disabled="readonly"
       :is-playing="isPlaying"
       @select-hazard="selectHazard"
@@ -556,6 +560,15 @@ watch(previewUrl, () => {
           :instruction-pill="coachingHazard.instructionPill"
           :readonly="readonly"
           @update:model-value="onMissedVideoChange"
+        />
+        <MediaUploadField
+          :id="`${coachingHazard.id}-missed-video-captions`"
+          :activity-id="activityId"
+          label="Coaching closed captions"
+          kind="captions"
+          :model-value="coachingHazard.missedVideoCaptions ?? null"
+          :readonly="readonly"
+          @update:model-value="onMissedVideoCaptionsChange"
         />
       </section>
     </template>

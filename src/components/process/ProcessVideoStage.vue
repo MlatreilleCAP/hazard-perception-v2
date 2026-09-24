@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import CaptionsOverlay from '@/components/process/CaptionsOverlay.vue'
 import ProcessInstructionCard from '@/components/process/ProcessInstructionCard.vue'
+import { services } from '@/app/container'
+import {
+  activeCaptionText,
+  loadCaptionsFromUrl,
+  parseCaptionsText,
+  type CaptionCue,
+} from '@/lib/media/captions'
 
 const props = defineProps<{
   src: string
@@ -8,6 +16,10 @@ const props = defineProps<{
   instructionPill?: string
   compact?: boolean
   holdEnd?: boolean
+  /** Media asset id for a .vtt captions file (preferred). */
+  captionsMediaId?: string
+  /** Fallback public/signed VTT URL when no media id is available. */
+  captionsSrc?: string
 }>()
 
 const emit = defineEmits<{
@@ -25,6 +37,10 @@ const pendingSlot = ref<number | null>(null)
 const started = ref(false)
 const finished = ref(false)
 const showAutoplayPrompt = ref(false)
+const captionsOn = ref(true)
+const captionCues = ref<CaptionCue[]>([])
+const captionText = ref('')
+let captionLoadToken = 0
 let activateToken = 0
 
 const showInstruction = computed(
@@ -33,6 +49,12 @@ const showInstruction = computed(
 const showControls = computed(
   () => Boolean(props.compact) && !showInstruction.value && !props.holdEnd,
 )
+const showCaptionsToggle = computed(
+  () => Boolean(props.captionsMediaId?.trim() || props.captionsSrc?.trim()),
+)
+const showCaptionCue = computed(
+  () => captionsOn.value && Boolean(captionText.value.trim()),
+)
 
 function videoAt(slot: number): HTMLVideoElement | null {
   return slot === 0 ? videoA.value : videoB.value
@@ -40,6 +62,41 @@ function videoAt(slot: number): HTMLVideoElement | null {
 
 function activeVideo(): HTMLVideoElement | null {
   return videoAt(active.value)
+}
+
+function updateCaptionText(timeSeconds: number): void {
+  if (!captionsOn.value || captionCues.value.length === 0) {
+    captionText.value = ''
+    return
+  }
+  captionText.value = activeCaptionText(captionCues.value, timeSeconds)
+}
+
+function toggleCaptions(): void {
+  captionsOn.value = !captionsOn.value
+  const el = activeVideo()
+  updateCaptionText(el?.currentTime ?? 0)
+}
+
+async function loadCaptions(): Promise<void> {
+  const token = ++captionLoadToken
+  captionCues.value = []
+  captionText.value = ''
+  const mediaId = props.captionsMediaId?.trim()
+  const url = props.captionsSrc?.trim()
+  if (!mediaId && !url) return
+  try {
+    const cues = mediaId
+      ? parseCaptionsText(await services.media.getTextContent(mediaId))
+      : await loadCaptionsFromUrl(url!)
+    if (token !== captionLoadToken) return
+    captionCues.value = cues
+    updateCaptionText(activeVideo()?.currentTime ?? 0)
+  } catch {
+    if (token !== captionLoadToken) return
+    captionCues.value = []
+    captionText.value = ''
+  }
 }
 
 function fitCompact(el: HTMLVideoElement): void {
@@ -228,6 +285,7 @@ async function activateSlot(slot: number): Promise<void> {
     }
   }
 
+  updateCaptionText(el.currentTime)
   emit('ready')
 }
 
@@ -275,6 +333,14 @@ watch(
   },
 )
 
+watch(
+  () => [props.captionsMediaId, props.captionsSrc] as const,
+  () => {
+    void loadCaptions()
+  },
+  { immediate: true },
+)
+
 function begin(): void {
   showAutoplayPrompt.value = false
   started.value = true
@@ -306,8 +372,9 @@ function finishPlayback(slot: number): void {
 
 function onTimeUpdate(slot: number): void {
   if (slot !== active.value) return
-  if (props.compact || props.holdEnd || !started.value || finished.value) return
   const el = activeVideo()
+  if (el) updateCaptionText(el.currentTime)
+  if (props.compact || props.holdEnd || !started.value || finished.value) return
   if (!el || !Number.isFinite(el.duration) || el.duration < 0.5) return
   if (el.currentTime >= el.duration - 0.12) {
     finishPlayback(slot)
@@ -318,6 +385,7 @@ defineExpose({ holdLastFrame })
 
 onBeforeUnmount(() => {
   activateToken += 1
+  captionLoadToken += 1
   videoA.value?.pause()
   videoB.value?.pause()
 })
@@ -351,6 +419,7 @@ onBeforeUnmount(() => {
         @ended="finishPlayback(1)"
       />
     </div>
+    <CaptionsOverlay :text="showCaptionCue ? captionText : ''" />
     <div v-if="showInstruction || showAutoplayPrompt" class="process-instruction-overlay">
       <ProcessInstructionCard
         v-if="showInstruction"
@@ -367,5 +436,16 @@ onBeforeUnmount(() => {
         Tap to play
       </button>
     </div>
+    <button
+      v-if="showCaptionsToggle"
+      type="button"
+      class="process-captions-toggle"
+      :class="{ 'is-on': captionsOn }"
+      :aria-pressed="captionsOn"
+      :aria-label="captionsOn ? 'Turn captions off' : 'Turn captions on'"
+      @click="toggleCaptions"
+    >
+      CC
+    </button>
   </div>
 </template>

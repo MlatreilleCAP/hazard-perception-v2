@@ -37,6 +37,8 @@ export type LessonDefinition = {
   version: 1
   /** Optional intro clip before Observe / Process / Anticipate. */
   introMedia: MediaRef | null
+  /** Closed captions (.vtt) for the intro clip. */
+  introCaptions: MediaRef | null
   /** When true, intro plays only on the learner’s first visit. */
   introShowOnFirstVisitOnly: boolean
   composition: LessonComposition
@@ -55,6 +57,7 @@ export function createDefaultLessonDefinition(): LessonDefinition {
   return {
     version: 1,
     introMedia: null,
+    introCaptions: null,
     introShowOnFirstVisitOnly: true,
     composition: { schemaVersion: 1, items: [] },
   }
@@ -65,6 +68,9 @@ export function cloneLessonDefinition(definition: LessonDefinition): LessonDefin
     version: 1,
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
+      : null,
+    introCaptions: definition.introCaptions
+      ? { media_asset_id: definition.introCaptions.media_asset_id }
       : null,
     introShowOnFirstVisitOnly: definition.introShowOnFirstVisitOnly !== false,
     composition: {
@@ -151,10 +157,19 @@ export function normalizeLessonDefinition(
       introMedia = { media_asset_id: id.trim() }
     }
   }
+  const captionsRaw = definition?.introCaptions
+  let introCaptions: MediaRef | null = null
+  if (captionsRaw && typeof captionsRaw === 'object') {
+    const id = (captionsRaw as { media_asset_id?: unknown }).media_asset_id
+    if (typeof id === 'string' && id.trim()) {
+      introCaptions = { media_asset_id: id.trim() }
+    }
+  }
 
   return {
     version: 1,
     introMedia,
+    introCaptions,
     introShowOnFirstVisitOnly: definition?.introShowOnFirstVisitOnly !== false,
     composition: parseLessonComposition(definition?.composition),
   }

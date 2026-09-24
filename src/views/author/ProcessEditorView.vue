@@ -182,6 +182,10 @@ function setMedia(index: ProcessSegmentIndex, media: MediaRef | null): void {
   patchSegment(index, { media })
 }
 
+function setCaptions(index: ProcessSegmentIndex, captions: MediaRef | null): void {
+  patchSegment(index, { captions })
+}
+
 function setDuration(index: ProcessSegmentIndex, durationMs: number): void {
   const current = process.value?.segments[index]
   patchSegment(index, {
@@ -481,6 +485,14 @@ defineExpose({ save })
             :instruction-pill="secondInstructionPill"
             @update:model-value="setMedia(1, $event)"
             @duration="setDuration(1, $event)"
+          />
+          <MediaUploadField
+            :id="`${activityId}-video-2-captions`"
+            :activity-id="activityId"
+            label="Closed captions"
+            kind="captions"
+            :model-value="working.segments[1].captions"
+            @update:model-value="setCaptions(1, $event)"
           />
         </section>
 

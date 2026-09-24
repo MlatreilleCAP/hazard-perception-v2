@@ -18,10 +18,12 @@ import {
   isImageName,
   isMediaName,
   isVideoName,
+  isVttName,
   isWorkbookName,
   matchMediaSlot,
   matchMediaSlotFromPath,
   shouldIgnoreZipPath,
+  slotSupportsCaptions,
   videoMimeForName,
   type CopyField,
   type CopySection,
@@ -117,6 +119,8 @@ export type ParsedImportPackage = {
   questions: ImportedQuestionRow[]
   mediaMetadata: Partial<Record<VideoSlotId, MediaClipMetadata>>
   videos: Partial<Record<VideoSlotId, ImportedVideoFile>>
+  /** Optional .vtt caption file per video slot (same folder as the video). */
+  captions: Partial<Record<VideoSlotId, ImportedVideoFile>>
   warnings: string[]
   unusedFiles: string[]
 }
@@ -597,15 +601,45 @@ export async function parseImportWorkbook(file: File): Promise<ParsedImportPacka
   return {
     ...parseWorkbookBytes(bytes, warnings),
     videos: {},
+    captions: {},
     warnings,
     unusedFiles: [],
   }
+}
+
+function zipBasenameStem(path: string): string {
+  return basename(path).replace(/\.[^.]+$/, '').toLowerCase()
+}
+
+function pickCaptionForSlot(
+  slot: VideoSlotId,
+  candidates: ImportedVideoFile[],
+  video: ImportedVideoFile | undefined,
+  warnings: string[],
+  unusedFiles: string[],
+): ImportedVideoFile | null {
+  if (candidates.length === 0) return null
+  let chosen = candidates[0] ?? null
+  if (video) {
+    const videoStem = zipBasenameStem(video.zipPath)
+    const matched = candidates.find((item) => zipBasenameStem(item.zipPath) === videoStem)
+    if (matched) chosen = matched
+  }
+  for (const item of candidates) {
+    if (item.zipPath === chosen?.zipPath) continue
+    unusedFiles.push(item.zipPath)
+    warnings.push(
+      `Ignoring extra captions file ${item.zipPath} for ${SLOT_FOLDER_LABELS[slot]} (already using ${chosen?.zipPath}).`,
+    )
+  }
+  return chosen
 }
 
 export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage> {
   const warnings: string[] = []
   const unusedFiles: string[] = []
   const videos: Partial<Record<VideoSlotId, ImportedVideoFile>> = {}
+  const captionCandidates: Partial<Record<VideoSlotId, ImportedVideoFile[]>> = {}
   let workbookBytes: Uint8Array | null = null
   let workbookPath = ''
 
@@ -628,6 +662,28 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
       }
       workbookPath = path
       workbookBytes = await entry.async('uint8array')
+      continue
+    }
+
+    if (isVttName(path)) {
+      const slot = matchMediaSlotFromPath(path)
+      if (!slot || !slotSupportsCaptions(slot)) {
+        unusedFiles.push(path)
+        warnings.push(
+          slot
+            ? `Captions file ${path} cannot be used for ${SLOT_FOLDER_LABELS[slot]}.`
+            : `Captions file ${path} was not in a named video folder, so it was not added.`,
+        )
+        continue
+      }
+      const bytes = await entry.async('uint8array')
+      const list = captionCandidates[slot] ?? []
+      list.push({
+        slot,
+        zipPath: path,
+        file: bytesToVideoFile(path, bytes),
+      })
+      captionCandidates[slot] = list
       continue
     }
 
@@ -694,17 +750,34 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
   if (videos['process-3'] && !videos['process-2']) {
     warnings.push('Process Video 3 was ignored because Process Coaching Video / Video 2 is missing.')
     delete videos['process-3']
+    delete captionCandidates['process-3']
   }
   if (videos['anticipate-3'] && !videos['anticipate-2']) {
     warnings.push(
       'Anticipate Video 3 was ignored because Anticipate Coaching Video / Video 2 is missing.',
     )
     delete videos['anticipate-3']
+    delete captionCandidates['anticipate-3']
+  }
+
+  const captions: Partial<Record<VideoSlotId, ImportedVideoFile>> = {}
+  for (const [slotKey, candidates] of Object.entries(captionCandidates) as Array<
+    [VideoSlotId, ImportedVideoFile[]]
+  >) {
+    const chosen = pickCaptionForSlot(
+      slotKey,
+      candidates,
+      videos[slotKey],
+      warnings,
+      unusedFiles,
+    )
+    if (chosen) captions[slotKey] = chosen
   }
 
   return {
     ...parsed,
     videos,
+    captions,
     warnings,
     unusedFiles,
   }

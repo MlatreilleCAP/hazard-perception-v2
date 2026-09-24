@@ -219,6 +219,11 @@ function setIntroMedia(media: MediaRef | null): void {
   introduction.value = { ...introduction.value, introMedia: media }
 }
 
+function setIntroCaptions(media: MediaRef | null): void {
+  if (!editable.value || !introduction.value) return
+  introduction.value = { ...introduction.value, introCaptions: media }
+}
+
 function setIntroFirstVisit(value: boolean): void {
   if (!editable.value || !introduction.value) return
   introduction.value = { ...introduction.value, introShowOnFirstVisitOnly: value }
@@ -465,6 +470,16 @@ async function remove(): Promise<void> {
           :model-value="introduction.introMedia"
           :readonly="!editable"
           @update:model-value="setIntroMedia"
+        />
+        <MediaUploadField
+          :id="`${activityId}-intro-captions`"
+          :key="introduction.introCaptions?.media_asset_id ?? 'intro-captions-empty'"
+          :activity-id="activityId"
+          label="Closed captions"
+          kind="captions"
+          :model-value="introduction.introCaptions"
+          :readonly="!editable"
+          @update:model-value="setIntroCaptions"
         />
         <AuthorToggle
           :id="`${activityId}-intro-first-visit`"

@@ -10,6 +10,8 @@ export const INTRODUCTION_NODE_TYPE = 'introduction.video'
 export type IntroductionDefinition = {
   version: 1
   introMedia: MediaRef | null
+  /** Closed captions (.vtt) for the intro video. */
+  introCaptions: MediaRef | null
   introShowOnFirstVisitOnly: boolean
   country: string
   language: string
@@ -19,10 +21,18 @@ export function isIntroductionActivity(tags: string[] | null | undefined): boole
   return Array.isArray(tags) && tags.includes(INTRODUCTION_TAG)
 }
 
+function readMediaRef(raw: unknown): MediaRef | null {
+  if (!raw || typeof raw !== 'object') return null
+  const id = (raw as { media_asset_id?: unknown }).media_asset_id
+  if (typeof id === 'string' && id.trim()) return { media_asset_id: id.trim() }
+  return null
+}
+
 export function createDefaultIntroductionDefinition(): IntroductionDefinition {
   return {
     version: 1,
     introMedia: null,
+    introCaptions: null,
     introShowOnFirstVisitOnly: true,
     country: '',
     language: '',
@@ -37,6 +47,9 @@ export function cloneIntroductionDefinition(
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
+    introCaptions: definition.introCaptions
+      ? { media_asset_id: definition.introCaptions.media_asset_id }
+      : null,
     introShowOnFirstVisitOnly: definition.introShowOnFirstVisitOnly !== false,
     country: definition.country,
     language: definition.language,
@@ -46,17 +59,10 @@ export function cloneIntroductionDefinition(
 export function normalizeIntroductionDefinition(
   raw: Partial<IntroductionDefinition> | null | undefined,
 ): IntroductionDefinition {
-  const introRaw = raw?.introMedia
-  let introMedia: MediaRef | null = null
-  if (introRaw && typeof introRaw === 'object') {
-    const id = (introRaw as { media_asset_id?: unknown }).media_asset_id
-    if (typeof id === 'string' && id.trim()) {
-      introMedia = { media_asset_id: id.trim() }
-    }
-  }
   return {
     version: 1,
-    introMedia,
+    introMedia: readMediaRef(raw?.introMedia),
+    introCaptions: readMediaRef(raw?.introCaptions),
     introShowOnFirstVisitOnly: raw?.introShowOnFirstVisitOnly !== false,
     country: canonicalizeLessonCountry(typeof raw?.country === 'string' ? raw.country : ''),
     language: canonicalizeLessonLanguage(typeof raw?.language === 'string' ? raw.language : ''),

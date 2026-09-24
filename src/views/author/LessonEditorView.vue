@@ -138,6 +138,7 @@ function rebuildComposition(): void {
   lesson.value = {
     version: 1,
     introMedia: lesson.value.introMedia,
+    introCaptions: lesson.value.introCaptions,
     introShowOnFirstVisitOnly: lesson.value.introShowOnFirstVisitOnly,
     composition: sanitizeLessonCompositionForSave({
       schemaVersion: 1,
@@ -149,6 +150,12 @@ function rebuildComposition(): void {
 function setIntroMedia(media: MediaRef | null): void {
   if (!lesson.value) return
   lesson.value = { ...lesson.value, introMedia: media }
+  saveMessage.value = null
+}
+
+function setIntroCaptions(media: MediaRef | null): void {
+  if (!lesson.value) return
+  lesson.value = { ...lesson.value, introCaptions: media }
   saveMessage.value = null
 }
 
@@ -243,6 +250,7 @@ async function persist(): Promise<boolean> {
     const next = writeLessonDefinition(activities.current, {
       version: 1,
       introMedia: lesson.value.introMedia,
+      introCaptions: lesson.value.introCaptions,
       introShowOnFirstVisitOnly: lesson.value.introShowOnFirstVisitOnly,
       composition: sanitizeLessonCompositionForSave(lesson.value.composition),
     })
@@ -397,6 +405,14 @@ async function remove(): Promise<void> {
             label="Intro video"
             :model-value="lesson.introMedia"
             @update:model-value="setIntroMedia"
+          />
+          <MediaUploadField
+            :id="`${activityId}-intro-captions`"
+            :activity-id="activityId"
+            label="Intro closed captions"
+            kind="captions"
+            :model-value="lesson.introCaptions"
+            @update:model-value="setIntroCaptions"
           />
           <AuthorToggle
             :id="`${activityId}-intro-first-visit`"

@@ -37,6 +37,7 @@ type Phase = 'playing' | 'questions'
 
 const segmentIndex = ref<ProcessSegmentIndex>(0)
 const src = ref<string | null>(null)
+const captionsMediaId = ref<string | null>(null)
 const error = ref<string | null>(null)
 const phase = ref<Phase>('playing')
 const questionIndex = ref(0)
@@ -123,6 +124,8 @@ watch(
 
 async function loadSrcForMediaId(mediaId: string | null, segment: ProcessSegmentIndex): Promise<string | null> {
   error.value = null
+  captionsMediaId.value =
+    segment === 1 ? (process.value.segments[1]?.captions?.media_asset_id ?? null) : null
   if (!mediaId) {
     src.value = null
     if (segment === 0) {
@@ -262,6 +265,7 @@ async function afterVideo1Questions(): Promise<void> {
     <template v-else-if="src">
       <ProcessVideoStage
         :src="src"
+        :captions-media-id="captionsMediaId || undefined"
         :instruction-text="instructionText"
         :instruction-pill="instructionPill"
         :hold-end="phase !== 'playing'"

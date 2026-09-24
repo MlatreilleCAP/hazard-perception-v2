@@ -21,6 +21,8 @@ export type AnticipateSegmentIndex = 0 | 1 | 2
 export interface AnticipateSegment {
   id: string
   media: MediaRef | null
+  /** Closed captions (.vtt) for this segment video. */
+  captions: MediaRef | null
   durationMs: number
   questions: ProcessQuestionBank
 }
@@ -44,6 +46,7 @@ export function createEmptyAnticipateSegment(): AnticipateSegment {
   return {
     id: crypto.randomUUID(),
     media: null,
+    captions: null,
     durationMs: 0,
     questions: emptyQuestionBank(),
   }
@@ -84,6 +87,7 @@ export function normalizeAnticipateSegment(
     ...base,
     id: base.id || crypto.randomUUID(),
     media: base.media ?? null,
+    captions: base.captions ?? null,
     durationMs: base.durationMs ?? 0,
     questions: readQuestionBank(base.questions),
   }

@@ -112,6 +112,7 @@ const hitAtSeconds = ref<Record<string, number>>({})
 const tapAttemptsByHazard = ref<Record<string, number>>({})
 const missReasons = ref<Record<string, 'attempts' | 'time'>>({})
 const missedVideoUrls = ref<Record<string, string>>({})
+const missedVideoCaptionsIds = ref<Record<string, string>>({})
 const scenarioIntroUrl = ref<string | null>(null)
 const introAudioEl = ref<HTMLAudioElement | null>(null)
 const instructionOverlay = ref<HTMLElement | null>(null)
@@ -281,6 +282,12 @@ const missedVideoSrc = computed(() => {
   if (!current) return null
   if (current.step !== 'missed-video' && current.step !== 'question') return null
   return missedVideoUrls.value[current.hazardId] ?? null
+})
+const missedVideoCaptionsMediaId = computed(() => {
+  const current = overlay.value
+  if (!current) return null
+  if (current.step !== 'missed-video' && current.step !== 'question') return null
+  return missedVideoCaptionsIds.value[current.hazardId] ?? null
 })
 const clicksEnabled = computed(
   () =>
@@ -529,9 +536,16 @@ watch(
 )
 
 watch(
-  () => sortedHazards.value.map((hazard) => hazard.missedVideo?.media_asset_id ?? '').join(','),
+  () =>
+    sortedHazards.value
+      .map(
+        (hazard) =>
+          `${hazard.missedVideo?.media_asset_id ?? ''}:${hazard.missedVideoCaptions?.media_asset_id ?? ''}`,
+      )
+      .join(','),
   async () => {
     const next: Record<string, string> = {}
+    const nextCaptions: Record<string, string> = {}
     await Promise.all(
       sortedHazards.value.map(async (hazard) => {
         const mediaId = hazard.missedVideo?.media_asset_id
@@ -541,9 +555,12 @@ watch(
         } catch {
           /* skip unresolved clips */
         }
+        const captionsId = hazard.missedVideoCaptions?.media_asset_id
+        if (captionsId) nextCaptions[hazard.id] = captionsId
       }),
     )
     missedVideoUrls.value = next
+    missedVideoCaptionsIds.value = nextCaptions
   },
   { immediate: true },
 )
@@ -1234,6 +1251,7 @@ onBeforeUnmount(() => {
           v-if="missedVideoSrc && (overlay?.step === 'missed-video' || overlay?.step === 'question')"
           :key="overlay?.hazardId"
           :src="missedVideoSrc"
+          :captions-media-id="missedVideoCaptionsMediaId"
           :instruction-text="overlayHazard?.instructionText ?? ''"
           :instruction-pill="overlayHazard?.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
           :hold-end="overlay?.step === 'question'"
@@ -1358,6 +1376,7 @@ onBeforeUnmount(() => {
           v-if="missedVideoSrc && (overlay?.step === 'missed-video' || overlay?.step === 'question')"
           :key="overlay?.hazardId"
           :src="missedVideoSrc"
+          :captions-media-id="missedVideoCaptionsMediaId"
           :instruction-text="overlayHazard?.instructionText ?? ''"
           :instruction-pill="overlayHazard?.instructionPill ?? DEFAULT_SEE_INSTRUCTION_PILL"
           :hold-end="overlay?.step === 'question'"

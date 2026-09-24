@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import CaptionsOverlay from '@/components/process/CaptionsOverlay.vue'
 import ProcessInstructionCard from '@/components/process/ProcessInstructionCard.vue'
 import SeeHazardSummaryCard from '@/components/see/SeeHazardSummaryCard.vue'
+import { services } from '@/app/container'
+import { activeCaptionText, parseCaptionsText, type CaptionCue } from '@/lib/media/captions'
 import { DEFAULT_SEE_INSTRUCTION_PILL, type HazardClipSummary } from '@/types/see'
 
 const props = withDefaults(
   defineProps<{
     src: string
+    captionsMediaId?: string | null
     instructionText?: string
     instructionPill?: string
     introAudioSrc?: string | null
@@ -15,6 +19,7 @@ const props = withDefaults(
     holdEnd?: boolean
   }>(),
   {
+    captionsMediaId: null,
     instructionText: '',
     instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
     introAudioSrc: null,
@@ -34,9 +39,52 @@ const started = ref(false)
 const finished = ref(false)
 const frameReady = ref(false)
 const introActive = ref(false)
+const captionsOn = ref(true)
+const captionCues = ref<CaptionCue[]>([])
+const captionText = ref('')
+let captionLoadToken = 0
 let introPlayed = false
 let primeToken = 0
 let priming = false
+
+function updateCaptionText(timeSeconds: number): void {
+  if (!captionsOn.value || captionCues.value.length === 0) {
+    captionText.value = ''
+    return
+  }
+  captionText.value = activeCaptionText(captionCues.value, timeSeconds)
+}
+
+function toggleCaptions(): void {
+  captionsOn.value = !captionsOn.value
+  updateCaptionText(video.value?.currentTime ?? 0)
+}
+
+async function loadCaptions(mediaId: string | null | undefined): Promise<void> {
+  const token = ++captionLoadToken
+  captionCues.value = []
+  captionText.value = ''
+  const id = mediaId?.trim()
+  if (!id) return
+  try {
+    const text = await services.media.getTextContent(id)
+    if (token !== captionLoadToken) return
+    captionCues.value = parseCaptionsText(text)
+    updateCaptionText(video.value?.currentTime ?? 0)
+  } catch {
+    if (token !== captionLoadToken) return
+    captionCues.value = []
+    captionText.value = ''
+  }
+}
+
+watch(
+  () => props.captionsMediaId,
+  (id) => {
+    void loadCaptions(id)
+  },
+  { immediate: true },
+)
 
 const trimmedInstruction = computed(() => props.instructionText.trim())
 const showInstruction = computed(
@@ -284,8 +332,13 @@ function onEnded(): void {
   emit('continue')
 }
 
+function onTimeUpdate(): void {
+  updateCaptionText(video.value?.currentTime ?? 0)
+}
+
 onBeforeUnmount(() => {
   primeToken += 1
+  captionLoadToken += 1
   video.value?.pause()
   introAudio.value?.pause()
 })
@@ -308,8 +361,21 @@ onBeforeUnmount(() => {
       preload="auto"
       @loadedmetadata="primeFirstFrame"
       @loadeddata="primeFirstFrame"
+      @timeupdate="onTimeUpdate"
       @ended="onEnded"
     />
+    <CaptionsOverlay :text="captionsOn && captionText ? captionText : ''" />
+    <button
+      v-if="captionsMediaId"
+      type="button"
+      class="process-captions-toggle"
+      :class="{ 'is-on': captionsOn }"
+      :aria-pressed="captionsOn"
+      :aria-label="captionsOn ? 'Turn captions off' : 'Turn captions on'"
+      @click="toggleCaptions"
+    >
+      CC
+    </button>
     <audio
       v-if="introAudioSrc"
       ref="introAudio"

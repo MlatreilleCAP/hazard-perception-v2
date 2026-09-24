@@ -31,7 +31,7 @@ const props = withDefaults(
     modelValue: MediaRef | null
     instructionText?: string
     instructionPill?: string
-    kind?: 'video' | 'audio' | 'image'
+    kind?: 'video' | 'audio' | 'image' | 'captions'
     readonly?: boolean
   }>(),
   { kind: 'video', readonly: false },
@@ -116,31 +116,41 @@ function fitAuthorVideo(event: Event): void {
 
 const isAudio = computed(() => props.kind === 'audio')
 const isImage = computed(() => props.kind === 'image')
-const kindLabel = computed(() =>
-  isImage.value ? 'image' : isAudio.value ? 'audio' : 'video',
-)
+const isCaptions = computed(() => props.kind === 'captions')
+const kindLabel = computed(() => {
+  if (isImage.value) return 'image'
+  if (isAudio.value) return 'audio'
+  if (isCaptions.value) return 'captions'
+  return 'video'
+})
 const maxUploadLabel = computed(() =>
-  formatMediaSize(isImage.value ? MAX_IMAGE_UPLOAD_BYTES : maxVideoUploadBytes()),
+  formatMediaSize(
+    isImage.value ? MAX_IMAGE_UPLOAD_BYTES : isCaptions.value ? 1_048_576 : maxVideoUploadBytes(),
+  ),
 )
 const accept = computed(() => {
   if (isImage.value) return 'image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif'
   if (isAudio.value) return 'audio/mpeg,audio/mp4,audio/wav,audio/ogg,audio/webm,.mp3,.m4a,.wav,.ogg'
+  if (isCaptions.value) return 'text/vtt,.vtt'
   return 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov'
 })
 const formatHint = computed(() => {
   if (isImage.value) return `JPG, PNG, WebP, or GIF · max ${maxUploadLabel.value}`
   if (isAudio.value) return `MP3, M4A, WAV, or OGG · max ${maxUploadLabel.value}`
+  if (isCaptions.value) return `VTT · max ${maxUploadLabel.value}`
   return `MP4, WebM, or MOV · max ${maxUploadLabel.value}`
 })
 const emptyLibraryLabel = computed(() => {
   if (isImage.value) return 'No images yet.'
   if (isAudio.value) return 'No audio yet.'
+  if (isCaptions.value) return 'No captions files yet.'
   return 'No videos yet.'
 })
 
 async function uploadFile(file: File): Promise<MediaAsset> {
   if (isImage.value) return services.media.uploadImage(props.activityId, file)
   if (isAudio.value) return services.media.uploadAudio(props.activityId, file)
+  if (isCaptions.value) return services.media.uploadCaptions(props.activityId, file)
   return services.media.uploadVideo(props.activityId, file)
 }
 
@@ -152,7 +162,11 @@ async function handleFile(event: Event): Promise<void> {
 
   const sizeError = isImage.value
     ? imageUploadSizeError(file.size)
-    : videoUploadSizeError(file.size)
+    : isCaptions.value
+      ? file.size > 1_048_576
+        ? 'Captions file is too large (max 1 MB).'
+        : null
+      : videoUploadSizeError(file.size)
   if (sizeError) {
     error.value = sizeError
     return
@@ -187,7 +201,9 @@ async function openLibrary(): Promise<void> {
       ? await services.media.listImageAssets()
       : isAudio.value
         ? await services.media.listAudioAssets()
-        : await services.media.listVideoAssets()
+        : isCaptions.value
+          ? await services.media.listCaptionAssets()
+          : await services.media.listVideoAssets()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Failed to load media'
     libraryOpen.value = false
@@ -232,7 +248,15 @@ function clear(): void {
         Remove
       </AuthorPillButton>
     </div>
-    <p v-if="!readonly" class="author-muted" style="margin-top: 4px; font-size: 12px">
+    <p
+      v-if="previewUrl && isCaptions"
+      class="author-muted"
+      style="margin-top: 4px; font-size: 12px"
+    >
+      Captions attached
+      <a :href="previewUrl" target="_blank" rel="noopener noreferrer">Open .vtt</a>
+    </p>
+    <p v-else-if="!readonly" class="author-muted" style="margin-top: 4px; font-size: 12px">
       {{ formatHint }}
     </p>
     <p v-else-if="!modelValue" class="author-muted" style="margin-top: 4px; font-size: 12px">
@@ -299,7 +323,7 @@ function clear(): void {
       compact
     />
     <video
-      v-else-if="previewUrl"
+      v-else-if="previewUrl && !isCaptions"
       class="author-video"
       :src="previewUrl"
       controls

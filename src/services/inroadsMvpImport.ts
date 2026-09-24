@@ -18,7 +18,9 @@ import {
   TEMPLATE_FOLDER_SLOT_IDS,
   WORKBOOK_REPLACE_ID,
   fileMatchesSlot,
+  isVttName,
   mediaKindForSlot,
+  slotSupportsCaptions,
   type CopyField,
   type ReplaceSlotId,
   type SlotMediaKind,
@@ -55,6 +57,10 @@ import {
   type ProcessSurveyQuestion,
 } from '@/types/questions'
 import { createDefaultSeeDefinition, createEmptySeeHazard, DEFAULT_OBSERVE_RESULT_COPY, type SeeDefinition } from '@/types/see'
+import {
+  readIntroductionDefinition,
+  writeIntroductionDefinition,
+} from '@/activities/introductionDefinition'
 
 export type InroadsMvpOccupancy = {
   introMedia: boolean
@@ -165,16 +171,37 @@ async function uploadSlot(
   }
 }
 
+async function uploadCaptionsSlot(
+  activityId: string,
+  slot: VideoSlotId,
+  file: File,
+  onProgress: ImportProgressFn | undefined,
+): Promise<MediaRef> {
+  onProgress?.(`Uploading captions for ${SLOT_FOLDER_LABELS[slot]}…`)
+  const asset = await services.media.uploadCaptions(activityId, file)
+  return { media_asset_id: asset.id }
+}
+
+function captionsFor(
+  uploadedCaptions: Partial<Record<VideoSlotId, MediaRef>>,
+  slot: VideoSlotId,
+  fallback: MediaRef | null | undefined,
+): MediaRef | null {
+  return uploadedCaptions[slot] ?? fallback ?? null
+}
+
 function patchProcess(
   current: ProcessDefinition,
   payload: ParsedImportPackage,
   uploaded: Partial<Record<VideoSlotId, { media: MediaRef; durationMs: number }>>,
+  uploadedCaptions: Partial<Record<VideoSlotId, MediaRef>> = {},
 ): ProcessDefinition {
   const copy = payload.copy.process ?? {}
   const enableThird = Boolean(uploaded['process-3'])
   const segment1: ProcessSegment = {
     ...(current.segments[0] ?? createEmptyProcessSegment()),
     media: uploaded['process-1']?.media ?? current.segments[0]?.media ?? null,
+    captions: null,
     durationMs: uploaded['process-1']?.durationMs ?? current.segments[0]?.durationMs ?? 0,
     questions: bankFor(
       payload.questions,
@@ -207,6 +234,7 @@ function patchProcess(
       {
         ...(current.segments[1] ?? createEmptyProcessSegment()),
         media: uploaded['process-2']?.media ?? current.segments[1]?.media ?? null,
+        captions: captionsFor(uploadedCaptions, 'process-2', current.segments[1]?.captions),
         durationMs: uploaded['process-2']?.durationMs ?? current.segments[1]?.durationMs ?? 0,
         questions: bankFor(
           payload.questions,
@@ -218,6 +246,7 @@ function patchProcess(
       {
         ...(current.segments[2] ?? createEmptyProcessSegment()),
         media: uploaded['process-3']?.media ?? current.segments[2]?.media ?? null,
+        captions: null,
         durationMs: uploaded['process-3']?.durationMs ?? current.segments[2]?.durationMs ?? 0,
         questions: emptyQuestionBank(),
       },
@@ -230,6 +259,7 @@ function patchAnticipate(
   current: AnticipateDefinition,
   payload: ParsedImportPackage,
   uploaded: Partial<Record<VideoSlotId, { media: MediaRef; durationMs: number }>>,
+  uploadedCaptions: Partial<Record<VideoSlotId, MediaRef>> = {},
 ): AnticipateDefinition {
   const copy = payload.copy.anticipate ?? {}
   const enableThird = Boolean(uploaded['anticipate-3'])
@@ -256,6 +286,7 @@ function patchAnticipate(
       {
         ...(current.segments[0] ?? createEmptyAnticipateSegment()),
         media: uploaded['anticipate-1']?.media ?? current.segments[0]?.media ?? null,
+        captions: null,
         durationMs: uploaded['anticipate-1']?.durationMs ?? current.segments[0]?.durationMs ?? 0,
         questions: bankFor(
           payload.questions,
@@ -267,6 +298,7 @@ function patchAnticipate(
       {
         ...(current.segments[1] ?? createEmptyAnticipateSegment()),
         media: uploaded['anticipate-2']?.media ?? current.segments[1]?.media ?? null,
+        captions: captionsFor(uploadedCaptions, 'anticipate-2', current.segments[1]?.captions),
         durationMs: uploaded['anticipate-2']?.durationMs ?? current.segments[1]?.durationMs ?? 0,
         questions: bankFor(
           payload.questions,
@@ -278,6 +310,7 @@ function patchAnticipate(
       {
         ...(current.segments[2] ?? createEmptyAnticipateSegment()),
         media: uploaded['anticipate-3']?.media ?? current.segments[2]?.media ?? null,
+        captions: null,
         durationMs: uploaded['anticipate-3']?.durationMs ?? current.segments[2]?.durationMs ?? 0,
         questions: emptyQuestionBank(),
       },
@@ -305,6 +338,7 @@ function patchSee(
   current: SeeDefinition,
   payload: ParsedImportPackage,
   uploaded: Partial<Record<VideoSlotId, { media: MediaRef; durationMs: number }>>,
+  uploadedCaptions: Partial<Record<VideoSlotId, MediaRef>> = {},
 ): SeeDefinition {
   const copy = payload.copy.observe ?? {}
   const meta = payload.mediaMetadata['observe-1']
@@ -326,6 +360,7 @@ function patchSee(
   )
   const hasObserveDetails = Boolean(
     uploaded['observe-coaching'] ||
+      uploadedCaptions['observe-coaching'] ||
       uploaded['observe-explanation'] ||
       observeQuestions.questions.length ||
       copy.hazard_name ||
@@ -352,6 +387,11 @@ function patchSee(
         explanation: xlsExplanation || first.explanation,
         explanationImage: uploaded['observe-explanation']?.media ?? first.explanationImage,
         missedVideo: uploaded['observe-coaching']?.media ?? first.missedVideo,
+        missedVideoCaptions: captionsFor(
+          uploadedCaptions,
+          'observe-coaching',
+          first.missedVideoCaptions,
+        ),
         instructionText: importedCopyField(
           copy,
           'second_instruction',
@@ -623,12 +663,6 @@ export async function replaceInroadsMvpSlotFile(
   file: File,
   onProgress?: ImportProgressFn,
 ): Promise<InroadsMvpSlotFile> {
-  if (!fileMatchesSlot(slot, file)) {
-    throw new Error(
-      `Choose a ${mediaKindForSlot(slot)} file for ${SLOT_FOLDER_LABELS[slot]}.`,
-    )
-  }
-
   const parent = await loadActivityOrThrow(parentId)
   const mvp = readInroadsMvpDefinition(parent)
   if (!mvp) throw new Error('Inroads MVP definition was not found')
@@ -639,6 +673,60 @@ export async function replaceInroadsMvpSlotFile(
   const see = readSeeDefinition(seeActivity)
   const process = readProcessDefinition(processActivity)
   const anticipate = readAnticipateDefinition(anticipateActivity)
+  const activityId = activityIdForSlot(
+    slot,
+    parentId,
+    mvp.seeActivityId,
+    mvp.processActivityId,
+    mvp.anticipateActivityId,
+  )
+
+  if (isVttName(file.name) || file.type.toLowerCase() === 'text/vtt') {
+    if (!slotSupportsCaptions(slot)) {
+      throw new Error(`Captions are not supported for ${SLOT_FOLDER_LABELS[slot]}.`)
+    }
+    const captions = await uploadCaptionsSlot(activityId, slot, file, onProgress)
+    onProgress?.('Saving…')
+    if (slot === 'intro') {
+      await saveIntroCaptions(mvp, captions, onProgress)
+    } else if (slot.startsWith('observe')) {
+      await services.persistence.save(
+        writeSeeDefinition(seeActivity, applySeeSlotCaptions(see, slot, captions)),
+      )
+    } else if (slot.startsWith('process')) {
+      await services.persistence.save(
+        writeProcessDefinition(
+          processActivity,
+          applySegmentSlotCaptions(process, slot, captions, createEmptyProcessSegment),
+        ),
+      )
+    } else {
+      await services.persistence.save(
+        writeAnticipateDefinition(
+          anticipateActivity,
+          applySegmentSlotCaptions(
+            anticipate,
+            slot,
+            captions,
+            createEmptyAnticipateSegment,
+          ),
+        ),
+      )
+    }
+    return {
+      slot,
+      label: SLOT_FOLDER_LABELS[slot],
+      kind: mediaKindForSlot(slot),
+      hasFile: true,
+      filename: file.name,
+    }
+  }
+
+  if (!fileMatchesSlot(slot, file)) {
+    throw new Error(
+      `Choose a ${mediaKindForSlot(slot)} file for ${SLOT_FOLDER_LABELS[slot]}.`,
+    )
+  }
 
   const existingId = mediaIdForSlot(
     slot,
@@ -660,25 +748,14 @@ export async function replaceInroadsMvpSlotFile(
     }
   }
 
-  const uploaded = await uploadSlot(
-    activityIdForSlot(
-      slot,
-      parentId,
-      mvp.seeActivityId,
-      mvp.processActivityId,
-      mvp.anticipateActivityId,
-    ),
-    slot,
-    file,
-    onProgress,
-    metadata,
-  )
+  const uploaded = await uploadSlot(activityId, slot, file, onProgress, metadata)
 
   onProgress?.('Saving…')
   if (slot === 'intro') {
     await services.persistence.save(
       writeInroadsMvpDefinition(parent, { ...mvp, introMedia: uploaded.media }),
     )
+    await saveIntroMedia(mvp, uploaded.media, onProgress)
   } else if (slot.startsWith('observe')) {
     await services.persistence.save(
       writeSeeDefinition(seeActivity, applySeeSlotMedia(see, slot, uploaded)),
@@ -713,6 +790,38 @@ export async function replaceInroadsMvpSlotFile(
   }
 }
 
+async function saveIntroCaptions(
+  mvp: InroadsMvpDefinition,
+  captions: MediaRef,
+  onProgress?: ImportProgressFn,
+): Promise<void> {
+  if (!mvp.introductionActivityId) {
+    onProgress?.(
+      'Intro captions uploaded — link a Stand Alone Video to use them in playback.',
+    )
+    return
+  }
+  const introActivity = await loadActivityOrThrow(mvp.introductionActivityId)
+  const intro = readIntroductionDefinition(introActivity)
+  await services.persistence.save(
+    writeIntroductionDefinition(introActivity, { ...intro, introCaptions: captions }),
+  )
+}
+
+async function saveIntroMedia(
+  mvp: InroadsMvpDefinition,
+  media: MediaRef,
+  onProgress?: ImportProgressFn,
+): Promise<void> {
+  if (!mvp.introductionActivityId) return
+  const introActivity = await loadActivityOrThrow(mvp.introductionActivityId)
+  const intro = readIntroductionDefinition(introActivity)
+  await services.persistence.save(
+    writeIntroductionDefinition(introActivity, { ...intro, introMedia: media }),
+  )
+  onProgress?.('Updated linked Stand Alone Video.')
+}
+
 export async function replaceInroadsMvpWorkbook(
   parentId: string,
   file: File,
@@ -728,6 +837,7 @@ function applySeeSlotMedia(
   current: SeeDefinition,
   slot: VideoSlotId,
   uploaded: { media: MediaRef; durationMs: number },
+  captions?: MediaRef | null,
 ): SeeDefinition {
   if (slot === 'observe-1') {
     return {
@@ -743,18 +853,41 @@ function applySeeSlotMedia(
   const first = current.hazards[0] ?? createEmptySeeHazard(1, 0, current.duration || 10)
   const nextFirst =
     slot === 'observe-coaching'
-      ? { ...first, missedVideo: uploaded.media }
+      ? {
+          ...first,
+          missedVideo: uploaded.media,
+          missedVideoCaptions:
+            captions !== undefined ? captions : first.missedVideoCaptions,
+        }
       : { ...first, explanationImage: uploaded.media }
   return { ...current, hazards: [nextFirst, ...current.hazards.slice(1)] }
 }
 
+function applySeeSlotCaptions(
+  current: SeeDefinition,
+  slot: VideoSlotId,
+  captions: MediaRef,
+): SeeDefinition {
+  if (slot === 'observe-coaching') {
+    const first = current.hazards[0] ?? createEmptySeeHazard(1, 0, current.duration || 10)
+    return {
+      ...current,
+      hazards: [{ ...first, missedVideoCaptions: captions }, ...current.hazards.slice(1)],
+    }
+  }
+  return current
+}
+
 function applySegmentSlotMedia<
-  T extends { segments: Array<{ media: MediaRef | null; durationMs: number }> },
+  T extends {
+    segments: Array<{ media: MediaRef | null; captions?: MediaRef | null; durationMs: number }>
+  },
 >(
   current: T,
   slot: VideoSlotId,
   uploaded: { media: MediaRef; durationMs: number },
   empty: () => T['segments'][number],
+  captions?: MediaRef | null,
 ): T {
   const index = slot.endsWith('-3') ? 2 : slot.endsWith('-2') ? 1 : 0
   const segments = [...current.segments]
@@ -763,8 +896,25 @@ function applySegmentSlotMedia<
   segments[index] = {
     ...existing,
     media: uploaded.media,
+    captions: captions !== undefined ? captions : existing.captions ?? null,
     durationMs: uploaded.durationMs > 0 ? uploaded.durationMs : existing.durationMs,
   }
+  return { ...current, segments }
+}
+
+function applySegmentSlotCaptions<
+  T extends { segments: Array<{ captions?: MediaRef | null }> },
+>(
+  current: T,
+  slot: VideoSlotId,
+  captions: MediaRef,
+  empty: () => T['segments'][number],
+): T {
+  const index = slot.endsWith('-3') ? 2 : slot.endsWith('-2') ? 1 : 0
+  const segments = [...current.segments]
+  while (segments.length <= index) segments.push(empty())
+  const existing = segments[index]
+  segments[index] = { ...existing, captions }
   return { ...current, segments }
 }
 
@@ -783,6 +933,7 @@ export async function importInroadsMvpPackage(
   const anticipateActivity = await loadActivityOrThrow(mvp.anticipateActivityId)
 
   const uploaded: Partial<Record<VideoSlotId, { media: MediaRef; durationMs: number }>> = {}
+  const uploadedCaptions: Partial<Record<VideoSlotId, MediaRef>> = {}
   const uploadedSlots: VideoSlotId[] = []
   const libraryOnlySlots: VideoSlotId[] = []
 
@@ -818,6 +969,27 @@ export async function importInroadsMvpPackage(
       uploadFailures.push(`${slot}: ${message}`)
     }
   }
+
+  const captionSlots = Object.keys(payload.captions) as VideoSlotId[]
+  for (const slot of captionSlots) {
+    const file = payload.captions[slot]?.file
+    if (!file) continue
+    const activityId = activityIdForSlot(
+      slot,
+      parentId,
+      mvp.seeActivityId,
+      mvp.processActivityId,
+      mvp.anticipateActivityId,
+    )
+    try {
+      uploadedCaptions[slot] = await uploadCaptionsSlot(activityId, slot, file, onProgress)
+      if (!uploadedSlots.includes(slot)) uploadedSlots.push(slot)
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Captions upload failed'
+      uploadFailures.push(`${slot} captions: ${message}`)
+    }
+  }
+
   if (uploadFailures.length > 0 && uploadedSlots.length === 0 && slots.length > 0) {
     throw new Error(`Videos were found in the zip but none could be uploaded. ${uploadFailures.join(' ')}`)
   }
@@ -826,7 +998,7 @@ export async function importInroadsMvpPackage(
   onProgress?.('Saving Observe…')
   const nextSee = writeSeeDefinition(
     seeActivity,
-    patchSee(readSeeDefinition(seeActivity), payload, uploaded),
+    patchSee(readSeeDefinition(seeActivity), payload, uploaded, uploadedCaptions),
   )
   if (payload.lesson.title.trim()) {
     nextSee.metadata.title = `${payload.lesson.title.trim()} · Observe`
@@ -839,7 +1011,7 @@ export async function importInroadsMvpPackage(
   onProgress?.('Saving Process…')
   const nextProcess = writeProcessDefinition(
     processActivity,
-    patchProcess(readProcessDefinition(processActivity), payload, uploaded),
+    patchProcess(readProcessDefinition(processActivity), payload, uploaded, uploadedCaptions),
   )
   if (payload.lesson.title.trim()) {
     nextProcess.metadata.title = `${payload.lesson.title.trim()} · Process`
@@ -852,7 +1024,12 @@ export async function importInroadsMvpPackage(
   onProgress?.('Saving Anticipate…')
   const nextAnticipate = writeAnticipateDefinition(
     anticipateActivity,
-    patchAnticipate(readAnticipateDefinition(anticipateActivity), payload, uploaded),
+    patchAnticipate(
+      readAnticipateDefinition(anticipateActivity),
+      payload,
+      uploaded,
+      uploadedCaptions,
+    ),
   )
   if (payload.lesson.title.trim()) {
     nextAnticipate.metadata.title = `${payload.lesson.title.trim()} · Anticipate`
@@ -916,6 +1093,16 @@ export async function importInroadsMvpPackage(
     nextParent.metadata.description = payload.lesson.description
   }
   await services.persistence.save(nextParent)
+
+  if (uploaded.intro?.media || uploadedCaptions.intro) {
+    onProgress?.('Updating Stand Alone Video…')
+    if (uploaded.intro?.media) {
+      await saveIntroMedia(mvp, uploaded.intro.media)
+    }
+    if (uploadedCaptions.intro) {
+      await saveIntroCaptions(mvp, uploadedCaptions.intro, onProgress)
+    }
+  }
 
   onProgress?.('Saving media metadata…')
   const seeSaved = readSeeDefinition(nextSee)

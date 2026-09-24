@@ -60,6 +60,7 @@ export function expandIntroductionForPlayback(
   const intro = readIntroductionDefinition(activity)
   const lesson = createDefaultLessonDefinition()
   lesson.introMedia = intro.introMedia
+  lesson.introCaptions = intro.introCaptions
   lesson.introShowOnFirstVisitOnly = intro.introShowOnFirstVisitOnly
   return lessonShellFrom(activity, lesson)
 }
@@ -74,6 +75,7 @@ export async function expandInroadsMvpForPlayback(
   const lesson = inroadsMvpToLessonDefinition(mvp)
   // Intro plays only when a Stand Alone Video is linked — not from legacy introMedia on the parent.
   lesson.introMedia = null
+  lesson.introCaptions = null
   lesson.introShowOnFirstVisitOnly = true
   if (mvp.introductionActivityId) {
     const loadIntro = options?.preview
@@ -83,6 +85,7 @@ export async function expandInroadsMvpForPlayback(
     if (introActivity) {
       const intro = readIntroductionDefinition(introActivity)
       lesson.introMedia = intro.introMedia
+      lesson.introCaptions = intro.introCaptions
       lesson.introShowOnFirstVisitOnly = intro.introShowOnFirstVisitOnly
     }
   }

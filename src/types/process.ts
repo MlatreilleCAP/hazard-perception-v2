@@ -21,6 +21,8 @@ export type ProcessSegmentIndex = 0 | 1 | 2
 export interface ProcessSegment {
   id: string
   media: MediaRef | null
+  /** Closed captions (.vtt) for this segment video. */
+  captions: MediaRef | null
   durationMs: number
   questions: ProcessQuestionBank
 }
@@ -44,6 +46,7 @@ export function createEmptyProcessSegment(): ProcessSegment {
   return {
     id: crypto.randomUUID(),
     media: null,
+    captions: null,
     durationMs: 0,
     questions: emptyQuestionBank(),
   }
@@ -82,6 +85,7 @@ export function normalizeProcessSegment(
     ...base,
     id: base.id || crypto.randomUUID(),
     media: base.media ?? null,
+    captions: base.captions ?? null,
     durationMs: base.durationMs ?? 0,
     questions: readQuestionBank(base.questions),
   }

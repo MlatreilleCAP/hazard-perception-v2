@@ -145,6 +145,8 @@ export interface SeeHazard extends HazardDetails {
   explanation: string
   explanationImage: MediaRef | null
   missedVideo: MediaRef | null
+  /** Closed captions (.vtt) for the missed-hazard coaching video. */
+  missedVideoCaptions: MediaRef | null
   /** Plays at the start of the hazard clip while the summary card is shown. */
   introAudio: MediaRef | null
   maneuver: string
@@ -411,6 +413,7 @@ export function createEmptySeeHazard(
     explanation: '',
     explanationImage: null,
     missedVideo: null,
+    missedVideoCaptions: null,
     introAudio: null,
     maneuver: '',
     roadway: '',
@@ -512,6 +515,7 @@ export function normalizeSeeHazard(hazard: Partial<SeeHazard> | undefined): SeeH
           : '',
     explanationImage: readMediaRef(hazard?.explanationImage),
     missedVideo: readMediaRef(hazard?.missedVideo),
+    missedVideoCaptions: readMediaRef(hazard?.missedVideoCaptions),
     introAudio: readMediaRef(hazard?.introAudio),
     maneuver: typeof hazard?.maneuver === 'string' ? hazard.maneuver : '',
     roadway: typeof hazard?.roadway === 'string' ? hazard.roadway : '',

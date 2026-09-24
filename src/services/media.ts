@@ -82,6 +82,26 @@ export class MediaService {
     return data.signedUrl
   }
 
+  /** Download a text asset (e.g. .vtt) via the authenticated Storage API. */
+  async getTextContent(mediaAssetId: string): Promise<string> {
+    const client = requireClient()
+    const asset = await this.getAsset(mediaAssetId)
+    if (asset.bucket !== ACTIVITY_MEDIA_BUCKET) {
+      throw new Error('Media asset is not in the private activity-media bucket')
+    }
+    const { data, error } = await client.storage
+      .from(ACTIVITY_MEDIA_BUCKET)
+      .download(asset.path)
+    if (error || !data) {
+      throw new Error(
+        error?.message
+          ? `Failed to download captions: ${error.message}`
+          : `Failed to download captions for ${mediaAssetId}`,
+      )
+    }
+    return data.text()
+  }
+
   async resolveDefinitionMedia(
     definition: ActivityDefinition,
     expiresInSeconds = 3600,
@@ -103,6 +123,10 @@ export class MediaService {
 
   async listImageAssets(): Promise<MediaAsset[]> {
     return this.listAssetsByMime('image/%')
+  }
+
+  async listCaptionAssets(): Promise<MediaAsset[]> {
+    return this.listAssetsByMime('text/vtt')
   }
 
   async listAssets(): Promise<MediaAsset[]> {
@@ -191,6 +215,28 @@ export class MediaService {
     return this.uploadMedia(activityId, file, 'image/jpeg', metadata)
   }
 
+  async uploadCaptions(
+    activityId: string | null,
+    file: File,
+  ): Promise<MediaAsset> {
+    const name = file.name.toLowerCase()
+    const mime = file.type.toLowerCase()
+    if (!name.endsWith('.vtt') && mime !== 'text/vtt') {
+      throw new Error('Upload a .vtt closed captions file')
+    }
+    if (file.size > 1_048_576) {
+      throw new Error('Captions file is too large (max 1 MB).')
+    }
+    const normalized =
+      mime === 'text/vtt'
+        ? file
+        : new File([file], file.name.replace(/\.vtt$/i, '') + '.vtt', {
+            type: 'text/vtt',
+            lastModified: file.lastModified,
+          })
+    return this.uploadMedia(activityId, normalized, 'text/vtt')
+  }
+
   async uploadLibraryFile(file: File): Promise<MediaAsset> {
     const mime = file.type.toLowerCase()
     const name = file.name.toLowerCase()
@@ -200,10 +246,13 @@ export class MediaService {
     if (mime.startsWith('audio/') || /\.(mp3|m4a|wav|ogg)$/.test(name)) {
       return this.uploadAudio(null, file)
     }
+    if (mime === 'text/vtt' || name.endsWith('.vtt')) {
+      return this.uploadCaptions(null, file)
+    }
     if (mime.startsWith('video/') || /\.(mp4|webm|mov)$/.test(name)) {
       return this.uploadVideo(null, file)
     }
-    throw new Error('Upload a video, audio, or image file')
+    throw new Error('Upload a video, audio, image, or captions (.vtt) file')
   }
 
   private async listAssetsByMime(mimePattern: string): Promise<MediaAsset[]> {
