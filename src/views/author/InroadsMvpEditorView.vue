@@ -716,6 +716,15 @@ async function onImported(): Promise<void> {
   await load({ keepVisible: true })
 }
 
+async function prepareTemplateDownload(): Promise<boolean> {
+  if (!editable.value) return true
+  if (!(await saveActiveSection())) return false
+  if (activeSection.value !== 'lesson' && activeSection.value !== 'results') {
+    return saveLesson()
+  }
+  return true
+}
+
 async function syncCountryToSiblingVersions(sharedCountry: string): Promise<void> {
   const country = canonicalizeLessonCountry(sharedCountry)
   for (const version of versions.value) {
@@ -1008,6 +1017,7 @@ async function deleteVersion(id: string): Promise<void> {
           <InroadsMvpImportPanel
             :parent-id="activityId"
             :disabled="saving || publishing || deleting"
+            :before-download="prepareTemplateDownload"
             @imported="onImported"
           />
         </section>

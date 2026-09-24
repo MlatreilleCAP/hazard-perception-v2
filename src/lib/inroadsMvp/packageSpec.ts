@@ -110,7 +110,6 @@ export const LESSON_KEYS = [
   'q1',
   'q2',
   'q3',
-  'q4',
   'observation',
   'process',
   'anticipation',
@@ -417,7 +416,6 @@ Lesson: column A = key, column B = value
   Q1                    final results label for question 1
   Q2                    final results label for question 2
   Q3                    final results label for question 3
-  Q4                    final results label for question 4
   Observation           final results Observe section title
   Process               final results Process section title
   Anticipation          final results Anticipate section title

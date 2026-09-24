@@ -42,7 +42,6 @@ export type ImportWorkbookContent = {
   q1Label: string
   q2Label: string
   q3Label: string
-  q4Label: string
   observationLabel: string
   processSectionLabel: string
   anticipationLabel: string
@@ -334,7 +333,6 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     q1Label: 'Q1',
     q2Label: 'Q2',
     q3Label: 'Q3',
-    q4Label: 'Q4',
     observationLabel: 'Observation',
     processSectionLabel: 'Process',
     anticipationLabel: 'Anticipation',
@@ -526,7 +524,6 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
   lesson.addRow(['Q1', content.q1Label])
   lesson.addRow(['Q2', content.q2Label])
   lesson.addRow(['Q3', content.q3Label])
-  lesson.addRow(['Q4', content.q4Label])
   lesson.addRow(['Observation', content.observationLabel])
   lesson.addRow(['Process', content.processSectionLabel])
   lesson.addRow(['Anticipation', content.anticipationLabel])
@@ -618,20 +615,43 @@ async function loadBundledLessonWorkbook(): Promise<ArrayBuffer> {
   return response.arrayBuffer()
 }
 
+export type ImportZipFolderFile = {
+  folder: string
+  filename: string
+  data: Blob | ArrayBuffer | Uint8Array
+}
+
 export async function buildImportFolderZip(
   workbook?: Uint8Array | ArrayBuffer,
+  folderFiles: ImportZipFolderFile[] = [],
 ): Promise<Blob> {
   const zip = new JSZip()
   zip.file('README.txt', IMPORT_README)
   zip.file('lesson.xlsx', workbook ?? (await loadBundledLessonWorkbook()))
+  const filesByFolder = new Map<string, ImportZipFolderFile[]>()
+  for (const file of folderFiles) {
+    const list = filesByFolder.get(file.folder) ?? []
+    list.push(file)
+    filesByFolder.set(file.folder, list)
+  }
   for (const slot of TEMPLATE_FOLDER_SLOT_IDS) {
-    zip.folder(SLOT_FOLDER_LABELS[slot])?.file('.keep', '')
+    const folderName = SLOT_FOLDER_LABELS[slot]
+    const folder = zip.folder(folderName)
+    const files = filesByFolder.get(folderName) ?? []
+    if (files.length === 0) {
+      folder?.file('.keep', '')
+      continue
+    }
+    for (const file of files) {
+      folder?.file(file.filename, file.data)
+    }
   }
   return zip.generateAsync({ type: 'blob' })
 }
 
 export async function buildSampleImportTemplateZip(): Promise<Blob> {
-  return buildImportFolderZip()
+  const bytes = await buildWorkbookBytes(defaultImportWorkbookContent())
+  return buildImportFolderZip(bytes)
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {

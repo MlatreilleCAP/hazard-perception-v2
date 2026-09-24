@@ -352,8 +352,8 @@ function parseLessonSheet(
     const key = normalizeHeader(row[0])
     if (!key || key === 'key') continue
     const value = cellString(row[1])
-    // Legacy Lesson sheets may still include country; ignore without warning.
-    if (key === 'country') continue
+    // Legacy Lesson sheets may still include country or Q4; ignore without warning.
+    if (key === 'country' || key === 'q4') continue
     if (!known.has(key)) {
       warnings.push(`Unknown Lesson key "${key}".`)
       continue
@@ -378,7 +378,6 @@ function parseLessonSheet(
     else if (key === 'q1') lesson.q1 = value
     else if (key === 'q2') lesson.q2 = value
     else if (key === 'q3') lesson.q3 = value
-    else if (key === 'q4') lesson.q4 = value
     else if (key === 'observation') lesson.observation = value
     else if (key === 'process') lesson.processSection = value
     else if (key === 'anticipation') lesson.anticipation = value

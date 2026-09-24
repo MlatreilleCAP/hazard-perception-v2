@@ -84,6 +84,12 @@ export class MediaService {
 
   /** Download a text asset (e.g. .vtt) via the authenticated Storage API. */
   async getTextContent(mediaAssetId: string): Promise<string> {
+    const blob = await this.getBlob(mediaAssetId)
+    return blob.text()
+  }
+
+  /** Download raw bytes for an asset via the authenticated Storage API. */
+  async getBlob(mediaAssetId: string): Promise<Blob> {
     const client = requireClient()
     const asset = await this.getAsset(mediaAssetId)
     if (asset.bucket !== ACTIVITY_MEDIA_BUCKET) {
@@ -95,11 +101,11 @@ export class MediaService {
     if (error || !data) {
       throw new Error(
         error?.message
-          ? `Failed to download captions: ${error.message}`
-          : `Failed to download captions for ${mediaAssetId}`,
+          ? `Failed to download media: ${error.message}`
+          : `Failed to download media for ${mediaAssetId}`,
       )
     }
-    return data.text()
+    return data
   }
 
   async resolveDefinitionMedia(

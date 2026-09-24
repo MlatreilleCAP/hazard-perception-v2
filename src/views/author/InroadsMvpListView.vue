@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
-import InroadsMvpImportPanel from '@/components/author/InroadsMvpImportPanel.vue'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { removeInroadsMvpLessonGroup } from '@/services/removeInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
@@ -11,7 +10,6 @@ import { isInroadsMvpActivity } from '@/types/inroadsMvp'
 import type { ActivitySummary } from '@/types/activity'
 import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
 
-const router = useRouter()
 const activities = useActivityStore()
 const { canCreate, canEdit } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
@@ -112,13 +110,6 @@ async function remove(row: LessonListRow): Promise<void> {
       </div>
 
       <p v-if="activities.error" class="author-error">{{ activities.error }}</p>
-
-      <section v-if="canCreate" class="author-list-card" style="padding: 16px 20px">
-        <InroadsMvpImportPanel
-          create-lesson
-          @imported="(id) => router.push(`/studio/inroads-mvp/${id}`)"
-        />
-      </section>
 
       <section class="author-list-card">
         <div class="author-list-card-head media-library-head">
