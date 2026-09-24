@@ -820,27 +820,6 @@ async function deleteVersion(id: string): Promise<void> {
     window.alert(cause instanceof Error ? cause.message : 'Failed to remove version')
   }
 }
-
-async function remove(): Promise<void> {
-  if (!editable.value || !mvp.value) return
-  const count = versions.value.length
-  const message =
-    count > 1
-      ? `Remove this lesson and all ${count} versions from authoring and training?`
-      : 'Remove this Inroads MVP lesson from authoring and training?'
-  if (!window.confirm(message)) return
-  deleting.value = true
-  try {
-    for (const version of versions.value) {
-      await removeInroadsMvpParent(version.id)
-    }
-    await activities.refreshList()
-    await router.push('/studio/inroads-mvp')
-  } catch (cause) {
-    deleting.value = false
-    window.alert(cause instanceof Error ? cause.message : 'Failed to remove lesson')
-  }
-}
 </script>
 
 <template>
@@ -1093,9 +1072,6 @@ async function remove(): Promise<void> {
         <div v-if="editable" class="author-actions">
           <AuthorPillButton variant="primary" :disabled="saving || deleting" @click="saveLesson">
             {{ saving ? 'Saving…' : 'Save' }}
-          </AuthorPillButton>
-          <AuthorPillButton variant="ghost" :disabled="saving || deleting" @click="remove">
-            {{ deleting ? 'Removing…' : 'Remove lesson' }}
           </AuthorPillButton>
           <p v-if="saveMessage" class="author-success">{{ saveMessage }}</p>
         </div>
