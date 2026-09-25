@@ -699,9 +699,9 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
       )
       continue
     }
-    if (slot === 'observe-explanation' && !isImageName(path)) {
+    if (IMAGE_SLOT_IDS.includes(slot) && !isImageName(path)) {
       unusedFiles.push(path)
-      warnings.push(`Observe Explanation Image needs a JPG, PNG, WebP, or GIF (${path}).`)
+      warnings.push(`${SLOT_FOLDER_LABELS[slot]} needs a JPG, PNG, WebP, or GIF (${path}).`)
       continue
     }
     if (slot === 'observe-summary-audio' && !isAudioName(path)) {
@@ -710,7 +710,7 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
       continue
     }
     if (
-      slot !== 'observe-explanation' &&
+      !IMAGE_SLOT_IDS.includes(slot) &&
       slot !== 'observe-summary-audio' &&
       !isVideoName(path)
     ) {

@@ -564,7 +564,7 @@ function activityIdForSlot(
   processId: string,
   anticipateId: string,
 ): string {
-  if (slot === 'intro') return parentId
+  if (slot === 'intro' || slot === 'preview-image') return parentId
   if (slot.startsWith('observe')) return seeId
   if (slot.startsWith('process')) return processId
   return anticipateId
@@ -577,9 +577,11 @@ function mediaIdForSlot(
   see: SeeDefinition,
   process: ProcessDefinition,
   anticipate: AnticipateDefinition,
+  previewImage: MediaRef | null = null,
 ): string | null {
   const uploadedId = uploaded[slot]?.media.media_asset_id
   if (uploadedId) return uploadedId
+  if (slot === 'preview-image') return previewImage?.media_asset_id ?? null
   if (slot === 'intro') return mvpIntro?.media_asset_id ?? null
   if (slot === 'observe-1') return see.media?.media_asset_id ?? null
   if (slot === 'observe-summary-audio') return see.introAudio?.media_asset_id ?? null
@@ -637,6 +639,7 @@ export async function listInroadsMvpSlotFiles(
       see,
       process,
       anticipate,
+      mvp.previewImage,
     )
     let filename: string | null = null
     if (mediaId) {
@@ -735,6 +738,7 @@ export async function replaceInroadsMvpSlotFile(
     see,
     process,
     anticipate,
+    mvp.previewImage,
   )
   let metadata: MediaClipMetadata | undefined
   if (existingId) {
@@ -751,7 +755,11 @@ export async function replaceInroadsMvpSlotFile(
   const uploaded = await uploadSlot(activityId, slot, file, onProgress, metadata)
 
   onProgress?.('Saving…')
-  if (slot === 'intro') {
+  if (slot === 'preview-image') {
+    await services.persistence.save(
+      writeInroadsMvpDefinition(parent, { ...mvp, previewImage: uploaded.media }),
+    )
+  } else if (slot === 'intro') {
     await services.persistence.save(
       writeInroadsMvpDefinition(parent, { ...mvp, introMedia: uploaded.media }),
     )
@@ -1043,6 +1051,7 @@ export async function importInroadsMvpPackage(
   let nextParent: ActivityDefinition = writeInroadsMvpDefinition(parent, {
     ...mvp,
     introMedia: uploaded.intro?.media ?? mvp.introMedia,
+    previewImage: uploaded['preview-image']?.media ?? mvp.previewImage,
     introShowOnFirstVisitOnly:
       payload.lesson.introFirstVisit ?? mvp.introShowOnFirstVisitOnly,
     country: payload.lesson.country.trim() || mvp.country,
@@ -1121,6 +1130,7 @@ export async function importInroadsMvpPackage(
       seeSaved,
       processSaved,
       anticipateSaved,
+      savedMvp?.previewImage ?? mvp.previewImage,
     )
     if (!mediaId) continue
     try {

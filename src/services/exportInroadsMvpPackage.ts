@@ -361,6 +361,7 @@ function mediaIdForSlot(
   process: ProcessDefinition,
   anticipate: AnticipateDefinition,
 ): string | null {
+  if (slot === 'preview-image') return mvp.previewImage?.media_asset_id ?? null
   if (slot === 'intro') return mvp.introMedia?.media_asset_id ?? null
   if (slot === 'observe-1') return see.media?.media_asset_id ?? null
   if (slot === 'observe-summary-audio') return see.introAudio?.media_asset_id ?? null

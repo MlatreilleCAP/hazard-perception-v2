@@ -1149,7 +1149,7 @@ async function deleteVersion(id: string): Promise<void> {
         </section>
 
         <section class="author-stack-sm">
-          <AuthorSectionHeader title="Demo tile" />
+          <AuthorSectionHeader title="Preview Image" />
           <p class="author-muted">
             Cover image for the home page demo card and the lesson title screen. Shared across
             language versions of this lesson.

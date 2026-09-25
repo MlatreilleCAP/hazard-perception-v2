@@ -11,6 +11,7 @@ are applied to the builder together (intro, Observe, Process, Anticipate slots).
 
 Folder names (case-insensitive):
 
+  Preview Image/             (JPG, PNG, WebP, or GIF — demo tile and title screen)
   Intro Video/
   Observe Hazard Scenario/
   Hazard Summary Audio/       (MP3, M4A, WAV, or OGG — plays after Observe Start)

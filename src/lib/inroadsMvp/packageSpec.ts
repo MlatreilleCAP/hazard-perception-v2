@@ -7,6 +7,7 @@ export const WORKBOOK_FILE_ACCEPT =
   '.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 export const VIDEO_SLOT_IDS = [
+  'preview-image',
   'intro',
   'observe-1',
   'observe-summary-audio',
@@ -31,7 +32,10 @@ export const REQUIRED_VIDEO_SLOTS: readonly VideoSlotId[] = [
 
 export const LIBRARY_ONLY_SLOTS: readonly VideoSlotId[] = []
 
-export const IMAGE_SLOT_IDS: readonly VideoSlotId[] = ['observe-explanation']
+export const IMAGE_SLOT_IDS: readonly VideoSlotId[] = [
+  'preview-image',
+  'observe-explanation',
+]
 export const AUDIO_SLOT_IDS: readonly VideoSlotId[] = ['observe-summary-audio']
 
 export type SlotMediaKind = 'video' | 'image' | 'audio'
@@ -62,6 +66,7 @@ export function fileMatchesSlot(slot: VideoSlotId, file: File): boolean {
 }
 
 export const TEMPLATE_FOLDER_SLOT_IDS: readonly VideoSlotId[] = [
+  'preview-image',
   'intro',
   'observe-1',
   'observe-summary-audio',
@@ -233,6 +238,7 @@ export const HIDDEN_QUESTION_HEADERS = [
 const SKIP_PATH_PATTERN = /(^|\/)(\.|__macosx)/i
 
 export const SLOT_FOLDER_LABELS: Record<VideoSlotId, string> = {
+  'preview-image': 'Preview Image',
   intro: 'Intro Video',
   'observe-1': 'Observe Hazard Scenario',
   'observe-summary-audio': 'Hazard Summary Audio',
@@ -335,6 +341,7 @@ export function matchMediaSlot(label: string): VideoSlotId | null {
   for (const slot of VIDEO_SLOT_IDS) {
     if (normalizeLabel(SLOT_FOLDER_LABELS[slot]) === n) return slot
   }
+  if (/^preview( image)?$/.test(n)) return 'preview-image'
   if (/^intro( video)?$/.test(n)) return 'intro'
   if (/^observe explanation( image)?$/.test(n)) return 'observe-explanation'
   if (/^hazard summary audio$/.test(n)) return 'observe-summary-audio'
@@ -380,6 +387,7 @@ Put a .vtt next to a video (same folder; same basename preferred) to attach capt
 
 Folder names (case-insensitive):
 
+  Preview Image/             (JPG, PNG, WebP, or GIF — demo tile and title screen)
   Intro Video/
   Observe Hazard Scenario/
   Hazard Summary Audio/       (MP3, M4A, WAV, or OGG — plays after the learner taps Continue)
