@@ -78,6 +78,23 @@ let nextWarmReady = false
 const MIN_SECTION_PRELOAD_MS = 700
 
 const lesson = computed(() => readLessonDefinition(props.definition))
+const observeExampleSrc = ref<string | null>(null)
+
+watch(
+  () => lesson.value.observeExampleMedia?.media_asset_id ?? '',
+  async (mediaId) => {
+    if (!mediaId) {
+      observeExampleSrc.value = null
+      return
+    }
+    try {
+      observeExampleSrc.value = await services.media.getSignedUrl(mediaId)
+    } catch {
+      observeExampleSrc.value = null
+    }
+  },
+  { immediate: true },
+)
 const orderedItems = computed(() =>
   orderedInroadsCompositionItems(lesson.value.composition).filter(
     (item) =>
@@ -546,6 +563,7 @@ onBeforeUnmount(() => {
         v-if="currentItem.kind === 'see'"
         :key="sectionDefinition.id"
         :definition="sectionDefinition"
+        :example-src="observeExampleSrc ?? ''"
         @ready="onSegmentReady"
         @finished="onSeeFinished"
       />

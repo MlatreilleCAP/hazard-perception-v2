@@ -21,6 +21,8 @@ export type InroadsMvpDefinition = {
   introShowOnFirstVisitOnly: boolean
   /** Stand Alone Video activity id; when empty, no intro plays before Observe. */
   introductionActivityId: string
+  /** Stand Alone Video whose example clip plays from the Observe Example button. */
+  exampleActivityId: string
   /** Cover image for the home demo tile and lesson title card. */
   previewImage: MediaRef | null
   country: string
@@ -95,6 +97,7 @@ export function createDefaultInroadsMvpDefinition(
     introMedia: null,
     introShowOnFirstVisitOnly: true,
     introductionActivityId: '',
+    exampleActivityId: '',
     previewImage: null,
     country: 'Canada',
     language: 'English',
@@ -136,6 +139,7 @@ export function cloneInroadsMvpDefinition(
       : null,
     introShowOnFirstVisitOnly: definition.introShowOnFirstVisitOnly !== false,
     introductionActivityId: definition.introductionActivityId.trim(),
+    exampleActivityId: definition.exampleActivityId.trim(),
     previewImage: definition.previewImage
       ? { media_asset_id: definition.previewImage.media_asset_id }
       : null,
@@ -205,6 +209,8 @@ export function normalizeInroadsMvpDefinition(
     introShowOnFirstVisitOnly: raw.introShowOnFirstVisitOnly !== false,
     introductionActivityId:
       typeof raw.introductionActivityId === 'string' ? raw.introductionActivityId.trim() : '',
+    exampleActivityId:
+      typeof raw.exampleActivityId === 'string' ? raw.exampleActivityId.trim() : '',
     previewImage,
     country: canonicalizeLessonCountry(
       typeof raw.country === 'string' ? raw.country : '',

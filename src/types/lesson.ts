@@ -43,6 +43,8 @@ export type LessonDefinition = {
   introShowOnFirstVisitOnly: boolean
   /** Cover image for the lesson title card (from Inroads MVP preview image). */
   previewImage: MediaRef | null
+  /** Observe instruction Example clip, resolved from the linked Stand Alone Video. */
+  observeExampleMedia: MediaRef | null
   composition: LessonComposition
 }
 
@@ -62,6 +64,7 @@ export function createDefaultLessonDefinition(): LessonDefinition {
     introCaptions: null,
     introShowOnFirstVisitOnly: true,
     previewImage: null,
+    observeExampleMedia: null,
     composition: { schemaVersion: 1, items: [] },
   }
 }
@@ -78,6 +81,9 @@ export function cloneLessonDefinition(definition: LessonDefinition): LessonDefin
     introShowOnFirstVisitOnly: definition.introShowOnFirstVisitOnly !== false,
     previewImage: definition.previewImage
       ? { media_asset_id: definition.previewImage.media_asset_id }
+      : null,
+    observeExampleMedia: definition.observeExampleMedia
+      ? { media_asset_id: definition.observeExampleMedia.media_asset_id }
       : null,
     composition: {
       schemaVersion: 1,
@@ -152,6 +158,13 @@ export function parseLessonComposition(value: unknown): LessonComposition {
   return { schemaVersion: 1, items }
 }
 
+function readLessonMediaRef(raw: unknown): MediaRef | null {
+  if (!raw || typeof raw !== 'object') return null
+  const id = (raw as { media_asset_id?: unknown }).media_asset_id
+  if (typeof id === 'string' && id.trim()) return { media_asset_id: id.trim() }
+  return null
+}
+
 export function normalizeLessonDefinition(
   definition: Partial<LessonDefinition> | undefined,
 ): LessonDefinition {
@@ -186,6 +199,7 @@ export function normalizeLessonDefinition(
     introCaptions,
     introShowOnFirstVisitOnly: definition?.introShowOnFirstVisitOnly !== false,
     previewImage,
+    observeExampleMedia: readLessonMediaRef(definition?.observeExampleMedia),
     composition: parseLessonComposition(definition?.composition),
   }
 }

@@ -437,14 +437,16 @@ function introductionOptionLabel(
 }
 
 async function loadIntroductionVersions(
-  selectedId: string,
+  selectedIds: string[],
 ): Promise<IntroductionVersionOption[]> {
   const catalog = activities.summaries.filter(
     (item) => isIntroductionActivity(item.tags) && item.published,
   )
-  if (selectedId && !catalog.some((item) => item.id === selectedId)) {
-    const selected = activities.summaries.find((item) => item.id === selectedId)
-    if (selected) catalog.unshift(selected)
+  for (const selectedId of selectedIds) {
+    if (selectedId && !catalog.some((item) => item.id === selectedId)) {
+      const selected = activities.summaries.find((item) => item.id === selectedId)
+      if (selected) catalog.unshift(selected)
+    }
   }
   const rows = await Promise.all(
     catalog.map(async (item) => {
@@ -474,19 +476,29 @@ async function loadIntroductionVersions(
   return rows.sort((a, b) => a.label.localeCompare(b.label))
 }
 
-function syncIntroductionToLocale(): void {
-  if (!mvp.value?.introductionActivityId) return
-  const current = introductionVersions.value.find(
-    (item) => item.id === mvp.value?.introductionActivityId,
-  )
-  if (!current) return
+function localeMatchedIntroductionId(selectedId: string): string | null {
+  if (!selectedId) return null
+  const current = introductionVersions.value.find((item) => item.id === selectedId)
+  if (!current) return null
   const match = introductionVersions.value.find(
     (item) =>
       item.titleKey === current.titleKey &&
       lessonLocalesMatch(item.country, item.language, country.value, language.value),
   )
-  if (!match || mvp.value.introductionActivityId === match.id) return
-  mvp.value = { ...mvp.value, introductionActivityId: match.id }
+  if (!match || match.id === selectedId) return null
+  return match.id
+}
+
+function syncIntroductionToLocale(): void {
+  if (!mvp.value) return
+  const introductionActivityId = localeMatchedIntroductionId(mvp.value.introductionActivityId)
+  const exampleActivityId = localeMatchedIntroductionId(mvp.value.exampleActivityId)
+  if (!introductionActivityId && !exampleActivityId) return
+  mvp.value = {
+    ...mvp.value,
+    introductionActivityId: introductionActivityId ?? mvp.value.introductionActivityId,
+    exampleActivityId: exampleActivityId ?? mvp.value.exampleActivityId,
+  }
 }
 
 function mvpForSave(source: InroadsMvpDefinition): InroadsMvpDefinition {
@@ -576,9 +588,10 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
       applyFileReference()
     }
     const nextVersions = await loadVersions(current.metadata.title, parsed)
-    const nextIntroductionVersions = await loadIntroductionVersions(
+    const nextIntroductionVersions = await loadIntroductionVersions([
       parsed.introductionActivityId,
-    )
+      parsed.exampleActivityId,
+    ])
     if (generation !== loadGeneration) return
     versions.value = nextVersions
     introductionVersions.value = nextIntroductionVersions
@@ -713,6 +726,32 @@ function setIntroductionActivityId(id: string): void {
   }
 }
 
+let examplePersist: Promise<boolean> = Promise.resolve(true)
+
+function setExampleActivityId(id: string): void {
+  if (!mvp.value || mvp.value.exampleActivityId === id) return
+  mvp.value = { ...mvp.value, exampleActivityId: id }
+  examplePersist = persistExampleChoice()
+}
+
+async function persistExampleChoice(): Promise<boolean> {
+  if (!editable.value || !mvp.value) return true
+  try {
+    await ensureParentLoaded()
+    if (!activities.current || !mvp.value) return false
+    const next = writeInroadsMvpDefinition(activities.current, mvpForSave(mvp.value))
+    await activities.save(next)
+    return true
+  } catch (cause) {
+    window.alert(cause instanceof Error ? cause.message : 'Failed to save example video')
+    return false
+  }
+}
+
+function awaitExampleChoice(): Promise<boolean> {
+  return examplePersist
+}
+
 function setPreviewImage(media: MediaRef | null): void {
   if (!editable.value || !mvp.value) return
   mvp.value = { ...mvp.value, previewImage: media }
@@ -796,9 +835,10 @@ async function saveLesson(): Promise<boolean> {
     await syncCountryToSiblingVersions(mvp.value.country)
     await syncPreviewImageToSiblingVersions(mvp.value.previewImage)
     versions.value = await loadVersions(next.metadata.title, mvp.value)
-    introductionVersions.value = await loadIntroductionVersions(
+    introductionVersions.value = await loadIntroductionVersions([
       mvp.value.introductionActivityId,
-    )
+      mvp.value.exampleActivityId,
+    ])
     syncIntroductionToLocale()
     saveMessage.value = 'Saved'
     window.setTimeout(() => {
@@ -1197,7 +1237,7 @@ async function deleteVersion(id: string): Promise<void> {
           >
             Edit stand alone video
           </RouterLink>
-          <p v-else-if="mvp && !introductionVersions.length" class="author-muted">
+          <p v-if="mvp && !introductionVersions.length" class="author-muted">
             No published stand alone videos yet.
             <RouterLink to="/studio/stand-alone-video/new">Create one</RouterLink>
           </p>
@@ -1253,6 +1293,10 @@ async function deleteVersion(id: string): Promise<void> {
             roadConditions: mvp.roadConditionsLabel,
           }"
           :english="showEnglishReference ? englishSee : null"
+          :example-activity-id="mvp.exampleActivityId"
+          :example-options="introductionSelectOptions"
+          :persist-example="awaitExampleChoice"
+          @update:example-activity-id="setExampleActivityId"
         />
       </div>
       <div v-else-if="activeSection === 'process'" class="mvp-embedded-editor">

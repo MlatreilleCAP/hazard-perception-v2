@@ -46,8 +46,10 @@ const props = withDefaults(
     definition: ActivityDefinition
     /** When true, load the first frame but wait for parent before starting playback. */
     suppressAutoplay?: boolean
+    /** Sample clip for the Observe instruction Example button. */
+    exampleSrc?: string
   }>(),
-  { suppressAutoplay: false },
+  { suppressAutoplay: false, exampleSrc: '' },
 )
 
 const emit = defineEmits<{
@@ -256,6 +258,28 @@ const instructionPill = computed(
   () => see.value.instructionPill?.trim() || DEFAULT_SEE_INSTRUCTION_PILL,
 )
 const showScenarioInstruction = computed(() => Boolean(instructionText.value.trim()))
+const exampleOpen = ref(false)
+const exampleVideoEl = ref<HTMLVideoElement | null>(null)
+
+function openExample(): void {
+  if (!props.exampleSrc) return
+  exampleOpen.value = true
+  void nextTick(() => {
+    const video = exampleVideoEl.value
+    if (!video) return
+    video.currentTime = 0
+    void video.play().catch(() => {})
+  })
+}
+
+function closeExample(): void {
+  const video = exampleVideoEl.value
+  if (video) {
+    video.pause()
+    video.currentTime = 0
+  }
+  exampleOpen.value = false
+}
 const scenarioSummary = computed(() => hazardClipSummary(see.value))
 const sortedHazards = computed(() =>
   [...see.value.hazards].sort((a, b) => a.startTime - b.startTime),
@@ -1233,6 +1257,7 @@ onBeforeUnmount(() => {
   stopHitTapSound()
   stopIntroProgress()
   introAudioEl.value?.pause()
+  exampleVideoEl.value?.pause()
   video.value?.pause()
 })
 </script>
@@ -1339,7 +1364,9 @@ onBeforeUnmount(() => {
             <ProcessInstructionCard
               :text="instructionText"
               :tag="instructionPill"
+              :example="Boolean(exampleSrc)"
               @begin="begin"
+              @example="openExample"
             />
           </div>
           <div
@@ -1361,6 +1388,16 @@ onBeforeUnmount(() => {
             />
           </div>
         </Transition>
+        <div v-if="exampleOpen" class="see-example-stage">
+          <video
+            ref="exampleVideoEl"
+            class="see-example-video"
+            :src="exampleSrc"
+            playsinline
+            autoplay
+            @ended="closeExample"
+          />
+        </div>
         <div
           v-if="overlay && (overlay.step === 'success' || overlay.step === 'missed')"
           class="see-feedback-overlay"

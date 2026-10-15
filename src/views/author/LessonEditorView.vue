@@ -141,6 +141,7 @@ function rebuildComposition(): void {
     introCaptions: lesson.value.introCaptions,
     introShowOnFirstVisitOnly: lesson.value.introShowOnFirstVisitOnly,
     previewImage: lesson.value.previewImage,
+    observeExampleMedia: lesson.value.observeExampleMedia,
     composition: sanitizeLessonCompositionForSave({
       schemaVersion: 1,
       items,
@@ -254,6 +255,7 @@ async function persist(): Promise<boolean> {
       introCaptions: lesson.value.introCaptions,
       introShowOnFirstVisitOnly: lesson.value.introShowOnFirstVisitOnly,
       previewImage: lesson.value.previewImage,
+      observeExampleMedia: lesson.value.observeExampleMedia,
       composition: sanitizeLessonCompositionForSave(lesson.value.composition),
     })
     next.metadata = {

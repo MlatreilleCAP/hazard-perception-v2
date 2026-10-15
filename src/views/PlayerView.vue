@@ -117,6 +117,7 @@ const lessonResultsLabels = ref<LessonResultsLabels>({
 provideLessonResultsLabels(lessonResultsLabels)
 const lessonResultsChrome = ref<ResultsChrome>({ ...EMPTY_RESULTS_CHROME })
 provideResultsChrome(lessonResultsChrome)
+const seeExampleSrc = ref('')
 
 async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
   button: string
@@ -209,8 +210,47 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
   return fromDefinition(parent)
 }
 
+async function loadParentActivity(
+  activity: ActivityDefinition,
+): Promise<ActivityDefinition | null> {
+  const mvpQuery = route.query.mvp
+  if (typeof mvpQuery === 'string' && mvpQuery && mvpQuery !== '1') {
+    return isPreview.value
+      ? services.persistence.getById(mvpQuery)
+      : services.persistence.getPublished(mvpQuery)
+  }
+  if (!isInroadsMvpChildActivity(activity.metadata.tags)) return null
+  const match = await findInroadsMvpParent(activity.id)
+  if (!match) return null
+  return isPreview.value
+    ? services.persistence.getById(match.parentId)
+    : services.persistence.getPublished(match.parentId)
+}
+
+async function resolveSeeExampleSrc(activity: ActivityDefinition): Promise<string> {
+  if (!isSeeActivity(activity.metadata.tags)) return ''
+  const parent = await loadParentActivity(activity)
+  const exampleId = parent
+    ? (readInroadsMvpDefinition(parent)?.exampleActivityId.trim() ?? '')
+    : ''
+  if (!exampleId) return ''
+  const exampleActivity = isPreview.value
+    ? await services.persistence.getById(exampleId)
+    : await services.persistence.getPublished(exampleId)
+  const mediaId = exampleActivity
+    ? (readIntroductionDefinition(exampleActivity).introMedia?.media_asset_id ?? '')
+    : ''
+  if (!mediaId) return ''
+  try {
+    return await services.media.getSignedUrl(mediaId)
+  } catch {
+    return ''
+  }
+}
+
 async function loadActivity(id: string): Promise<void> {
   loading.value = true
+  seeExampleSrc.value = ''
   runtime.setError(null)
   try {
     const staged =
@@ -282,6 +322,9 @@ async function loadActivity(id: string): Promise<void> {
       definition.value = expanded
     } else {
       definition.value = next
+    }
+    if (definition.value && isSeeActivity(definition.value.metadata.tags)) {
+      seeExampleSrc.value = await resolveSeeExampleSrc(definition.value)
     }
     runtime.playDefinition(cloneJson(definition.value))
   } catch (cause) {
@@ -384,6 +427,7 @@ function onExperienceFinished(): void {
           v-else-if="isSee"
           :key="definition.id"
           :definition="definition"
+          :example-src="seeExampleSrc"
           @finished="onExperienceFinished"
         />
         <AnticipateExperience

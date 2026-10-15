@@ -40,6 +40,9 @@ export async function publishInroadsMvpLesson(parentId: string): Promise<void> {
   if (mvp.introductionActivityId) {
     await services.persistence.publish(mvp.introductionActivityId)
   }
+  if (mvp.exampleActivityId && mvp.exampleActivityId !== mvp.introductionActivityId) {
+    await services.persistence.publish(mvp.exampleActivityId)
+  }
   await services.persistence.publish(mvp.seeActivityId)
   await services.persistence.publish(mvp.processActivityId)
   await services.persistence.publish(mvp.anticipateActivityId)

@@ -6,12 +6,15 @@ import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
 const props = defineProps<{
   text: string
   tag?: string
+  /** Shows an Example button that plays a sample clip. */
+  example?: boolean
 }>()
 
 const buttonLabel = useLessonButtonLabel()
 
 defineEmits<{
   begin: []
+  example: []
 }>()
 
 const blocks = computed(() => parseInstructionBlocks(props.text))
@@ -29,9 +32,19 @@ const blocks = computed(() => parseInstructionBlocks(props.text))
           </ul>
         </template>
       </div>
-      <button type="button" class="process-instruction-begin" @click="$emit('begin')">
-        {{ buttonLabel }}
-      </button>
+      <div class="process-instruction-actions">
+        <button
+          v-if="example"
+          type="button"
+          class="process-instruction-example"
+          @click="$emit('example')"
+        >
+          Example
+        </button>
+        <button type="button" class="process-instruction-begin" @click="$emit('begin')">
+          {{ buttonLabel }}
+        </button>
+      </div>
     </div>
   </div>
 </template>

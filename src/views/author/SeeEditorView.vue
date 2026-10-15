@@ -3,6 +3,9 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
 import AuthorField from '@/components/author/AuthorField.vue'
+import AuthorSelectField, {
+  type AuthorSelectOption,
+} from '@/components/author/AuthorSelectField.vue'
 import AuthorMirrorField from '@/components/author/AuthorMirrorField.vue'
 import FieldPair from '@/components/author/FieldPair.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
@@ -38,9 +41,26 @@ const props = withDefaults(
     summaryHeadings?: Partial<ObserveSummaryHeadings>
     /** English lesson text shown beside each field. Media is not compared. */
     english?: SeeDefinition | null
+    /** Stand Alone Videos that can play from the Observe Example button. */
+    exampleOptions?: readonly AuthorSelectOption[]
+    exampleActivityId?: string
+    /** Saves the lesson’s example choice before preview. */
+    persistExample?: () => Promise<boolean>
   }>(),
-  { activityIdProp: undefined, embedded: false, summaryHeadings: undefined, english: null },
+  {
+    activityIdProp: undefined,
+    embedded: false,
+    summaryHeadings: undefined,
+    english: null,
+    exampleOptions: undefined,
+    exampleActivityId: '',
+    persistExample: undefined,
+  },
 )
+
+const emit = defineEmits<{
+  'update:exampleActivityId': [id: string]
+}>()
 
 const route = useRoute()
 const router = useRouter()
@@ -215,6 +235,7 @@ async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
       activities.stagePreview(next)
     }
     if (origin === 'manual') {
+      if (props.persistExample && !(await props.persistExample())) return false
       autosave.pause()
       see.value = readSeeDefinition(next)
       await nextTick()
@@ -395,6 +416,15 @@ defineExpose({ save })
             :rows="1"
           />
         </FieldPair>
+        <AuthorSelectField
+          v-if="exampleOptions"
+          id="see-example-video"
+          :model-value="exampleActivityId"
+          label="Example video"
+          :options="exampleOptions"
+          :disabled="!editable"
+          @update:model-value="emit('update:exampleActivityId', $event)"
+        />
       </section>
 
       <section class="author-stack-sm">

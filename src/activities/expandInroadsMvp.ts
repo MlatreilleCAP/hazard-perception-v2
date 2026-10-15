@@ -79,16 +79,22 @@ export async function expandInroadsMvpForPlayback(
   lesson.introCaptions = null
   lesson.introShowOnFirstVisitOnly = true
   lesson.previewImage = mvp.previewImage
+  const loadIntro = options?.preview
+    ? services.persistence.getById.bind(services.persistence)
+    : services.persistence.getPublished.bind(services.persistence)
   if (mvp.introductionActivityId) {
-    const loadIntro = options?.preview
-      ? services.persistence.getById.bind(services.persistence)
-      : services.persistence.getPublished.bind(services.persistence)
     const introActivity = await loadIntro(mvp.introductionActivityId)
     if (introActivity) {
       const intro = readIntroductionDefinition(introActivity)
       lesson.introMedia = intro.introMedia
       lesson.introCaptions = intro.introCaptions
       lesson.introShowOnFirstVisitOnly = intro.introShowOnFirstVisitOnly
+    }
+  }
+  if (mvp.exampleActivityId) {
+    const exampleActivity = await loadIntro(mvp.exampleActivityId)
+    if (exampleActivity) {
+      lesson.observeExampleMedia = readIntroductionDefinition(exampleActivity).introMedia
     }
   }
   return lessonShellFrom(mvpActivity, lesson)
