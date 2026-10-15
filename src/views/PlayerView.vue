@@ -16,6 +16,12 @@ import {
   type LessonResultsLabels,
   type ObserveSummaryHeadings,
 } from '@/lib/lesson/buttonLabel'
+import {
+  EMPTY_RESULTS_CHROME,
+  provideResultsChrome,
+  readResultsChrome,
+  type ResultsChrome,
+} from '@/lib/lesson/resultsChrome'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
 import AnticipateExperience from '@/components/anticipate/AnticipateExperience.vue'
 import LessonExperience from '@/components/lesson/LessonExperience.vue'
@@ -109,6 +115,8 @@ const lessonResultsLabels = ref<LessonResultsLabels>({
   anticipate: '',
 })
 provideLessonResultsLabels(lessonResultsLabels)
+const lessonResultsChrome = ref<ResultsChrome>({ ...EMPTY_RESULTS_CHROME })
+provideResultsChrome(lessonResultsChrome)
 
 async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
   button: string
@@ -133,6 +141,7 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
   observe: string
   process: string
   anticipate: string
+  resultsChrome: ResultsChrome
 }> {
   const fromDefinition = (definition: ActivityDefinition | null | undefined) => {
     const mvp = definition ? readInroadsMvpDefinition(definition) : null
@@ -159,6 +168,7 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
       observe: mvp?.observeLabel.trim() ?? '',
       process: mvp?.processLabel.trim() ?? '',
       anticipate: mvp?.anticipateLabel.trim() ?? '',
+      resultsChrome: readResultsChrome(mvp?.resultsChrome),
     }
   }
   const empty = {
@@ -184,6 +194,7 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
     observe: '',
     process: '',
     anticipate: '',
+    resultsChrome: { ...EMPTY_RESULTS_CHROME },
   }
   if (isIntroductionActivity(activity.metadata.tags)) {
     return { ...empty, language: readIntroductionDefinition(activity).language.trim() }
@@ -250,6 +261,7 @@ async function loadActivity(id: string): Promise<void> {
       process: labels.process,
       anticipate: labels.anticipate,
     }
+    lessonResultsChrome.value = labels.resultsChrome
     if (isIntroductionActivity(next.metadata.tags)) {
       const expanded = expandIntroductionForPlayback(next)
       if (!expanded) {

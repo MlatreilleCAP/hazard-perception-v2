@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import { useStudioAccess } from '@/composables/useStudioAccess'
+import { duplicateInroadsMvpVersion } from '@/services/createInroadsMvp'
 import { removeInroadsMvpLessonGroup } from '@/services/removeInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 import { isInroadsMvpActivity } from '@/types/inroadsMvp'
@@ -11,9 +12,11 @@ import type { ActivitySummary } from '@/types/activity'
 import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
 
 const activities = useActivityStore()
+const router = useRouter()
 const { canCreate, canEdit } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
 const searchQuery = ref('')
+const duplicatingId = ref<string | null>(null)
 
 const items = computed(() =>
   activities.summaries.filter((item) => isInroadsMvpActivity(item.tags)),
@@ -73,6 +76,32 @@ const filtered = computed(() => {
 onMounted(async () => {
   await activities.refreshList()
 })
+
+function nextCopyTitle(title: string): string {
+  const taken = new Set(items.value.map((item) => lessonVersionKey(item.title)))
+  const base = `${title.trim()} copy`
+  if (!taken.has(lessonVersionKey(base))) return base
+  let count = 2
+  while (taken.has(lessonVersionKey(`${base} ${count}`))) count += 1
+  return `${base} ${count}`
+}
+
+async function duplicate(row: LessonListRow): Promise<void> {
+  if (!canCreate.value || duplicatingId.value) return
+  menuOpenId.value = null
+  duplicatingId.value = row.id
+  try {
+    const nextId = await duplicateInroadsMvpVersion(row.id, '', {
+      title: nextCopyTitle(row.title),
+    })
+    await activities.refreshList()
+    await router.push(`/studio/inroads-mvp/${nextId}`)
+  } catch (cause) {
+    window.alert(cause instanceof Error ? cause.message : 'Failed to duplicate lesson')
+  } finally {
+    duplicatingId.value = null
+  }
+}
 
 async function remove(row: LessonListRow): Promise<void> {
   menuOpenId.value = null
@@ -176,6 +205,16 @@ async function remove(row: LessonListRow): Promise<void> {
                 >
                   {{ canEdit(item.createdBy) ? 'Open' : 'View' }}
                 </RouterLink>
+                <button
+                  v-if="canCreate"
+                  type="button"
+                  class="author-menu-item"
+                  role="menuitem"
+                  :disabled="duplicatingId === item.id"
+                  @click="duplicate(item)"
+                >
+                  {{ duplicatingId === item.id ? 'Duplicating…' : 'Duplicate' }}
+                </button>
                 <button
                   v-if="canEdit(item.createdBy)"
                   type="button"

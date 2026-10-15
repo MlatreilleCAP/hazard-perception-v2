@@ -927,7 +927,17 @@ async function deleteVersion(id: string): Promise<void> {
             </svg>
           </RouterLink>
           <h1 class="author-header-title">
-            {{ title.trim() || 'Inroads MVP' }}{{ country.trim() ? ` - ${country.trim()}` : '' }}
+            <input
+              v-if="editable"
+              v-model="title"
+              class="author-header-title-input"
+              type="text"
+              aria-label="Lesson title"
+              placeholder="Inroads MVP title"
+              :style="{ width: `${Math.max(title.trim().length, 8)}ch` }"
+            />
+            <span v-else>{{ title.trim() || 'Inroads MVP' }}</span>
+            <span v-if="country.trim()">{{ ` - ${country.trim()}` }}</span>
           </h1>
           <AuthorStatusChip :label="isPublished ? 'PUBLISHED' : 'DRAFT'" />
         </div>

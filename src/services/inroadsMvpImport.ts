@@ -9,6 +9,7 @@ import {
 import { readProcessDefinition, writeProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
+import { mergeResultsChrome } from '@/lib/lesson/resultsChrome'
 import { INROADS_MVP_CHILD_TAG, createDefaultInroadsMvpDefinition, type InroadsMvpDefinition } from '@/types/inroadsMvp'
 import {
   AUDIO_SLOT_IDS,
@@ -464,6 +465,11 @@ function patchSee(
           current.resultCopy?.missed2Attempt ?? DEFAULT_OBSERVE_RESULT_COPY.missed2Attempt,
         ),
       ),
+      noClicksRemain: importedCopyField(
+        copy,
+        'no_clicks_remain',
+        current.resultCopy?.noClicksRemain ?? DEFAULT_OBSERVE_RESULT_COPY.noClicksRemain,
+      ),
     },
     hazards,
   }
@@ -477,6 +483,7 @@ const BLANK_RESULT_COPY = {
   timeOut: '',
   missed1Attempt: '',
   missed2Attempt: '',
+  noClicksRemain: '',
 }
 
 /** Text-only English comparison built from a lesson workbook. Media is ignored. */
@@ -514,6 +521,10 @@ export function buildEnglishReferenceFromWorkbook(payload: ParsedImportPackage):
     observeLabel: lesson.observation ?? '',
     processLabel: lesson.processSection ?? '',
     anticipateLabel: lesson.anticipation ?? '',
+    resultsChrome: mergeResultsChrome(
+      createDefaultInroadsMvpDefinition('', '', '').resultsChrome,
+      lesson.resultsChrome,
+    ),
   }
   const see = patchSee(
     {
@@ -836,7 +847,7 @@ export async function replaceInroadsMvpWorkbook(
   onProgress?: ImportProgressFn,
 ): Promise<{ file: InroadsMvpSlotFile; report: ImportPackageReport }> {
   onProgress?.('Reading lesson.xlsx…')
-  const payload = await parseImportWorkbook(file)
+  const payload = await parseImportWorkbook(file, 'upload')
   const report = await importInroadsMvpPackage(parentId, payload, onProgress)
   return { file: workbookSlotFile(file.name), report }
 }
@@ -1094,6 +1105,7 @@ export async function importInroadsMvpPackage(
       payload.lesson.processSection != null ? payload.lesson.processSection : mvp.processLabel,
     anticipateLabel:
       payload.lesson.anticipation != null ? payload.lesson.anticipation : mvp.anticipateLabel,
+    resultsChrome: mergeResultsChrome(mvp.resultsChrome, payload.lesson.resultsChrome),
   })
   if (payload.lesson.title.trim()) {
     nextParent.metadata.title = payload.lesson.title.trim()

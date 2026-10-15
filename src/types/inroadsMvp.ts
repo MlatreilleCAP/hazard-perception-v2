@@ -2,6 +2,11 @@ import {
   canonicalizeLessonCountry,
   canonicalizeLessonLanguage,
 } from '@/lib/inroadsMvp/packageSpec'
+import {
+  EMPTY_RESULTS_CHROME,
+  readResultsChrome,
+  type ResultsChrome,
+} from '@/lib/lesson/resultsChrome'
 import type { MediaRef } from '@/types/media'
 
 export const INROADS_MVP_TAG = 'inroads-mvp'
@@ -62,6 +67,8 @@ export type InroadsMvpDefinition = {
   processLabel: string
   /** Final results Anticipate section title. */
   anticipateLabel: string
+  /** Results and progress labels filled from the activity-text Upload text column. */
+  resultsChrome: ResultsChrome
   /** Section 2 — Observe activity id. */
   seeActivityId: string
   /** Section 3 — Process activity id. */
@@ -112,6 +119,7 @@ export function createDefaultInroadsMvpDefinition(
     observeLabel: '',
     processLabel: '',
     anticipateLabel: '',
+    resultsChrome: { ...EMPTY_RESULTS_CHROME },
     seeActivityId,
     processActivityId,
     anticipateActivityId,
@@ -154,6 +162,7 @@ export function cloneInroadsMvpDefinition(
     observeLabel: definition.observeLabel.trim(),
     processLabel: definition.processLabel.trim(),
     anticipateLabel: definition.anticipateLabel.trim(),
+    resultsChrome: readResultsChrome(definition.resultsChrome),
     seeActivityId: definition.seeActivityId,
     processActivityId: definition.processActivityId,
     anticipateActivityId: definition.anticipateActivityId,
@@ -228,6 +237,7 @@ export function normalizeInroadsMvpDefinition(
     observeLabel: typeof raw.observeLabel === 'string' ? raw.observeLabel.trim() : '',
     processLabel: typeof raw.processLabel === 'string' ? raw.processLabel.trim() : '',
     anticipateLabel: typeof raw.anticipateLabel === 'string' ? raw.anticipateLabel.trim() : '',
+    resultsChrome: readResultsChrome(raw.resultsChrome),
     seeActivityId,
     processActivityId,
     anticipateActivityId,

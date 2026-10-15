@@ -47,6 +47,7 @@ export type ObserveResultCopy = {
   timeOut: string
   missed1Attempt: string
   missed2Attempt: string
+  noClicksRemain: string
 }
 
 export const DEFAULT_OBSERVE_RESULT_COPY: ObserveResultCopy = {
@@ -57,6 +58,7 @@ export const DEFAULT_OBSERVE_RESULT_COPY: ObserveResultCopy = {
   timeOut: 'Time ran out before you attempted anything. ',
   missed1Attempt: 'You attempted once, but time ran out before you found it. ',
   missed2Attempt: 'You tried twice and time ran out. ',
+  noClicksRemain: 'No attempts remain',
 }
 
 export function resolveObserveHazardOutcome(params: {
@@ -132,6 +134,10 @@ function readObserveResultCopy(value: unknown): ObserveResultCopy {
       typeof raw.missed2Attempt === 'string'
         ? raw.missed2Attempt
         : DEFAULT_OBSERVE_RESULT_COPY.missed2Attempt,
+    noClicksRemain:
+      typeof raw.noClicksRemain === 'string' && raw.noClicksRemain.trim()
+        ? raw.noClicksRemain
+        : DEFAULT_OBSERVE_RESULT_COPY.noClicksRemain,
   }
 }
 

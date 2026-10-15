@@ -1322,7 +1322,7 @@ onBeforeUnmount(() => {
           role="status"
           aria-live="polite"
         >
-          <p>No attempts remain</p>
+          <p>{{ see.resultCopy.noClicksRemain }}</p>
         </div>
         <Transition
           name="see-clip-intro"

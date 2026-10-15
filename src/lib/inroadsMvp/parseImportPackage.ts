@@ -30,6 +30,11 @@ import {
   type VideoSlotId,
 } from '@/lib/inroadsMvp/packageSpec'
 import {
+  parseActivityTextSheet,
+  type WorkbookTextSource,
+} from '@/lib/inroadsMvp/parseActivityTextSheet'
+import type { ResultsChrome } from '@/lib/lesson/resultsChrome'
+import {
   parseExplanationWhenString,
   type ExplanationWhen,
   type ProcessQuestionKind,
@@ -94,6 +99,8 @@ export type ImportedLessonFields = {
   processSection: string | null
   /** Null when the Lesson sheet has no Anticipation row. */
   anticipation: string | null
+  /** Labels from the activity-text Challenge results and Progress screens. */
+  resultsChrome: Partial<ResultsChrome>
 }
 
 export type ImportedCopy = Partial<
@@ -208,7 +215,11 @@ function sheetRecords(sheet: XLSX.WorkSheet | null): Array<Record<string, string
 
 const COPY_TEXT_COLUMNS = ['text', 'value', 'content', 'copy', 'instruction_text'] as const
 
-function copyTextFromRecord(record: Record<string, string>): string {
+function copyTextFromRecord(
+  record: Record<string, string>,
+  textSource: WorkbookTextSource,
+): string {
+  if (textSource === 'upload' && record.upload_text?.trim()) return record.upload_text.trim()
   for (const key of COPY_TEXT_COLUMNS) {
     const value = record[key]
     if (value) return value
@@ -226,7 +237,10 @@ function isCopyHeaderRow(row: unknown[]): boolean {
   )
 }
 
-function copySheetRecords(sheet: XLSX.WorkSheet): Array<Record<string, string>> {
+function copySheetRecords(
+  sheet: XLSX.WorkSheet,
+  textSource: WorkbookTextSource,
+): Array<Record<string, string>> {
   const rows = sheetRows(sheet)
   if (rows.length === 0) return []
 
@@ -235,21 +249,18 @@ function copySheetRecords(sheet: XLSX.WorkSheet): Array<Record<string, string>> 
     return sheetRecords(sheet)
   }
 
+  const header = (rows[headerIndex] ?? []).map((cell) => normalizeHeader(cell))
+  const textIndex = header.indexOf('text')
+  const uploadIndex = header.indexOf('upload_text')
   const records: Array<Record<string, string>> = []
   for (let index = headerIndex + 1; index < rows.length; index += 1) {
     const row = rows[index] ?? []
     const section = cellString(row[0])
     const field = cellString(row[1])
-    let text = cellString(row[2])
-    if (!text) {
-      for (let column = 3; column < row.length; column += 1) {
-        const candidate = cellString(row[column])
-        if (candidate) {
-          text = candidate
-          break
-        }
-      }
-    }
+    const reference = cellString(row[textIndex >= 0 ? textIndex : 2])
+    const upload = uploadIndex >= 0 ? cellString(row[uploadIndex]) : ''
+    const text =
+      textSource === 'upload' && upload ? upload : reference
     if (!section && !field && !text) continue
     records.push({ section, field, text })
   }
@@ -315,6 +326,7 @@ function parseLessonSheet(
       observation: null,
       processSection: null,
       anticipation: null,
+      resultsChrome: {},
     }
   }
 
@@ -345,6 +357,7 @@ function parseLessonSheet(
     observation: null,
     processSection: null,
     anticipation: null,
+    resultsChrome: {},
   }
   const known = new Set<string>(LESSON_KEYS)
 
@@ -393,7 +406,11 @@ function parseLessonSheet(
   return lesson
 }
 
-function parseCopySheet(workbook: XLSX.WorkBook, warnings: string[]): ImportedCopy {
+function parseCopySheet(
+  workbook: XLSX.WorkBook,
+  warnings: string[],
+  textSource: WorkbookTextSource,
+): ImportedCopy {
   const sheet = findCopySheet(workbook)
   if (!sheet) {
     warnings.push(
@@ -402,7 +419,7 @@ function parseCopySheet(workbook: XLSX.WorkBook, warnings: string[]): ImportedCo
     return {}
   }
 
-  const records = copySheetRecords(sheet)
+  const records = copySheetRecords(sheet, textSource)
   const copy: ImportedCopy = {}
   const knownSections = new Set<string>(COPY_SECTIONS)
   const knownFields = new Set<string>(COPY_FIELDS)
@@ -417,7 +434,7 @@ function parseCopySheet(workbook: XLSX.WorkBook, warnings: string[]): ImportedCo
     if (section === 'see') section = 'observe'
     let field = normalizeHeader(record.field)
     if (field === 'missed_2_attempt') field = 'missed_2_attempts'
-    const text = copyTextFromRecord(record)
+    const text = copyTextFromRecord(record, textSource)
     if (!section && !field && !text) continue
     if (!knownSections.has(section)) {
       warnings.push(`Unknown Copy section "${section || '(empty)'}".`)
@@ -535,6 +552,7 @@ function libraryKindForSlot(slot: VideoSlotId): MediaLibraryFileKind {
 function parseMetadataSheet(
   workbook: XLSX.WorkBook,
   warnings: string[],
+  textSource: WorkbookTextSource,
 ): Partial<Record<VideoSlotId, MediaClipMetadata>> {
   const sheet = findSheet(workbook, SHEET_NAMES.metadata)
   if (!sheet) {
@@ -549,7 +567,11 @@ function parseMetadataSheet(
       record.video_folder || record.folder || record.video || record.clip || ''
     const name =
       record.metadata_name || record.name || record.field || record.metadata || ''
-    const text = record.metadata_text || record.text || record.value || ''
+    const reference = record.metadata_text || record.text || record.value || ''
+    const text =
+      textSource === 'upload' && record.upload_text?.trim()
+        ? record.upload_text.trim()
+        : reference
     if (!folder && !name && !text) continue
     const slot = matchMediaSlot(folder)
     if (!slot) {
@@ -581,24 +603,35 @@ function parseMetadataSheet(
 export function parseWorkbookBytes(
   bytes: Uint8Array,
   warnings: string[],
+  textSource: WorkbookTextSource = 'text',
 ): Pick<ParsedImportPackage, 'lesson' | 'copy' | 'questions' | 'mediaMetadata'> {
   const workbook = XLSX.read(bytes, { type: 'array' })
+  const activityText = parseActivityTextSheet(workbook, textSource, warnings)
+  if (activityText) {
+    return {
+      ...activityText,
+      mediaMetadata: {},
+    }
+  }
   return {
     lesson: parseLessonSheet(workbook, warnings),
-    copy: parseCopySheet(workbook, warnings),
+    copy: parseCopySheet(workbook, warnings, textSource),
     questions: parseQuestionsSheet(workbook, warnings),
-    mediaMetadata: parseMetadataSheet(workbook, warnings),
+    mediaMetadata: parseMetadataSheet(workbook, warnings, textSource),
   }
 }
 
-export async function parseImportWorkbook(file: File): Promise<ParsedImportPackage> {
+export async function parseImportWorkbook(
+  file: File,
+  textSource: WorkbookTextSource = 'text',
+): Promise<ParsedImportPackage> {
   if (!isWorkbookName(file.name)) {
     throw new Error('Choose lesson.xls or lesson.xlsx.')
   }
   const warnings: string[] = []
   const bytes = new Uint8Array(await file.arrayBuffer())
   return {
-    ...parseWorkbookBytes(bytes, warnings),
+    ...parseWorkbookBytes(bytes, warnings, textSource),
     videos: {},
     captions: {},
     warnings,
@@ -737,7 +770,7 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
     throw new Error('Zip must include lesson.xls or lesson.xlsx.')
   }
 
-  const parsed = parseWorkbookBytes(workbookBytes, warnings)
+  const parsed = parseWorkbookBytes(workbookBytes, warnings, 'upload')
 
   const missing = REQUIRED_VIDEO_SLOTS.filter((slot) => !videos[slot])
   if (missing.length > 0) {

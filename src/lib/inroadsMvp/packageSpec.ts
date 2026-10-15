@@ -189,6 +189,7 @@ export const COPY_FIELDS = [
   'missed_1_attempt',
   'missed_2_attempts',
   'missed_2_attempt',
+  'no_clicks_remain',
   'second_instruction',
   'second_instruction_pill',
   'second_score_threshold',
@@ -435,7 +436,8 @@ Copy: header row, then section | field | text
          second_instruction_pill | second_score_threshold |
          maneuver | roadway | traffic_density | time_of_day | road_conditions |
          hazard_explanation | success_result | fail_screen | 2_attempts |
-         3_attempts | time_out | missed_1_attempt | missed_2_attempts
+         3_attempts | time_out | missed_1_attempt | missed_2_attempts |
+         no_clicks_remain
   Observe instruction / instruction_pill = scenario overlay on the hazard clip
   Observe second_instruction / second_instruction_pill = coaching clip overlay
   Observe maneuver / roadway / traffic_density / time_of_day / road_conditions
@@ -448,6 +450,7 @@ Copy: header row, then section | field | text
   Observe time_out = Observe results subtext when hazard missed with 0 attempts
   Observe missed_1_attempt = Observe results subtext when hazard missed after 1 attempt
   Observe missed_2_attempts = Observe results subtext when hazard missed after 2 attempts
+  Observe no_clicks_remain = caption when the learner has used every click
 
 Metadata: header row, then Video Folder | Metadata Name | Metadata text
   Video Folder must match a media folder name (e.g. Observe Hazard Scenario).

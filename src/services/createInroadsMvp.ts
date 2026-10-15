@@ -5,7 +5,9 @@ import { createSeeActivity } from '@/activities/createSeeActivity'
 import { readAnticipateDefinition, writeAnticipateDefinition } from '@/activities/anticipateDefinition'
 import {
   readInroadsMvpDefinition,
+  readInroadsMvpEnglishTextReference,
   writeInroadsMvpDefinition,
+  writeInroadsMvpEnglishTextReference,
 } from '@/activities/inroadsMvpDefinition'
 import { readProcessDefinition, writeProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
@@ -50,12 +52,14 @@ export async function createBlankInroadsMvp(
 export async function duplicateInroadsMvpVersion(
   sourceId: string,
   language = '',
+  options?: { title?: string },
 ): Promise<string> {
   const parent = await loadActivityOrThrow(sourceId)
   const mvp = readInroadsMvpDefinition(parent)
   if (!mvp) throw new Error('Inroads MVP definition was not found')
 
-  const base = parent.metadata.title.trim() || 'Inroads MVP'
+  const titleOverride = options?.title?.trim() ?? ''
+  const base = titleOverride || parent.metadata.title.trim() || 'Inroads MVP'
   const seeSource = readSeeDefinition(await loadActivityOrThrow(mvp.seeActivityId))
   const processSource = readProcessDefinition(await loadActivityOrThrow(mvp.processActivityId))
   const anticipateSource = readAnticipateDefinition(
@@ -84,13 +88,20 @@ export async function duplicateInroadsMvpVersion(
     ...mvp,
     language: language.trim()
       ? canonicalizeLessonLanguage(language)
-      : '',
+      : titleOverride
+        ? mvp.language
+        : '',
     seeActivityId: savedSee.id,
     processActivityId: savedProcess.id,
     anticipateActivityId: savedAnticipate.id,
   })
   const saved = await services.persistence.save(next)
-  return saved.id
+  const reference = readInroadsMvpEnglishTextReference(parent)
+  if (!reference) return saved.id
+  const withReference = await services.persistence.save(
+    writeInroadsMvpEnglishTextReference(saved, reference),
+  )
+  return withReference.id
 }
 
 export async function loadActivityOrThrow(id: string): Promise<ActivityDefinition> {
