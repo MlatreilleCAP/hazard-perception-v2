@@ -323,6 +323,10 @@ export type LessonProcessSectionResult = {
   correctCount: number
   totalCount: number
   coachingRequired?: boolean
+  /** True when the coaching question was shown. */
+  coachingAsked?: boolean
+  /** True when every asked coaching question was answered correctly. */
+  coachingCorrect?: boolean
   metrics: LessonMetricToken[]
 }
 
@@ -332,6 +336,10 @@ export type LessonAnticipateSectionResult = {
   correctCount: number
   totalCount: number
   coachingRequired?: boolean
+  /** True when the coaching question was shown. */
+  coachingAsked?: boolean
+  /** True when every asked coaching question was answered correctly. */
+  coachingCorrect?: boolean
   metrics: LessonMetricToken[]
 }
 
@@ -427,6 +435,14 @@ export function buildObserveMetrics(
   ]
 }
 
+function coachingQuestionMetric(correct: boolean, id: string): LessonMetricToken {
+  return {
+    id,
+    label: 'Q4',
+    status: correct ? 'pass' : 'fail',
+  }
+}
+
 function randomQuestionMetrics(
   kind: 'process' | 'anticipate',
   count: number,
@@ -459,6 +475,8 @@ export function randomLessonSectionResults(): Partial<
   const spotted = hazards.filter((hazard) => hazard.correct).length
   const process = randomQuestionMetrics('process', 3)
   const anticipate = randomQuestionMetrics('anticipate', 3)
+  const processCoachingAsked = Math.random() < 0.5
+  const anticipateCoachingAsked = Math.random() < 0.5
   return {
     see: {
       kind: 'see',
@@ -473,6 +491,8 @@ export function randomLessonSectionResults(): Partial<
       correctCount: process.correctCount,
       totalCount: 3,
       coachingRequired: process.correctCount < 3,
+      coachingAsked: processCoachingAsked,
+      coachingCorrect: processCoachingAsked && Math.random() < 0.5,
       metrics: process.metrics,
     },
     anticipate: {
@@ -481,6 +501,8 @@ export function randomLessonSectionResults(): Partial<
       correctCount: anticipate.correctCount,
       totalCount: 3,
       coachingRequired: anticipate.correctCount < 3,
+      coachingAsked: anticipateCoachingAsked,
+      coachingCorrect: anticipateCoachingAsked && Math.random() < 0.5,
       metrics: anticipate.metrics,
     },
   }
@@ -528,7 +550,12 @@ export function buildLessonResultsModel(
       points: ptsFromPercent(process.percent),
       fill: process.percent / 100,
       tone: toneFromScore(process.percent),
-      metrics: [...process.metrics, coachingMetric(Boolean(process.coachingRequired))],
+      metrics: [
+        ...process.metrics,
+        ...(process.coachingAsked
+          ? [coachingQuestionMetric(Boolean(process.coachingCorrect), 'process-q4')]
+          : []),
+      ],
     })
   }
 
@@ -540,7 +567,12 @@ export function buildLessonResultsModel(
       points: ptsFromPercent(anticipate.percent),
       fill: anticipate.percent / 100,
       tone: toneFromScore(anticipate.percent),
-      metrics: [...anticipate.metrics, coachingMetric(Boolean(anticipate.coachingRequired))],
+      metrics: [
+        ...anticipate.metrics,
+        ...(anticipate.coachingAsked
+          ? [coachingQuestionMetric(Boolean(anticipate.coachingCorrect), 'anticipate-q4')]
+          : []),
+      ],
     })
   }
 

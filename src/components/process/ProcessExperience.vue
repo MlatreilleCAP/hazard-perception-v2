@@ -28,6 +28,8 @@ const emit = defineEmits<{
       correctCount: number
       totalCount: number
       coachingRequired?: boolean
+      coachingAsked?: boolean
+      coachingCorrect?: boolean
       questionResults?: Array<{ id: string; label: string; correct: boolean }>
     },
   ]
@@ -42,6 +44,7 @@ const error = ref<string | null>(null)
 const phase = ref<Phase>('playing')
 const questionIndex = ref(0)
 const answers = ref<Record<string, number>>({})
+const coachingQuestionsAsked = ref(false)
 const awaitingSegmentVideo = ref(true)
 
 const process = computed(() => readProcessDefinition(props.definition))
@@ -49,6 +52,9 @@ const passThreshold = computed(() => process.value.secondSegmentScoreThreshold ?
 
 const video1Questions = computed(() =>
   configuredSurveyQuestions(process.value.segments[0]?.questions ?? emptyQuestionBank()),
+)
+const coachingQuestions = computed(() =>
+  configuredSurveyQuestions(process.value.segments[1]?.questions ?? emptyQuestionBank()),
 )
 const activeQuestions = computed(() =>
   configuredSurveyQuestions(
@@ -189,11 +195,19 @@ function storeAnswer(questionId: string, answerIndex: number): void {
 }
 
 function emitFinished(): void {
+  const coachingResults = coachingQuestionsAsked.value
+    ? processQuestionResults(
+        { version: 2, questions: coachingQuestions.value },
+        answers.value,
+      )
+    : []
   emit('finished', {
     percent: score.value.percent,
     correctCount: results.value.filter((item) => item.correct).length,
     totalCount: results.value.length,
     coachingRequired: !passed.value,
+    coachingAsked: coachingResults.length > 0,
+    coachingCorrect: coachingResults.length > 0 && coachingResults.every((item) => item.correct),
     questionResults: results.value.map((item) => ({
       id: item.id,
       label: item.label,
@@ -228,6 +242,7 @@ function onVideoEnded(): void {
     completeActiveSegment()
     return
   }
+  if (segmentIndex.value === 1) coachingQuestionsAsked.value = true
   questionIndex.value = 0
   phase.value = 'questions'
 }

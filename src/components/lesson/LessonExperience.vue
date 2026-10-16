@@ -453,6 +453,8 @@ function onProcessFinished(payload?: {
   correctCount: number
   totalCount: number
   coachingRequired?: boolean
+  coachingAsked?: boolean
+  coachingCorrect?: boolean
   questionResults?: Array<{ id: string; label: string; correct: boolean }>
 }): void {
   sectionResults.value = {
@@ -463,6 +465,8 @@ function onProcessFinished(payload?: {
       correctCount: payload?.correctCount ?? 0,
       totalCount: payload?.totalCount ?? 0,
       coachingRequired: payload?.coachingRequired === true,
+      coachingAsked: payload?.coachingAsked === true,
+      coachingCorrect: payload?.coachingCorrect === true,
       metrics: (payload?.questionResults ?? []).map((item, index) => ({
         id: item.id,
         label: `Q${index + 1}`,
@@ -478,6 +482,8 @@ function onAnticipateFinished(payload?: {
   correctCount: number
   totalCount: number
   coachingRequired?: boolean
+  coachingAsked?: boolean
+  coachingCorrect?: boolean
   questionResults?: Array<{ id: string; label: string; correct: boolean }>
 }): void {
   sectionResults.value = {
@@ -488,6 +494,8 @@ function onAnticipateFinished(payload?: {
       correctCount: payload?.correctCount ?? 0,
       totalCount: payload?.totalCount ?? 0,
       coachingRequired: payload?.coachingRequired === true,
+      coachingAsked: payload?.coachingAsked === true,
+      coachingCorrect: payload?.coachingCorrect === true,
       metrics: (payload?.questionResults ?? []).map((item, index) => ({
         id: item.id,
         label: `Q${index + 1}`,
