@@ -130,6 +130,9 @@ export type ParsedImportPackage = {
   captions: Partial<Record<VideoSlotId, ImportedVideoFile>>
   warnings: string[]
   unusedFiles: string[]
+  /** Text column parse, used as the English reference beside translated fields. */
+  englishText?: Pick<ParsedImportPackage, 'lesson' | 'copy' | 'questions' | 'mediaMetadata'>
+  workbookFileName?: string
 }
 
 function cellString(value: unknown): string {
@@ -771,6 +774,7 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
   }
 
   const parsed = parseWorkbookBytes(workbookBytes, warnings, 'upload')
+  const englishText = parseWorkbookBytes(workbookBytes, [], 'text')
 
   const missing = REQUIRED_VIDEO_SLOTS.filter((slot) => !videos[slot])
   if (missing.length > 0) {
@@ -812,5 +816,7 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
     captions,
     warnings,
     unusedFiles,
+    englishText,
+    workbookFileName: basename(workbookPath),
   }
 }

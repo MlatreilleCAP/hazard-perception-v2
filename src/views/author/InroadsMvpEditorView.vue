@@ -6,7 +6,6 @@ import {
   readInroadsMvpDefinition,
   readInroadsMvpEnglishTextReference,
   writeInroadsMvpDefinition,
-  writeInroadsMvpEnglishTextReference,
 } from '@/activities/inroadsMvpDefinition'
 import { readProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition } from '@/activities/seeDefinition'
@@ -26,9 +25,6 @@ import SeeEditorView from '@/views/author/SeeEditorView.vue'
 import { services } from '@/app/container'
 import { duplicateInroadsMvpVersion } from '@/services/createInroadsMvp'
 import { publishInroadsMvpLesson } from '@/services/publishInroadsMvp'
-import { buildEnglishReferenceFromWorkbook } from '@/services/inroadsMvpImport'
-import { parseImportWorkbook } from '@/lib/inroadsMvp/parseImportPackage'
-import { WORKBOOK_FILE_ACCEPT } from '@/lib/inroadsMvp/packageSpec'
 import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
@@ -249,20 +245,8 @@ const englishProcess = ref<ProcessDefinition | null>(null)
 const englishAnticipate = ref<AnticipateDefinition | null>(null)
 const englishLoading = ref(false)
 const englishError = ref<string | null>(null)
-const referenceInput = ref<HTMLInputElement | null>(null)
-const referenceReading = ref(false)
-const referenceError = ref<string | null>(null)
-const referenceStatus = ref<string | null>(null)
 const fileReference = ref<InroadsMvpEnglishTextReference | null>(null)
 let englishLoadGeneration = 0
-
-const referenceRequired = computed(
-  () =>
-    showEnglishReference.value &&
-    !englishCandidatesLoading.value &&
-    !selectedEnglishId.value &&
-    !fileReference.value,
-)
 
 function applyFileReference(): void {
   englishLoadGeneration += 1
@@ -273,7 +257,7 @@ function applyFileReference(): void {
   englishSource.value = file
     ? {
         id: '',
-        label: referenceStatus.value ?? 'Reference file',
+        label: file.fileName || 'Reference file',
         title: file.title,
         description: file.description,
         mvp: file.mvp,
@@ -571,7 +555,6 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
     if (!current || !parsed) {
       mvp.value = null
       fileReference.value = null
-      referenceStatus.value = null
       loadError.value = 'Inroads MVP not found'
       return
     }
@@ -580,10 +563,6 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
     mvp.value = parsed
     const storedReference = readInroadsMvpEnglishTextReference(current)
     fileReference.value = storedReference
-    referenceStatus.value = storedReference
-      ? `Using ${storedReference.fileName} as the English reference.`
-      : null
-    referenceError.value = null
     if (storedReference) {
       applyFileReference()
     }
@@ -603,7 +582,6 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
     if (generation !== loadGeneration) return
     mvp.value = null
     fileReference.value = null
-    referenceStatus.value = null
     loadError.value = cause instanceof Error ? cause.message : 'Failed to load Inroads MVP'
   } finally {
     if (generation === loadGeneration) loading.value = false
@@ -620,7 +598,6 @@ onUnmounted(() => {
 })
 
 watch(activityId, () => {
-  referenceError.value = null
   void load()
 })
 
@@ -663,50 +640,6 @@ watch(
   },
   { immediate: true },
 )
-
-function chooseReferenceFile(): void {
-  referenceInput.value?.click()
-}
-
-async function persistEnglishReference(
-  reference: InroadsMvpEnglishTextReference | null,
-): Promise<void> {
-  if (!editable.value || !activityId.value) return
-  await ensureParentLoaded()
-  if (!activities.current) return
-  const next = writeInroadsMvpEnglishTextReference(activities.current, reference)
-  await activities.save(next)
-}
-
-async function onReferenceFile(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) return
-  referenceReading.value = true
-  referenceError.value = null
-  try {
-    const payload = await parseImportWorkbook(file)
-    const built = buildEnglishReferenceFromWorkbook(payload)
-    const reference: InroadsMvpEnglishTextReference = {
-      fileName: file.name,
-      title: built.title,
-      description: built.description,
-      mvp: built.mvp,
-      see: built.see,
-      process: built.process,
-      anticipate: built.anticipate,
-    }
-    fileReference.value = reference
-    referenceStatus.value = `Using ${file.name} as the English reference.`
-    applyFileReference()
-    await persistEnglishReference(reference)
-  } catch (cause) {
-    referenceError.value = cause instanceof Error ? cause.message : 'Could not read that workbook.'
-  } finally {
-    referenceReading.value = false
-  }
-}
 
 watch(
   selectedEnglishId,
@@ -1068,33 +1001,6 @@ async function deleteVersion(id: string): Promise<void> {
       <div class="mvp-compare" :class="{ 'is-lesson': activeSection === 'lesson' }">
         <div class="author-stack mvp-compare-editor">
       <template v-if="activeSection === 'lesson'">
-        <section class="author-stack-sm">
-          <p class="author-muted mvp-language-note">
-            Please upload a full English version first. It will be used to compare subsequent
-            languages. If no English version exists, upload the English XLSX file.
-          </p>
-          <div class="mvp-reference-row">
-            <input
-              ref="referenceInput"
-              type="file"
-              :accept="WORKBOOK_FILE_ACCEPT"
-              @change="onReferenceFile"
-            />
-            <AuthorPillButton
-              variant="white"
-              :disabled="referenceReading"
-              @click="chooseReferenceFile"
-            >
-              {{ referenceReading ? 'Reading…' : 'Upload reference file' }}
-            </AuthorPillButton>
-            <p v-if="referenceStatus" class="author-muted">{{ referenceStatus }}</p>
-            <p v-if="referenceError" class="author-error">{{ referenceError }}</p>
-            <p v-else-if="referenceRequired" class="author-error">
-              An English version or an XLS reference file is required.
-            </p>
-          </div>
-        </section>
-
         <section v-if="editable" class="author-stack-sm">
           <AuthorSectionHeader title="Bulk import" />
           <InroadsMvpImportPanel

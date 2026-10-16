@@ -5,6 +5,7 @@ import {
 import {
   readInroadsMvpDefinition,
   writeInroadsMvpDefinition,
+  writeInroadsMvpEnglishTextReference,
 } from '@/activities/inroadsMvpDefinition'
 import { readProcessDefinition, writeProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
@@ -841,6 +842,26 @@ async function saveIntroMedia(
   onProgress?.('Updated linked Stand Alone Video.')
 }
 
+async function saveEnglishTextReference(
+  parentId: string,
+  fileName: string,
+  payload: ParsedImportPackage,
+): Promise<void> {
+  const built = buildEnglishReferenceFromWorkbook(payload)
+  const parent = await loadActivityOrThrow(parentId)
+  await services.persistence.save(
+    writeInroadsMvpEnglishTextReference(parent, {
+      fileName,
+      title: built.title,
+      description: built.description,
+      mvp: built.mvp,
+      see: built.see,
+      process: built.process,
+      anticipate: built.anticipate,
+    }),
+  )
+}
+
 export async function replaceInroadsMvpWorkbook(
   parentId: string,
   file: File,
@@ -848,7 +869,9 @@ export async function replaceInroadsMvpWorkbook(
 ): Promise<{ file: InroadsMvpSlotFile; report: ImportPackageReport }> {
   onProgress?.('Reading lesson.xlsx…')
   const payload = await parseImportWorkbook(file, 'upload')
+  const textPayload = await parseImportWorkbook(file, 'text')
   const report = await importInroadsMvpPackage(parentId, payload, onProgress)
+  await saveEnglishTextReference(parentId, file.name, textPayload)
   return { file: workbookSlotFile(file.name), report }
 }
 
@@ -1160,6 +1183,16 @@ export async function importInroadsMvpPackage(
     warnings.push(
       'The Metadata sheet was read, but none of it could be saved onto the media files yet. Import media first, then replace lesson.xlsx if needed.',
     )
+  }
+
+  if (payload.englishText) {
+    await saveEnglishTextReference(parentId, payload.workbookFileName || 'lesson.xlsx', {
+      ...payload.englishText,
+      videos: {},
+      captions: {},
+      warnings: [],
+      unusedFiles: [],
+    })
   }
 
   return {

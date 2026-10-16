@@ -2004,29 +2004,6 @@ fieldset.author-stack {
   }
 }
 
-.mvp-language-note {
-  margin: 0;
-  width: 100%;
-  max-width: none;
-}
-
-.mvp-reference-row {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
-
-.mvp-reference-row input[type='file'] {
-  position: absolute;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
 .mvp-version-row {
   display: flex;
   flex-wrap: wrap;
