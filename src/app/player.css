@@ -1471,25 +1471,23 @@ body:has(.player-page) {
 }
 
 .lesson-results-hero {
-  display: flex;
+  display: grid;
   width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  row-gap: 6px;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
 }
 
 .lesson-results-hero-copy {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  display: contents;
 }
 
 .lesson-results-status-block {
   display: flex;
   max-width: 100%;
+  grid-column: 1;
+  grid-row: 2;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
@@ -1517,8 +1515,11 @@ body:has(.player-page) {
 
 .lesson-results-score-cluster {
   display: flex;
+  grid-column: 2;
+  grid-row: 2;
   flex-shrink: 0;
-  align-items: flex-start;
+  align-self: center;
+  align-items: center;
   gap: 4px;
 }
 
@@ -1567,6 +1568,8 @@ body:has(.player-page) {
 }
 
 .lesson-results-title {
+  grid-column: 1;
+  grid-row: 1;
   margin: 0;
   font-family: var(--font-poppins);
   font-size: 12px;
@@ -1579,10 +1582,17 @@ body:has(.player-page) {
   margin: 0;
   flex-shrink: 0;
   font-family: var(--font-poppins);
-  font-size: 26px;
+  font-size: calc(26px * 1.1);
   font-weight: 500;
   line-height: 1;
-  color: #403b3b;
+  background: linear-gradient(
+    90deg,
+    var(--process-begin-from, #eb5e95),
+    var(--process-begin-to, #74629b)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .lesson-results-delta {
