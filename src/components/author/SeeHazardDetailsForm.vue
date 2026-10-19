@@ -3,7 +3,6 @@ import AuthorField from '@/components/author/AuthorField.vue'
 import FieldPair from '@/components/author/FieldPair.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
-import { CORE_COMPETENCIES, isCoreCompetency } from '@/types/hazard'
 import type { SeeHazard } from '@/types/see'
 
 const props = defineProps<{
@@ -25,27 +24,6 @@ function patch(next: Partial<SeeHazard>): void {
 <template>
   <section class="author-stack-sm">
     <AuthorSectionHeader title="Hazard Details" />
-    <div :class="english ? 'author-stack-sm' : 'see-details-grid'">
-      <FieldPair :enabled="!!english" label="Hazard Name" :value="english?.name">
-        <AuthorField
-          :id="`${hazardId}-name`"
-          :model-value="modelValue.name"
-          label="Hazard Name"
-          placeholder="Hazard name goes here"
-          @update:model-value="patch({ name: $event })"
-        />
-      </FieldPair>
-      <FieldPair :enabled="!!english" label="Core Competency" :value="english?.hazardType">
-        <AuthorField
-          :id="`${hazardId}-type`"
-          :model-value="isCoreCompetency(modelValue.hazardType) ? modelValue.hazardType : ''"
-          label="Core Competency"
-          :options="CORE_COMPETENCIES"
-          placeholder="Select a competency"
-          @update:model-value="patch({ hazardType: $event })"
-        />
-      </FieldPair>
-    </div>
     <FieldPair
       :enabled="!!english"
       label="Hazard Explanation"

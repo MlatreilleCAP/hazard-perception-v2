@@ -1591,17 +1591,6 @@ fieldset.author-stack {
   clip: rect(0, 0, 0, 0);
 }
 
-.see-details-grid {
-  display: grid;
-  gap: 24px;
-}
-
-@media (min-width: 640px) {
-  .see-details-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
 .see-video-frame {
   position: relative;
   width: 100%;
