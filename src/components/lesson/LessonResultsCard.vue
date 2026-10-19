@@ -502,6 +502,16 @@ function goToSession(): void {
             </li>
           </ul>
         </section>
+
+        <section class="lesson-results-up-next" aria-label="Up next">
+          <h2 class="lesson-results-progress-heading">Up next</h2>
+          <ul class="lesson-results-period-list">
+            <li class="lesson-results-period-row is-plain">
+              <span>Following Distance</span>
+              <span class="lesson-results-phase-pill">30 Days</span>
+            </li>
+          </ul>
+        </section>
       </div>
 
       <button type="button" class="process-instruction-begin" @click="$emit('continue')">

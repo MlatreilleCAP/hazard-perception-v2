@@ -2062,6 +2062,21 @@ body:has(.player-page) {
   color: #60a1a7;
 }
 
+.lesson-results-up-next {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lesson-results-up-next .lesson-results-period-list {
+  margin-top: -16px;
+}
+
+.lesson-results-period-row.is-plain {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .lesson-results-page .process-instruction-begin {
   margin-top: 8px;
 }
