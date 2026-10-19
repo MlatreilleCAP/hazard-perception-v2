@@ -10,8 +10,8 @@ import {
   type ReplaceSlotId,
 } from '@/lib/inroadsMvp/packageSpec'
 import {
-  exportLessonTemplateZip,
-  exportSampleInroadsMvpTemplateZip,
+  exportLessonWorkbook,
+  exportSampleLessonWorkbook,
 } from '@/services/exportInroadsMvpPackage'
 import { parseImportZip } from '@/lib/inroadsMvp/parseImportPackage'
 import { createBlankInroadsMvp } from '@/services/createInroadsMvp'
@@ -53,8 +53,6 @@ const slotFiles = ref<InroadsMvpSlotFile[]>([])
 const slotsLoading = ref(false)
 const replaceMenuOpen = ref(false)
 const replaceMenu = ref<HTMLElement | null>(null)
-const downloadMenuOpen = ref(false)
-const downloadMenu = ref<HTMLElement | null>(null)
 
 const busy = computed(() => importing.value || exporting.value || Boolean(replacingSlot.value))
 const showSlotReplace = computed(() => Boolean(props.parentId) && !props.createLesson)
@@ -88,12 +86,6 @@ function onDocPointerDown(event: PointerEvent): void {
       replaceMenuOpen.value = false
     }
   }
-  if (downloadMenuOpen.value) {
-    const el = downloadMenu.value
-    if (!(el && event.target instanceof Node && el.contains(event.target))) {
-      downloadMenuOpen.value = false
-    }
-  }
 }
 
 onMounted(() => {
@@ -112,41 +104,34 @@ watch(
   },
 )
 
-async function downloadTemplate(includeMedia: boolean): Promise<void> {
+async function downloadTemplate(): Promise<void> {
   if (props.disabled || busy.value) return
-  downloadMenuOpen.value = false
+  replaceMenuOpen.value = false
   error.value = null
   exporting.value = true
-  progress.value = includeMedia ? 'Packing media…' : 'Building template…'
+  progress.value = 'Building workbook…'
   try {
     if (props.beforeDownload) {
       const ready = await props.beforeDownload()
       if (!ready) return
     }
     if (props.parentId) {
-      const packed = await exportLessonTemplateZip(props.parentId, {
-        includeMedia,
+      const packed = await exportLessonWorkbook(props.parentId, {
         onProgress: (message) => {
           progress.value = message
         },
       })
       downloadBlob(packed.blob, packed.filename)
     } else {
-      const blob = await exportSampleInroadsMvpTemplateZip()
-      downloadBlob(blob, 'inroads-mvp-import-template.zip')
+      const blob = await exportSampleLessonWorkbook()
+      downloadBlob(blob, 'inroads-mvp.xlsx')
     }
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to build template'
+    error.value = cause instanceof Error ? cause.message : 'Failed to build workbook'
   } finally {
     exporting.value = false
     progress.value = null
   }
-}
-
-function toggleDownloadMenu(): void {
-  if (props.disabled || busy.value) return
-  replaceMenuOpen.value = false
-  downloadMenuOpen.value = !downloadMenuOpen.value
 }
 
 function onZip(event: Event): void {
@@ -163,7 +148,6 @@ function chooseZip(): void {
 
 function toggleReplaceMenu(): void {
   if (props.disabled || busy.value) return
-  downloadMenuOpen.value = false
   replaceMenuOpen.value = !replaceMenuOpen.value
 }
 
@@ -287,13 +271,7 @@ async function runImport(file: File): Promise<void> {
       Upload a zip with lesson.xls (or .xlsx) and media in the named folders. The workbook
       and those files are applied to the builder together, including the full Observe page
       (hazard clip, details, coaching clip, explanation image, summary audio, and questions).
-      <template v-if="parentId">
-        Download template can save this lesson’s workbook alone, or with the media files from
-        the version on screen.
-      </template>
-      <template v-else>
-        Download template includes the lesson.xlsx workbook and empty named folders.
-      </template>
+      Download template saves an .xlsx workbook filled with this lesson’s current content.
     </p>
     <div class="author-actions" style="margin-top: 0">
       <input
@@ -306,40 +284,9 @@ async function runImport(file: File): Promise<void> {
       <AuthorPillButton variant="white" :disabled="disabled || busy" @click="chooseZip">
         {{ importing ? 'Importing…' : 'Choose file' }}
       </AuthorPillButton>
-      <div ref="downloadMenu" class="author-menu">
-        <AuthorPillButton
-          variant="white"
-          :disabled="disabled || busy"
-          :aria-expanded="downloadMenuOpen"
-          aria-haspopup="menu"
-          @click="toggleDownloadMenu"
-        >
-          {{ exporting ? 'Downloading…' : 'Download template' }}
-        </AuthorPillButton>
-        <div
-          v-if="downloadMenuOpen"
-          class="author-menu-panel"
-          role="menu"
-          aria-label="Download template"
-        >
-          <button
-            type="button"
-            class="author-menu-item"
-            role="menuitem"
-            @click="downloadTemplate(true)"
-          >
-            Include Media files
-          </button>
-          <button
-            type="button"
-            class="author-menu-item"
-            role="menuitem"
-            @click="downloadTemplate(false)"
-          >
-            Do not include media
-          </button>
-        </div>
-      </div>
+      <AuthorPillButton variant="white" :disabled="disabled || busy" @click="downloadTemplate">
+        {{ exporting ? 'Downloading…' : 'Download template' }}
+      </AuthorPillButton>
       <div v-if="showSlotReplace" ref="replaceMenu" class="author-menu">
         <input
           ref="slotInput"

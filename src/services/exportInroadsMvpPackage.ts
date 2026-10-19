@@ -8,6 +8,7 @@ import {
   buildImportFolderZip,
   buildSampleImportTemplateZip,
   buildWorkbookBytes,
+  defaultImportWorkbookContent,
   slugForFilename,
   type ImportWorkbookContent,
   type ImportZipFolderFile,
@@ -61,6 +62,30 @@ export async function exportInroadsMvpTemplateZip(parentId?: string): Promise<Bl
 
 export async function exportSampleInroadsMvpTemplateZip(): Promise<Blob> {
   return buildSampleImportTemplateZip()
+}
+
+const WORKBOOK_MIME =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+export async function exportLessonWorkbook(
+  parentId: string,
+  options: { onProgress?: (message: string) => void } = {},
+): Promise<{ blob: Blob; filename: string }> {
+  options.onProgress?.('Building workbook…')
+  const content = await lessonWorkbookContent(parentId)
+  const bytes = await buildWorkbookBytes(content)
+  return {
+    blob: workbookBlob(bytes),
+    filename: `${slugForFilename(content.title)}.xlsx`,
+  }
+}
+
+export async function exportSampleLessonWorkbook(): Promise<Blob> {
+  return workbookBlob(await buildWorkbookBytes(defaultImportWorkbookContent()))
+}
+
+function workbookBlob(bytes: Uint8Array): Blob {
+  return new Blob([bytes.slice()], { type: WORKBOOK_MIME })
 }
 
 export async function exportLessonTemplateZip(
