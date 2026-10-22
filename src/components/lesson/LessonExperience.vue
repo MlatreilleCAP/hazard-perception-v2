@@ -22,7 +22,7 @@ import {
   buildLessonResultsModel,
   buildObserveMetrics,
   hasSeenLessonIntro,
-  randomLessonSectionResults,
+  previewLessonSectionResults,
   markLessonIntroSeen,
   orderedInroadsCompositionItems,
   type LessonCompositionItem,
@@ -506,15 +506,15 @@ function onAnticipateFinished(payload?: {
   advanceToNextSection()
 }
 
-function showRandomResults(): void {
-  sectionResults.value = randomLessonSectionResults()
+function showPreviewResults(): void {
+  sectionResults.value = previewLessonSectionResults()
   phase.value = 'results'
   awaitingReady.value = false
 }
 
 onMounted(() => {
   if (props.randomResults) {
-    showRandomResults()
+    showPreviewResults()
     return
   }
   void startLesson()
@@ -524,7 +524,7 @@ watch(
   () => props.definition.id,
   () => {
     if (props.randomResults) {
-      showRandomResults()
+      showPreviewResults()
       return
     }
     void startLesson()

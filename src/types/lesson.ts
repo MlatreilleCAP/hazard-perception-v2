@@ -443,67 +443,55 @@ function coachingQuestionMetric(correct: boolean, id: string): LessonMetricToken
   }
 }
 
-function randomQuestionMetrics(
+function questionMetrics(
   kind: 'process' | 'anticipate',
-  count: number,
-): { correctCount: number; metrics: LessonMetricToken[] } {
-  const metrics = Array.from({ length: count }, (_, index) => ({
+  correct: readonly boolean[],
+): LessonMetricToken[] {
+  return correct.map((isCorrect, index) => ({
     id: `${kind}-q${index + 1}`,
     label: `Q${index + 1}`,
-    status: (Math.random() < 0.55 ? 'pass' : 'fail') as LessonMetricStatus,
+    status: isCorrect ? 'pass' : 'fail',
   }))
-  return {
-    correctCount: metrics.filter((metric) => metric.status === 'pass').length,
-    metrics,
-  }
 }
 
-/** Studio preview of the results card, with a new score each time it opens. */
-export function randomLessonSectionResults(): Partial<
+/** Studio preview of the results card. */
+export function previewLessonSectionResults(): Partial<
   Record<'see' | 'process' | 'anticipate', LessonSectionResult>
 > {
-  const hazardCount = 2 + Math.floor(Math.random() * 2)
-  const hazards: LessonSeeHazardResult[] = Array.from({ length: hazardCount }, (_, index) => {
-    const correct = Math.random() < 0.65
-    return {
-      id: `preview-hazard-${index + 1}`,
-      correct,
-      attempts: correct ? 1 + Math.floor(Math.random() * 3) : 3,
-      identifyRatio: correct ? Math.random() : null,
-    }
-  })
-  const spotted = hazards.filter((hazard) => hazard.correct).length
-  const process = randomQuestionMetrics('process', 3)
-  const anticipate = randomQuestionMetrics('anticipate', 3)
-  const processCoachingAsked = Math.random() < 0.5
-  const anticipateCoachingAsked = Math.random() < 0.5
+  const hazards: LessonSeeHazardResult[] = [
+    { id: 'preview-hazard-1', correct: true, attempts: 1, identifyRatio: 0 },
+    { id: 'preview-hazard-2', correct: true, attempts: 1, identifyRatio: 0 },
+  ]
+  const processCorrect = [true, false, true]
+  const anticipateCorrect = [true, true, true]
+  const processCorrectCount = processCorrect.filter(Boolean).length
   return {
     see: {
       kind: 'see',
-      spotted,
-      total: hazardCount,
+      spotted: hazards.length,
+      total: hazards.length,
       hazards,
-      metrics: buildObserveMetrics(hazards, spotted, hazardCount),
+      metrics: buildObserveMetrics(hazards, hazards.length, hazards.length),
     },
     process: {
       kind: 'process',
-      percent: Math.round((process.correctCount / 3) * 100),
-      correctCount: process.correctCount,
-      totalCount: 3,
-      coachingRequired: process.correctCount < 3,
-      coachingAsked: processCoachingAsked,
-      coachingCorrect: processCoachingAsked && Math.random() < 0.5,
-      metrics: process.metrics,
+      percent: Math.round((processCorrectCount / processCorrect.length) * 100),
+      correctCount: processCorrectCount,
+      totalCount: processCorrect.length,
+      coachingRequired: true,
+      coachingAsked: true,
+      coachingCorrect: true,
+      metrics: questionMetrics('process', processCorrect),
     },
     anticipate: {
       kind: 'anticipate',
-      percent: Math.round((anticipate.correctCount / 3) * 100),
-      correctCount: anticipate.correctCount,
-      totalCount: 3,
-      coachingRequired: anticipate.correctCount < 3,
-      coachingAsked: anticipateCoachingAsked,
-      coachingCorrect: anticipateCoachingAsked && Math.random() < 0.5,
-      metrics: anticipate.metrics,
+      percent: 100,
+      correctCount: anticipateCorrect.length,
+      totalCount: anticipateCorrect.length,
+      coachingRequired: false,
+      coachingAsked: false,
+      coachingCorrect: false,
+      metrics: questionMetrics('anticipate', anticipateCorrect),
     },
   }
 }

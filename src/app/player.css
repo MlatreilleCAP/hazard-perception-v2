@@ -87,6 +87,68 @@ body:has(.player-page) {
   background: #fff;
 }
 
+.player-page.is-zoomable {
+  --preview-zoom: 1;
+  align-items: safe center;
+  justify-content: safe center;
+  overflow: auto;
+}
+
+.player-page.is-zoomable .player-phone-slot {
+  width: calc(var(--iphone-17-pro-width) * var(--phone-fit) * var(--preview-zoom));
+  height: calc(var(--iphone-17-pro-height) * var(--phone-fit) * var(--preview-zoom));
+  max-width: none;
+  max-height: none;
+}
+
+.player-page.is-zoomable .player-phone {
+  transform: scale(calc(var(--phone-fit) * var(--preview-zoom)));
+}
+
+.player-preview-zoom {
+  position: fixed;
+  top: 20px;
+  right: 28px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #403b3b;
+  border-radius: 999px;
+  background: #fff;
+  padding: 4px;
+}
+
+.player-preview-zoom button {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #403b3b;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.player-preview-zoom button:hover:not(:disabled) {
+  background: rgb(64 59 59 / 8%);
+}
+
+.player-preview-zoom button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.player-preview-zoom span {
+  min-width: 52px;
+  font-family: var(--font-poppins, inherit);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  color: #403b3b;
+}
+
 @media (max-width: 700px), (hover: none) and (pointer: coarse) and (max-width: 1024px) {
   html:has(.player-page),
   body:has(.player-page),

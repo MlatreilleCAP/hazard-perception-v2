@@ -80,9 +80,20 @@ const activityId = computed(() =>
   typeof route.query.activity === 'string' ? route.query.activity : null,
 )
 const isPreview = computed(() => route.query.preview === '1')
+const isResultsPreview = computed(() => isPreview.value && route.query.section === 'results')
 const previewRandomResults = computed(
   () => isPreview.value && route.query.results === 'random',
 )
+const MIN_PREVIEW_ZOOM = 1
+const MAX_PREVIEW_ZOOM = 2.4
+const PREVIEW_ZOOM_STEP = 0.1
+const previewZoom = ref(1)
+const previewZoomLabel = computed(() => `${Math.round(previewZoom.value * 100)}%`)
+
+function zoomPreview(delta: number): void {
+  const next = Math.round((previewZoom.value + delta) * 10) / 10
+  previewZoom.value = Math.min(MAX_PREVIEW_ZOOM, Math.max(MIN_PREVIEW_ZOOM, next))
+}
 const lessonButtonLabel = ref('')
 const lessonSubmitLabel = ref('')
 const lessonCountry = ref('')
@@ -411,7 +422,33 @@ function onExperienceFinished(): void {
 </script>
 
 <template>
-  <div class="player-page" :class="{ 'is-waiting': Boolean(activityId) && !(hasExperience && definition) }">
+  <div
+    class="player-page"
+    :class="{
+      'is-waiting': Boolean(activityId) && !(hasExperience && definition),
+      'is-zoomable': isResultsPreview,
+    }"
+    :style="isResultsPreview ? { '--preview-zoom': previewZoom } : undefined"
+  >
+    <div v-if="isResultsPreview" class="player-preview-zoom" aria-label="Zoom">
+      <button
+        type="button"
+        aria-label="Zoom out"
+        :disabled="previewZoom <= MIN_PREVIEW_ZOOM"
+        @click="zoomPreview(-PREVIEW_ZOOM_STEP)"
+      >
+        −
+      </button>
+      <span>{{ previewZoomLabel }}</span>
+      <button
+        type="button"
+        aria-label="Zoom in"
+        :disabled="previewZoom >= MAX_PREVIEW_ZOOM"
+        @click="zoomPreview(PREVIEW_ZOOM_STEP)"
+      >
+        +
+      </button>
+    </div>
     <div v-if="hasExperience && definition" class="player-phone-slot">
       <div class="player-phone" aria-label="iPhone 17 Pro preview (492 × 874)">
         <LessonExperience
