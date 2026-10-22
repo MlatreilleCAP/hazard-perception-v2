@@ -1202,6 +1202,8 @@ async function deleteVersion(id: string): Promise<void> {
           :example-activity-id="mvp.exampleActivityId"
           :example-options="introductionSelectOptions"
           :persist-example="awaitExampleChoice"
+          :button-label="mvp.buttonLabel"
+          :submit-label="mvp.submitLabel"
           @update:example-activity-id="setExampleActivityId"
         />
       </div>
@@ -1212,6 +1214,8 @@ async function deleteVersion(id: string): Promise<void> {
           :activity-id-prop="mvp.processActivityId"
           embedded
           :english="showEnglishReference ? englishProcess : null"
+          :button-label="mvp.buttonLabel"
+          :submit-label="mvp.submitLabel"
         />
       </div>
       <div v-else-if="activeSection === 'anticipate'" class="mvp-embedded-editor">
@@ -1221,6 +1225,8 @@ async function deleteVersion(id: string): Promise<void> {
           :activity-id-prop="mvp.anticipateActivityId"
           embedded
           :english="showEnglishReference ? englishAnticipate : null"
+          :button-label="mvp.buttonLabel"
+          :submit-label="mvp.submitLabel"
         />
       </div>
         </div>

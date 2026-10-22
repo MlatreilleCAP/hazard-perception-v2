@@ -12,9 +12,11 @@ import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import ProcessQuestionsForm from '@/components/author/ProcessQuestionsForm.vue'
+import QuestionReviewOverlay from '@/components/author/QuestionReviewOverlay.vue'
 import { useAuthorAutosave } from '@/composables/useAuthorAutosave'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { services } from '@/app/container'
+import { provideLessonButtonLabel, provideLessonSubmitLabel } from '@/lib/lesson/buttonLabel'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 import type { ActivityDefinition } from '@/types/activity'
@@ -27,7 +29,7 @@ import {
   type AnticipateDefinition,
   type AnticipateSegmentIndex,
 } from '@/types/anticipate'
-import type { ProcessQuestionBank } from '@/types/questions'
+import { configuredQuestionsInOrder, type ProcessQuestionBank } from '@/types/questions'
 
 const props = withDefaults(
   defineProps<{
@@ -35,9 +37,20 @@ const props = withDefaults(
     embedded?: boolean
     /** English lesson text shown beside each field. Media is not compared. */
     english?: AnticipateDefinition | null
+    buttonLabel?: string
+    submitLabel?: string
   }>(),
-  { activityIdProp: undefined, embedded: false, english: null },
+  {
+    activityIdProp: undefined,
+    embedded: false,
+    english: null,
+    buttonLabel: '',
+    submitLabel: '',
+  },
 )
+
+provideLessonButtonLabel(() => props.buttonLabel)
+provideLessonSubmitLabel(() => props.submitLabel)
 
 const route = useRoute()
 const router = useRouter()
@@ -57,6 +70,12 @@ const sourceActivity = ref<ActivityDefinition | null>(null)
 const anticipate = ref<AnticipateDefinition | null>(null)
 const enableThird = ref(false)
 const video1Questions = ref<{ snapshot: () => ProcessQuestionBank } | null>(null)
+const reviewingQuestions = ref(false)
+const reviewQuestions = computed(() =>
+  configuredQuestionsInOrder(
+    (anticipate.value?.segments ?? []).map((segment) => segment.questions),
+  ),
+)
 
 const activityId = computed(
   () => props.activityIdProp?.trim() || String(route.params.id ?? ''),
@@ -269,6 +288,11 @@ watch(
   { deep: true },
 )
 
+function openQuestionReview(): void {
+  flushVideo1Questions()
+  reviewingQuestions.value = true
+}
+
 async function openPreview(): Promise<void> {
   if (!activityId.value) return
   if (editable.value) {
@@ -357,6 +381,13 @@ defineExpose({ save })
           <AuthorPillButton
             variant="white"
             :disabled="saving || publishing || deleting"
+            @click="openQuestionReview"
+          >
+            Review questions
+          </AuthorPillButton>
+          <AuthorPillButton
+            variant="white"
+            :disabled="saving || publishing || deleting"
             @click="openPreview"
           >
             {{ saving ? 'Saving…' : 'Preview section' }}
@@ -380,13 +411,22 @@ defineExpose({ save })
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Instruction">
           <template v-if="embedded" #action>
-            <AuthorPillButton
-              variant="white"
-              :disabled="saving || publishing || deleting"
-              @click="openPreview"
-            >
-              {{ saving ? 'Saving…' : 'Preview section' }}
-            </AuthorPillButton>
+            <div class="author-section-actions">
+              <AuthorPillButton
+                variant="white"
+                :disabled="saving || publishing || deleting"
+                @click="openQuestionReview"
+              >
+                Review questions
+              </AuthorPillButton>
+              <AuthorPillButton
+                variant="white"
+                :disabled="saving || publishing || deleting"
+                @click="openPreview"
+              >
+                {{ saving ? 'Saving…' : 'Preview section' }}
+              </AuthorPillButton>
+            </div>
           </template>
         </AuthorSectionHeader>
         <p class="author-muted">
@@ -526,6 +566,11 @@ defineExpose({ save })
         <p v-if="saveMessage" class="author-success">{{ saveMessage }}</p>
         <p v-if="activities.error" class="author-error">{{ activities.error }}</p>
       </div>
+      <QuestionReviewOverlay
+        v-if="reviewingQuestions"
+        :questions="reviewQuestions"
+        @close="reviewingQuestions = false"
+      />
     </div>
   </div>
 </template>

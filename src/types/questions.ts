@@ -298,6 +298,13 @@ export function configuredSurveyQuestions(
   return readQuestionBank(bank).questions.filter(surveyQuestionIsConfigured)
 }
 
+/** Configured questions from several banks, in the order learners see them. */
+export function configuredQuestionsInOrder(
+  banks: ReadonlyArray<ProcessQuestionBank | null | undefined>,
+): ProcessSurveyQuestion[] {
+  return banks.flatMap((bank) => configuredSurveyQuestions(bank ?? emptyQuestionBank()))
+}
+
 export function configuredAnswerEntries(question: ProcessSurveyQuestion) {
   return question.answers
     .map((answer, index) => ({

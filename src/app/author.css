@@ -252,6 +252,12 @@ fieldset.author-stack {
   color: var(--editor-ink);
 }
 
+.author-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .author-field {
   display: flex;
   min-height: 52px;
