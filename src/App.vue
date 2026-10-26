@@ -11,9 +11,10 @@ const isChromeLess = computed(
     route.meta.layout === 'author' ||
     route.meta.layout === 'player',
 )
+const showShell = computed(() => route.matched.length > 0 && !isChromeLess.value)
 </script>
 
 <template>
   <RouterView v-if="isChromeLess" />
-  <AppShell v-else />
+  <AppShell v-else-if="showShell" />
 </template>

@@ -13,4 +13,8 @@ import '@/app/container'
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
+
+// The initial route is unresolved until the first navigation finishes, and that
+// paints the generic shell before the real layout. Wait so the first paint is correct.
+await router.isReady()
 app.mount('#app')
