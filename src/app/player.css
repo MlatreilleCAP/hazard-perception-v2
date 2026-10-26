@@ -829,6 +829,19 @@ body:has(.player-page) {
   background: #ececec;
 }
 
+.process-theory-answer.is-key-target:not(:disabled):not(.correct):not(.incorrect) {
+  background: #ececec;
+}
+
+.process-theory-answer:focus,
+.process-theory-answer:focus-visible,
+.process-severity-label:focus,
+.process-severity-label:focus-visible,
+.process-question-continue:focus,
+.process-question-continue:focus-visible {
+  outline: none;
+}
+
 .process-theory-answer.correct:hover,
 .process-severity-option.correct:hover {
   background: #60a1a7;

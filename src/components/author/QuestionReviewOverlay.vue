@@ -233,12 +233,14 @@ onBeforeUnmount(() => {
                   v-if="current.kind === 'severity'"
                   :key="current.id"
                   :question="current"
+                  keyboard-nav
                   @complete="onComplete"
                 />
                 <ProcessTheoryPopover
                   v-else
                   :key="current.id"
                   :question="current"
+                  keyboard-nav
                   @complete="onComplete"
                 />
               </div>
