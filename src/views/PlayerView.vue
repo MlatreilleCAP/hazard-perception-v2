@@ -80,7 +80,7 @@ const activityId = computed(() =>
   typeof route.query.activity === 'string' ? route.query.activity : null,
 )
 const isPreview = computed(() => route.query.preview === '1')
-const isResultsPreview = computed(() => isPreview.value && route.query.section === 'results')
+const showPreviewZoom = computed(() => isPreview.value && Boolean(activityId.value))
 const previewRandomResults = computed(
   () => isPreview.value && route.query.results === 'random',
 )
@@ -426,11 +426,11 @@ function onExperienceFinished(): void {
     class="player-page"
     :class="{
       'is-waiting': Boolean(activityId) && !(hasExperience && definition),
-      'is-zoomable': isResultsPreview,
+      'is-zoomable': showPreviewZoom,
     }"
-    :style="isResultsPreview ? { '--preview-zoom': previewZoom } : undefined"
+    :style="showPreviewZoom ? { '--preview-zoom': previewZoom } : undefined"
   >
-    <div v-if="isResultsPreview" class="player-preview-zoom" aria-label="Zoom">
+    <div v-if="showPreviewZoom" class="player-preview-zoom" aria-label="Zoom">
       <button
         type="button"
         aria-label="Zoom out"
