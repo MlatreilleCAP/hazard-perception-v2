@@ -452,15 +452,6 @@ Copy: header row, then section | field | text
   Observe missed_2_attempts = Observe results subtext when hazard missed after 2 attempts
   Observe no_clicks_remain = caption when the learner has used every click
 
-Metadata: header row, then Video Folder | Metadata Name | Metadata text
-  Video Folder must match a media folder name (e.g. Observe Hazard Scenario).
-  Only rows for that folder are saved on that folder’s file and shown on preview.
-  Video and image folders: Country, Vehicle Type, core_competency
-  Audio (Hazard Summary Audio): Country, Language
-  Observe Hazard Scenario core_competency also fills the Observe hazard type.
-  core_competency: Attitude | Speed Management | Space Management |
-                   Danger Zones | Scanning | Other Motorists
-
 Questions: one row per Observe, Process, or Anticipate question
   Visible: section | kind | question_text | explanation | correct_explanation |
            show_explanation | correct | a_text | b_text | c_text

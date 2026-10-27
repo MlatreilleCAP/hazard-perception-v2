@@ -35,7 +35,7 @@ import {
   type AnticipateDefinition,
 } from '@/types/anticipate'
 import type { InroadsMvpDefinition } from '@/types/inroadsMvp'
-import { mediaAssetDisplayName, mediaClipMetadataPreviewRows } from '@/types/media'
+import { mediaAssetDisplayName } from '@/types/media'
 import {
   DEFAULT_PROCESS_INSTRUCTION_PILL,
   type ProcessDefinition,
@@ -234,7 +234,6 @@ async function lessonWorkbookContent(parentId: string): Promise<ImportWorkbookCo
   pushQuestions(questions, 'anticipate', 1, anticipate.segments[0]?.questions)
   pushQuestions(questions, 'anticipate', 2, anticipate.segments[1]?.questions)
 
-  const metadata = await metadataRowsFromMedia(mvp, see, process, anticipate)
   const country = canonicalizeLessonCountry(mvp.country) || 'Canada'
   const language = canonicalizeLessonLanguage(mvp.language) || 'English'
 
@@ -333,7 +332,6 @@ async function lessonWorkbookContent(parentId: string): Promise<ImportWorkbookCo
       secondScoreThreshold: thresholdText(anticipate.secondSegmentScoreThreshold, 100),
     },
     questions,
-    metadata: metadata.length ? metadata : undefined,
   }
 }
 
@@ -399,25 +397,3 @@ function mediaIdForSlot(
   return null
 }
 
-async function metadataRowsFromMedia(
-  mvp: InroadsMvpDefinition,
-  see: SeeDefinition,
-  process: ProcessDefinition,
-  anticipate: AnticipateDefinition,
-): Promise<Array<[string, string, string]>> {
-  const lines: Array<[string, string, string]> = []
-  for (const slot of TEMPLATE_FOLDER_SLOT_IDS) {
-    const mediaId = mediaIdForSlot(slot, mvp, see, process, anticipate)
-    if (!mediaId) continue
-    try {
-      const asset = await services.media.getAsset(mediaId)
-      for (const row of mediaClipMetadataPreviewRows(asset.metadata)) {
-        if (!row.name.trim() && !row.text.trim()) continue
-        lines.push([SLOT_FOLDER_LABELS[slot], row.name, row.text])
-      }
-    } catch {
-      // A missing media record should not block the workbook download.
-    }
-  }
-  return lines
-}

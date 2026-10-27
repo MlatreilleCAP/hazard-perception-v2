@@ -562,10 +562,7 @@ function parseMetadataSheet(
   textSource: WorkbookTextSource,
 ): Partial<Record<VideoSlotId, MediaClipMetadata>> {
   const sheet = findSheet(workbook, SHEET_NAMES.metadata)
-  if (!sheet) {
-    warnings.push(`Missing "${SHEET_NAMES.metadata}" sheet.`)
-    return {}
-  }
+  if (!sheet) return {}
 
   const records = sheetRecords(sheet)
   const raw: Partial<Record<VideoSlotId, Array<{ name: string; text: string }>>> = {}

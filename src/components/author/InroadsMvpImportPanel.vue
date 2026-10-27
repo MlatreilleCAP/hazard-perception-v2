@@ -233,7 +233,7 @@ async function onSlotFile(event: Event): Promise<void> {
   if (
     !window.confirm(
       slot === WORKBOOK_REPLACE_ID
-        ? `Replace lesson.xlsx with ${file.name}? Copy, questions, and metadata will update. Media files stay in place.`
+        ? `Replace lesson.xlsx with ${file.name}? Copy and questions will update. Media files stay in place.`
         : `Replace ${label}${current?.filename ? ` (${current.filename})` : ''} with ${file.name}?`,
     )
   ) {

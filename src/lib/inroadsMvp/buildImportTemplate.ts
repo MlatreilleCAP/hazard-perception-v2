@@ -85,8 +85,6 @@ export type ImportWorkbookContent = {
     segment: 1 | 2
     question: ProcessSurveyQuestion
   }>
-  /** When set, these rows replace the generated Metadata sheet body. */
-  metadata?: Array<[string, string, string]>
 }
 
 function copyRows(content: ImportWorkbookContent): string[][] {
@@ -122,55 +120,6 @@ function copyRows(content: ImportWorkbookContent): string[][] {
     ['anticipate', 'second_instruction_pill', content.anticipate.secondInstructionPill],
     ['anticipate', 'second_score_threshold', content.anticipate.secondScoreThreshold],
   ]
-}
-
-const VIDEO_IMAGE_META_NAMES: Array<
-  [string, (content: ImportWorkbookContent) => string]
-> = [
-  ['Country', (content) => content.country || 'Canada'],
-  ['Vehicle Type', () => 'Passenger Vehicle'],
-  ['core_competency', (content) => content.observe.coreCompetency],
-]
-
-const VIDEO_WITH_LANGUAGE_META_NAMES: Array<
-  [string, (content: ImportWorkbookContent) => string]
-> = [
-  ['Country', (content) => content.country || 'Canada'],
-  ['Language', (content) => content.language || 'English'],
-  ['Vehicle Type', () => 'Passenger Vehicle'],
-  ['core_competency', (content) => content.observe.coreCompetency],
-]
-
-const AUDIO_META_NAMES: Array<[string, (content: ImportWorkbookContent) => string]> = [
-  ['Country', (content) => content.country || 'Canada'],
-  ['Language', (content) => content.language || 'English'],
-]
-
-const METADATA_TEMPLATE_FOLDERS: Array<{
-  folder: string
-  names: Array<[string, (content: ImportWorkbookContent) => string]>
-}> = [
-  { folder: 'Observe Hazard Scenario', names: VIDEO_IMAGE_META_NAMES },
-  { folder: 'Observe Coaching Video', names: VIDEO_WITH_LANGUAGE_META_NAMES },
-  { folder: 'Process Lesson Video', names: VIDEO_WITH_LANGUAGE_META_NAMES },
-  { folder: 'Process Coaching Video', names: VIDEO_WITH_LANGUAGE_META_NAMES },
-  { folder: 'Anticipate Lesson Video', names: VIDEO_WITH_LANGUAGE_META_NAMES },
-  { folder: 'Anticipate Coaching Video', names: VIDEO_WITH_LANGUAGE_META_NAMES },
-  { folder: 'Observe Explanation Image', names: VIDEO_IMAGE_META_NAMES },
-  { folder: 'Hazard Summary Audio', names: AUDIO_META_NAMES },
-]
-
-function metadataRows(content: ImportWorkbookContent): string[][] {
-  if (content.metadata) {
-    return [['Video Folder', 'Metadata Name', 'Metadata text'], ...content.metadata]
-  }
-  const rows: string[][] = [['Video Folder', 'Metadata Name', 'Metadata text']]
-  for (const item of METADATA_TEMPLATE_FOLDERS) {
-    for (const [name, value] of item.names) {
-      rows.push([item.folder, name, value(content)])
-    }
-  }
-  return rows
 }
 
 function questionRow(
@@ -587,19 +536,6 @@ export async function buildWorkbookBytes(content: ImportWorkbookContent): Promis
     applyListValidation(questions, colNumber, 2, lastQuestionRow, values)
   }
   await protectSheet(questions, true)
-
-  const metadata = workbook.addWorksheet(SHEET_NAMES.metadata)
-  metadataRows(content).forEach((row) => metadata.addRow(row))
-  metadata.getRow(1).font = { bold: true }
-  metadata.getColumn(1).width = 28
-  metadata.getColumn(2).width = 22
-  metadata.getColumn(3).width = 48
-  metadata.eachRow((row, rowNumber) => {
-    row.eachCell((cell, colNumber) => {
-      lockCell(cell, rowNumber === 1 || colNumber === 1)
-    })
-  })
-  await protectSheet(metadata, true)
 
   const buffer = await workbook.xlsx.writeBuffer()
   return new Uint8Array(buffer)
