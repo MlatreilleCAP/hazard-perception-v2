@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
 import questionPassIcon from '@/assets/lesson/question-pass.svg'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
@@ -12,8 +12,6 @@ import {
 
 const props = defineProps<{
   question: ProcessSurveyQuestion
-  /** Arrow keys move between answers; Enter selects, then continues. */
-  keyboardNav?: boolean
 }>()
 
 const lessonButtonLabel = useLessonButtonLabel()
@@ -33,11 +31,9 @@ const locked = ref(false)
 const revealExplanation = ref(false)
 const showRevealContent = ref(false)
 const showCorrectHighlight = ref(false)
-const highlightIndex = ref(0)
 const cardEl = ref<HTMLElement | null>(null)
 const answersEl = ref<HTMLElement | null>(null)
 const answerBtnRefs = ref<HTMLButtonElement[]>([])
-const continueBtnEl = ref<HTMLButtonElement | null>(null)
 let revealTimer = 0
 
 const answers = computed(() => configuredAnswerEntries(props.question))
@@ -91,72 +87,9 @@ watch(
     revealExplanation.value = false
     showRevealContent.value = false
     showCorrectHighlight.value = false
-    highlightIndex.value = 0
     window.clearTimeout(revealTimer)
-    focusHighlightedAnswer()
   },
 )
-
-function isPreviewChromeTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof Element &&
-    Boolean(
-      target.closest(
-        'input, textarea, select, [contenteditable="true"], .question-review-tools, .question-review-resize',
-      ),
-    )
-  )
-}
-
-function focusHighlightedAnswer(): void {
-  if (!props.keyboardNav || locked.value) return
-  void nextTick(() => {
-    answerBtnRefs.value[highlightIndex.value]?.focus({ preventScroll: true })
-  })
-}
-
-function onAnswerFocus(index: number): void {
-  if (!props.keyboardNav || locked.value) return
-  highlightIndex.value = index
-}
-
-function moveHighlight(delta: number): void {
-  if (locked.value) return
-  const count = answers.value.length
-  if (count === 0) return
-  highlightIndex.value = Math.min(count - 1, Math.max(0, highlightIndex.value + delta))
-  focusHighlightedAnswer()
-}
-
-function submitHighlighted(): void {
-  const entry = answers.value[highlightIndex.value]
-  if (!entry) return
-  select(entry.index)
-}
-
-function onPreviewKeydown(event: KeyboardEvent): void {
-  if (!props.keyboardNav) return
-  if (event.metaKey || event.ctrlKey || event.altKey) return
-  if (isPreviewChromeTarget(event.target)) return
-
-  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    if (locked.value) return
-    event.preventDefault()
-    event.stopPropagation()
-    moveHighlight(event.key === 'ArrowDown' ? 1 : -1)
-    return
-  }
-
-  if (event.key !== 'Enter') return
-  event.preventDefault()
-  event.stopPropagation()
-  if (event.repeat) return
-  if (awaitingContinue.value && showRevealContent.value) {
-    continueToNext()
-    return
-  }
-  if (!locked.value) submitHighlighted()
-}
 
 function answerState(index: number): 'default' | 'correct' | 'incorrect' {
   if (!locked.value || !showFeedback.value) return 'default'
@@ -261,20 +194,8 @@ function continueToNext(): void {
   emit('complete')
 }
 
-watch(showRevealContent, (visible) => {
-  if (!props.keyboardNav || !visible) return
-  continueBtnEl.value?.focus({ preventScroll: true })
-}, { flush: 'post' })
-
-onMounted(() => {
-  if (!props.keyboardNav) return
-  window.addEventListener('keydown', onPreviewKeydown, true)
-  focusHighlightedAnswer()
-})
-
 onBeforeUnmount(() => {
   window.clearTimeout(revealTimer)
-  window.removeEventListener('keydown', onPreviewKeydown, true)
 })
 </script>
 
@@ -306,13 +227,9 @@ onBeforeUnmount(() => {
         :key="answer.index"
         type="button"
         class="process-theory-answer"
-        :class="[
-          answerState(answer.index),
-          { 'is-key-target': keyboardNav && !locked && highlightIndex === i },
-        ]"
+        :class="answerState(answer.index)"
         :disabled="locked"
         @click="select(answer.index)"
-        @focus="onAnswerFocus(i)"
       >
         {{ answer.text }}
       </button>
@@ -325,7 +242,6 @@ onBeforeUnmount(() => {
           {{ explanationText }}
         </p>
         <button
-          ref="continueBtnEl"
           type="button"
           class="process-question-continue"
           :class="{ 'is-visible': showRevealContent }"

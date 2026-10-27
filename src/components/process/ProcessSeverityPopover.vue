@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useLessonButtonLabel, useLessonSubmitLabel } from '@/lib/lesson/buttonLabel'
 import questionPassIcon from '@/assets/lesson/question-pass.svg'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
@@ -14,8 +14,6 @@ import {
 
 const props = defineProps<{
   question: ProcessSurveyQuestion
-  /** Left/right move the slider; Enter submits, then continues. */
-  keyboardNav?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -41,7 +39,6 @@ const submitted = ref(false)
 const revealExplanation = ref(false)
 const dragging = ref(false)
 const trackEl = ref<HTMLElement | null>(null)
-const continueBtnEl = ref<HTMLButtonElement | null>(null)
 let revealTimer = 0
 
 const optionLabels = computed(() => {
@@ -86,68 +83,8 @@ watch(
     revealExplanation.value = false
     draftIndex.value = Math.min(1, Math.max(0, answers.value.length - 1))
     window.clearTimeout(revealTimer)
-    focusSlider()
   },
 )
-
-function isPreviewChromeTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof Element &&
-    Boolean(
-      target.closest(
-        'input, textarea, select, [contenteditable="true"], .question-review-tools, .question-review-resize',
-      ),
-    )
-  )
-}
-
-function focusSlider(): void {
-  if (!props.keyboardNav || submitted.value) return
-  void nextTick(() => trackEl.value?.focus({ preventScroll: true }))
-}
-
-function severityIndexFromTarget(target: EventTarget | null): number | null {
-  if (!(target instanceof HTMLElement)) return null
-  const label = target.closest<HTMLElement>('[data-severity-index]')
-  if (!label) return null
-  const parsed = Number(label.dataset.severityIndex)
-  if (!Number.isInteger(parsed)) return null
-  if (parsed < 0 || parsed >= answers.value.length) return null
-  return parsed
-}
-
-function moveDraft(delta: number): void {
-  if (submitted.value) return
-  const last = Math.max(0, answers.value.length - 1)
-  draftIndex.value = Math.min(last, Math.max(0, draftIndex.value + delta))
-  focusSlider()
-}
-
-function onPreviewKeydown(event: KeyboardEvent): void {
-  if (!props.keyboardNav) return
-  if (event.metaKey || event.ctrlKey || event.altKey) return
-  if (isPreviewChromeTarget(event.target)) return
-
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-    event.preventDefault()
-    event.stopPropagation()
-    moveDraft(event.key === 'ArrowRight' ? 1 : -1)
-    return
-  }
-
-  if (event.key !== 'Enter') return
-  event.preventDefault()
-  event.stopPropagation()
-  if (event.repeat) return
-  if (awaitingContinue.value) {
-    continueToNext()
-    return
-  }
-  if (submitted.value) return
-  const focused = severityIndexFromTarget(event.target)
-  if (focused != null) draftIndex.value = focused
-  submit()
-}
 
 function snapIndexFromRatio(ratio: number): number {
   if (ratio < 0.33) return 0
@@ -186,7 +123,7 @@ function onWindowPointerUp(): void {
 }
 
 function onTrackKeyDown(event: KeyboardEvent): void {
-  if (props.keyboardNav || event.defaultPrevented || submitted.value) return
+  if (event.defaultPrevented || submitted.value) return
   if (event.key === 'ArrowLeft' && draftIndex.value > 0) {
     draftIndex.value -= 1
     event.preventDefault()
@@ -215,24 +152,15 @@ function continueToNext(): void {
   emit('complete')
 }
 
-watch(revealExplanation, (visible) => {
-  if (!props.keyboardNav || !visible) return
-  continueBtnEl.value?.focus({ preventScroll: true })
-}, { flush: 'post' })
-
 onMounted(() => {
   window.addEventListener('pointermove', onWindowPointerMove)
   window.addEventListener('pointerup', onWindowPointerUp)
-  if (!props.keyboardNav) return
-  window.addEventListener('keydown', onPreviewKeydown, true)
-  focusSlider()
 })
 
 onBeforeUnmount(() => {
   window.clearTimeout(revealTimer)
   window.removeEventListener('pointermove', onWindowPointerMove)
   window.removeEventListener('pointerup', onWindowPointerUp)
-  window.removeEventListener('keydown', onPreviewKeydown, true)
 })
 </script>
 
@@ -299,7 +227,6 @@ onBeforeUnmount(() => {
           :key="option.level"
           type="button"
           class="process-severity-label"
-          :data-severity-index="option.index"
           :class="{
             'is-start': option.index === 0,
             'is-end': option.index === optionLabels.length - 1,
@@ -351,7 +278,6 @@ onBeforeUnmount(() => {
           {{ explanationText }}
         </p>
         <button
-          ref="continueBtnEl"
           type="button"
           class="process-question-continue"
           :tabindex="awaitingContinue ? 0 : -1"

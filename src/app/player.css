@@ -829,10 +829,6 @@ body:has(.player-page) {
   background: #ececec;
 }
 
-.process-theory-answer.is-key-target:not(:disabled):not(.correct):not(.incorrect) {
-  background: #ececec;
-}
-
 .process-theory-answer:focus,
 .process-theory-answer:focus-visible,
 .process-severity-label:focus,

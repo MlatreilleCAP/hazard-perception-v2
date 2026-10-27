@@ -12,7 +12,6 @@ import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
-import QuestionReviewOverlay from '@/components/author/QuestionReviewOverlay.vue'
 import SeeTimelineEditor from '@/components/author/SeeTimelineEditor.vue'
 import { useAuthorAutosave } from '@/composables/useAuthorAutosave'
 import { useStudioAccess } from '@/composables/useStudioAccess'
@@ -29,7 +28,6 @@ import {
   type ObserveSummaryHeadings,
 } from '@/lib/lesson/buttonLabel'
 import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
-import { configuredQuestionsInOrder } from '@/types/questions'
 import {
   isSeeActivity,
   type SeeDefinition,
@@ -89,10 +87,6 @@ const title = ref('')
 const description = ref('')
 const sourceActivity = ref<ActivityDefinition | null>(null)
 const see = ref<SeeDefinition | null>(null)
-const reviewingQuestions = ref(false)
-const reviewQuestions = computed(() =>
-  configuredQuestionsInOrder((see.value?.hazards ?? []).map((hazard) => hazard.questions)),
-)
 const loadedSummaryHeadings = ref<ObserveSummaryHeadings>({ ...DEFAULT_OBSERVE_SUMMARY_HEADINGS })
 
 function summaryHeadingsFrom(source: Partial<ObserveSummaryHeadings> | null | undefined): ObserveSummaryHeadings {
@@ -288,10 +282,6 @@ watch(
   { deep: true },
 )
 
-function openQuestionReview(): void {
-  reviewingQuestions.value = true
-}
-
 async function openPreview(): Promise<void> {
   if (!activityId.value) return
   if (editable.value) {
@@ -379,13 +369,6 @@ defineExpose({ save })
           <AuthorPillButton
             variant="white"
             :disabled="saving || publishing || deleting"
-            @click="openQuestionReview"
-          >
-            Review questions
-          </AuthorPillButton>
-          <AuthorPillButton
-            variant="white"
-            :disabled="saving || publishing || deleting"
             @click="openPreview"
           >
             {{ saving ? 'Saving…' : 'Preview section' }}
@@ -410,13 +393,6 @@ defineExpose({ save })
         <AuthorSectionHeader title="Instruction">
           <template v-if="embedded" #action>
             <div class="author-section-actions">
-              <AuthorPillButton
-                variant="white"
-                :disabled="saving || publishing || deleting"
-                @click="openQuestionReview"
-              >
-                Review questions
-              </AuthorPillButton>
               <AuthorPillButton
                 variant="white"
                 :disabled="saving || publishing || deleting"
@@ -608,11 +584,6 @@ defineExpose({ save })
         <p v-if="saveMessage" class="author-success">{{ saveMessage }}</p>
         <p v-if="activities.error" class="author-error">{{ activities.error }}</p>
       </div>
-      <QuestionReviewOverlay
-        v-if="reviewingQuestions"
-        :questions="reviewQuestions"
-        @close="reviewingQuestions = false"
-      />
     </div>
   </div>
 </template>
