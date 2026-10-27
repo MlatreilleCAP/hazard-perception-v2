@@ -302,6 +302,7 @@ async function lessonWorkbookContent(parentId: string): Promise<ImportWorkbookCo
       timeOut: see.resultCopy.timeOut,
       missed1Attempt: see.resultCopy.missed1Attempt,
       missed2Attempt: see.resultCopy.missed2Attempt,
+      noClicksRemain: see.resultCopy.noClicksRemain,
       secondInstruction: hazard?.instructionText ?? '',
       secondInstructionPill: filledOrDefault(
         hazard?.instructionPill,
@@ -332,6 +333,7 @@ async function lessonWorkbookContent(parentId: string): Promise<ImportWorkbookCo
       secondScoreThreshold: thresholdText(anticipate.secondSegmentScoreThreshold, 100),
     },
     questions,
+    resultsChrome: mvp.resultsChrome,
   }
 }
 

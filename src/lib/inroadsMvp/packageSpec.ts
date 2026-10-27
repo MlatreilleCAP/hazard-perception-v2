@@ -401,75 +401,13 @@ Folder names (case-insensitive):
 
 Required folders: none. Videos in the named folders are optional.
 
-Workbook sheets
----------------
-Lesson: column A = key, column B = value
-  title
-  description
-  sku                   product identifier for this lesson
-  intro_first_visit     true or false (hidden)
-  language
-  button                label on every Continue / Start button in the lesson
-  submit                label on every severity-question Submit button in the lesson
-  challenge_passed      final results heading when the lesson is passed
-  challenge_failed      final results heading when the lesson is failed
-  Maneuver              clip-intro heading; column B is the label shown to the learner
-  Roadway               clip-intro heading; column B is the label shown to the learner
-  Traffic Density       clip-intro heading; column B is the label shown to the learner
-  Time of Day           clip-intro heading; column B is the label shown to the learner
-  Road Conditions       clip-intro heading; column B is the label shown to the learner
-  pts                   final results score suffix
-  Detection             final results Observe metric
-  Accuracy              final results Observe metric
-  Coaching              final results coaching metric
-  Q1                    final results label for question 1
-  Q2                    final results label for question 2
-  Q3                    final results label for question 3
-  Observation           final results Observe section title
-  Process               final results Process section title
-  Anticipation          final results Anticipate section title
-
-Copy: header row, then section | field | text
-  (sheet name Instructions, Copy, or Instruction)
-  section: observe | process | anticipate
-  field: instruction | instruction_pill | second_instruction |
-         second_instruction_pill | second_score_threshold |
-         maneuver | roadway | traffic_density | time_of_day | road_conditions |
-         hazard_explanation | success_result | fail_screen | 2_attempts |
-         3_attempts | time_out | missed_1_attempt | missed_2_attempts |
-         no_clicks_remain
-  Observe instruction / instruction_pill = scenario overlay on the hazard clip
-  Observe second_instruction / second_instruction_pill = coaching clip overlay
-  Observe maneuver / roadway / traffic_density / time_of_day / road_conditions
-         = Observe clip summary (not media-library metadata)
-  Observe hazard_explanation = Observe hazard details text
-  Observe success_result = Observe results header when hazard spotted on 1st attempt
-  Observe fail_screen = Observe results header for all non-first-attempt outcomes
-  Observe 2_attempts = Observe results subtext when hazard spotted on 2nd attempt
-  Observe 3_attempts = Observe results subtext when hazard spotted on 3rd attempt
-  Observe time_out = Observe results subtext when hazard missed with 0 attempts
-  Observe missed_1_attempt = Observe results subtext when hazard missed after 1 attempt
-  Observe missed_2_attempts = Observe results subtext when hazard missed after 2 attempts
-  Observe no_clicks_remain = caption when the learner has used every click
-
-Questions: one row per Observe, Process, or Anticipate question
-  Visible: section | kind | question_text | explanation | correct_explanation |
-           show_explanation | correct | a_text | b_text | c_text
-  Hidden/locked: segment, a–c points, and D–F answers
-  section: observe | process | anticipate
-  kind: severity | theory
-  explanation = incorrect / standard explanation
-  show_explanation: never | incorrect | correct | always
-    (legacy true/false still accepted: false = never; true = incorrect for theory,
-     always for severity)
-    Controls when explanation text is shown after an answer.
-    The correct answer is always revealed and incorrect answers are removed.
-  correct_explanation = unused
-  correct: A-C
-  Correct answers are always worth 10 points.
-  Observe questions attach to the first Observe hazard.
-
-Lesson intro_first_visit and Instructions second_score_threshold rows are hidden and locked.
+Workbook
+--------
+One sheet named "Activity text".
+Columns: Screen | Element | Text | Upload text | When
+Text is the source copy. Upload text is what this lesson version uses.
+Mark the correct choice as "Answer A (correct)" (B, C, …).
+Leave the When column as it is; it tells the importer which line is which.
 
 Draw additional tap hazards in the Observe editor after import if needed.
 
