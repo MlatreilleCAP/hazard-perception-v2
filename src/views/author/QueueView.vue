@@ -6,6 +6,8 @@ import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import { services } from '@/app/container'
 import { useStudioAccess } from '@/composables/useStudioAccess'
+import { downloadBlob } from '@/lib/inroadsMvp/buildImportTemplate'
+import { exportLessonTemplateZip } from '@/services/exportInroadsMvpPackage'
 import {
   publishInroadsMvpLesson,
   setLessonReviewNotes,
@@ -48,6 +50,7 @@ const loading = ref(true)
 const activeStatus = ref<LessonReviewStatus>('draft')
 const menuOpenId = ref<string | null>(null)
 const updatingId = ref<string | null>(null)
+const downloadingId = ref<string | null>(null)
 const savingNotesId = ref<string | null>(null)
 const actionError = ref<string | null>(null)
 
@@ -154,6 +157,20 @@ function onNotesChange(row: QueueRow, event: Event): void {
   void saveNotes(row)
 }
 
+async function downloadAssets(row: QueueRow): Promise<void> {
+  if (row.status !== 'approved' || downloadingId.value) return
+  downloadingId.value = row.id
+  actionError.value = null
+  try {
+    const packed = await exportLessonTemplateZip(row.id, { includeMedia: true })
+    downloadBlob(packed.blob, packed.filename)
+  } catch (cause) {
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to download assets'
+  } finally {
+    downloadingId.value = null
+  }
+}
+
 async function saveNotes(row: QueueRow): Promise<void> {
   if (!isAdmin.value || savingNotesId.value === row.id) return
   const notes = row.reviewNotes.trim()
@@ -232,6 +249,15 @@ async function saveNotes(row: QueueRow): Promise<void> {
               <p class="author-list-sub">{{ localeLabel(row) }}</p>
             </div>
             <AuthorStatusChip :label="lessonQueueStatusLabel(row.status)" />
+            <button
+              v-if="row.status === 'approved'"
+              type="button"
+              class="author-pill author-pill-white"
+              :disabled="downloadingId === row.id"
+              @click="downloadAssets(row)"
+            >
+              {{ downloadingId === row.id ? 'Downloading…' : 'Download assets' }}
+            </button>
             <RouterLink
               class="author-pill author-pill-white"
               :to="{
