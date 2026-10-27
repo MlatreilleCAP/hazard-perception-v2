@@ -67,7 +67,6 @@ export function fileMatchesSlot(slot: VideoSlotId, file: File): boolean {
 
 export const TEMPLATE_FOLDER_SLOT_IDS: readonly VideoSlotId[] = [
   'preview-image',
-  'intro',
   'observe-1',
   'observe-summary-audio',
   'observe-coaching',
@@ -298,9 +297,8 @@ export function isMediaName(filename: string): boolean {
 
 /** Video slots that may include a sibling .vtt captions file in the same folder. */
 export function slotSupportsCaptions(slot: VideoSlotId): boolean {
-  // Lesson/scenario clips are interactive or silent; captions belong on coaching / intro.
+  // Lesson/scenario clips are interactive or silent; captions belong on coaching videos.
   return (
-    slot === 'intro' ||
     slot === 'observe-coaching' ||
     slot === 'process-2' ||
     slot === 'anticipate-2'
@@ -383,13 +381,12 @@ Upload one zip that contains:
 
 Download template is that zip with lesson.xlsx and the named folders already created.
 Put one video in each folder you want filled. On import, the workbook and those videos
-are applied to the builder together (intro, Observe, Process, Anticipate slots).
+are applied to the builder together (Observe, Process, and Anticipate slots).
 Put a .vtt next to a video (same folder; same basename preferred) to attach captions.
 
 Folder names (case-insensitive):
 
   Preview Image/             (JPG, PNG, WebP, or GIF — demo tile and title screen)
-  Intro Video/
   Observe Hazard Scenario/
   Hazard Summary Audio/       (MP3, M4A, WAV, or OGG — plays after the learner taps Continue)
   Observe Coaching Video/     (missed-hazard / coaching clip on Observe)

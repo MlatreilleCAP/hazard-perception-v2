@@ -1,5 +1,4 @@
 import { readAnticipateDefinition } from '@/activities/anticipateDefinition'
-import { readIntroductionDefinition } from '@/activities/introductionDefinition'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { readProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition } from '@/activities/seeDefinition'
@@ -117,8 +116,6 @@ async function collectLessonMediaFiles(
   const see = readSeeDefinition(await loadActivityOrThrow(mvp.seeActivityId))
   const process = readProcessDefinition(await loadActivityOrThrow(mvp.processActivityId))
   const anticipate = readAnticipateDefinition(await loadActivityOrThrow(mvp.anticipateActivityId))
-  const introCaptionsId = await introCaptionsMediaId(mvp)
-
   const files: ImportZipFolderFile[] = []
   for (const slot of TEMPLATE_FOLDER_SLOT_IDS) {
     const folder = SLOT_FOLDER_LABELS[slot]
@@ -145,13 +142,7 @@ async function collectLessonMediaFiles(
     }
 
     if (!slotSupportsCaptions(slot)) continue
-    const captionsId = captionsIdForSlot(
-      slot,
-      introCaptionsId,
-      see,
-      process,
-      anticipate,
-    )
+    const captionsId = captionsIdForSlot(slot, see, process, anticipate)
     if (!captionsId) continue
     onProgress?.(`Packing captions for ${folder}…`)
     try {
@@ -179,26 +170,12 @@ async function collectLessonMediaFiles(
   return files
 }
 
-async function introCaptionsMediaId(mvp: InroadsMvpDefinition): Promise<string | null> {
-  if (!mvp.introductionActivityId) return null
-  try {
-    const intro = readIntroductionDefinition(
-      await loadActivityOrThrow(mvp.introductionActivityId),
-    )
-    return intro.introCaptions?.media_asset_id ?? null
-  } catch {
-    return null
-  }
-}
-
 function captionsIdForSlot(
   slot: VideoSlotId,
-  introCaptionsId: string | null,
   see: SeeDefinition,
   process: ProcessDefinition,
   anticipate: AnticipateDefinition,
 ): string | null {
-  if (slot === 'intro') return introCaptionsId
   if (slot === 'observe-coaching') {
     return see.hazards[0]?.missedVideoCaptions?.media_asset_id ?? null
   }
@@ -387,7 +364,6 @@ function mediaIdForSlot(
   anticipate: AnticipateDefinition,
 ): string | null {
   if (slot === 'preview-image') return mvp.previewImage?.media_asset_id ?? null
-  if (slot === 'intro') return mvp.introMedia?.media_asset_id ?? null
   if (slot === 'observe-1') return see.media?.media_asset_id ?? null
   if (slot === 'observe-summary-audio') return see.introAudio?.media_asset_id ?? null
   if (slot === 'observe-coaching') return see.hazards[0]?.missedVideo?.media_asset_id ?? null

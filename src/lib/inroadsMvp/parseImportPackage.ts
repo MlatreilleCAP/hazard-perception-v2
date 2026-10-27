@@ -719,6 +719,11 @@ export async function parseImportZip(
 
     if (isVttName(path)) {
       const slot = matchMediaSlotFromPath(path)
+      if (slot === 'intro') {
+        unusedFiles.push(path)
+        warnings.push(`Ignored ${path}. The Intro Video folder is not part of the template.`)
+        continue
+      }
       if (!slot || !slotSupportsCaptions(slot)) {
         unusedFiles.push(path)
         warnings.push(
@@ -745,6 +750,11 @@ export async function parseImportZip(
     }
 
     const slot = matchMediaSlotFromPath(path)
+    if (slot === 'intro') {
+      unusedFiles.push(path)
+      warnings.push(`Ignored ${path}. The Intro Video folder is not part of the template.`)
+      continue
+    }
     if (!slot) {
       unusedFiles.push(path)
       warnings.push(
