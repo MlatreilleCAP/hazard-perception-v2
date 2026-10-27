@@ -2,10 +2,15 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
+import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import { services } from '@/app/container'
 import { useStudioAccess } from '@/composables/useStudioAccess'
-import { publishInroadsMvpLesson, setLessonReviewStatus } from '@/services/publishInroadsMvp'
+import {
+  publishInroadsMvpLesson,
+  setLessonReviewNotes,
+  setLessonReviewStatus,
+} from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 import {
   isInroadsMvpActivity,
@@ -23,6 +28,8 @@ type QueueRow = {
   country: string
   language: string
   status: LessonReviewStatus
+  reviewNotes: string
+  savedNotes: string
 }
 
 type ReviewAction = LessonReviewStatus
@@ -40,6 +47,7 @@ const loading = ref(true)
 const activeStatus = ref<LessonReviewStatus>('draft')
 const menuOpenId = ref<string | null>(null)
 const updatingId = ref<string | null>(null)
+const savingNotesId = ref<string | null>(null)
 const actionError = ref<string | null>(null)
 
 const visibleRows = computed(() => rows.value.filter((row) => row.status === activeStatus.value))
@@ -78,12 +86,15 @@ onMounted(async () => {
       try {
         const definition = await services.persistence.getById(item.id)
         const mvp = definition ? readInroadsMvpDefinition(definition) : null
+        const reviewNotes = mvp?.reviewNotes ?? ''
         return {
           id: item.id,
           title: definition?.metadata.title.trim() || item.title,
           country: mvp?.country.trim() ?? '',
           language: mvp?.language.trim() ?? '',
           status: lessonQueueStatus(mvp?.reviewStatus, item.published),
+          reviewNotes,
+          savedNotes: reviewNotes,
         }
       } catch {
         return {
@@ -92,6 +103,8 @@ onMounted(async () => {
           country: '',
           language: '',
           status: lessonQueueStatus('draft', item.published),
+          reviewNotes: '',
+          savedNotes: '',
         }
       }
     }),
@@ -130,6 +143,30 @@ async function updateStatus(row: QueueRow, status: ReviewAction): Promise<void> 
     actionError.value = cause instanceof Error ? cause.message : 'Failed to update status'
   } finally {
     updatingId.value = null
+  }
+}
+
+function onNotesChange(row: QueueRow, event: Event): void {
+  const field = event.target
+  if (!(field instanceof HTMLTextAreaElement)) return
+  row.reviewNotes = field.value
+  void saveNotes(row)
+}
+
+async function saveNotes(row: QueueRow): Promise<void> {
+  if (!isAdmin.value || savingNotesId.value === row.id) return
+  const notes = row.reviewNotes.trim()
+  if (notes === row.savedNotes) return
+  savingNotesId.value = row.id
+  actionError.value = null
+  try {
+    await setLessonReviewNotes(row.id, notes)
+    row.reviewNotes = notes
+    row.savedNotes = notes
+  } catch (cause) {
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to save notes'
+  } finally {
+    savingNotesId.value = null
   }
 }
 </script>
@@ -180,7 +217,13 @@ async function updateStatus(row: QueueRow, status: ReviewAction): Promise<void> 
         </div>
 
         <ul v-else class="author-list">
-          <li v-for="row in visibleRows" :key="row.id" class="author-list-row">
+          <li
+            v-for="row in visibleRows"
+            :key="row.id"
+            class="author-list-row"
+            :class="{ 'has-notes': row.status === 'changes_requested' }"
+          >
+            <div class="queue-row-main">
             <div style="min-width: 0; flex: 1">
               <RouterLink :to="`/studio/inroads-mvp/${row.id}`" class="author-list-title">
                 {{ row.title }}
@@ -254,6 +297,22 @@ async function updateStatus(row: QueueRow, status: ReviewAction): Promise<void> 
                   {{ updatingId === row.id ? 'Publishing…' : 'Publish' }}
                 </button>
               </div>
+            </div>
+            </div>
+            <div
+              v-if="row.status === 'changes_requested'"
+              class="queue-notes"
+              @change="onNotesChange(row, $event)"
+            >
+              <AuthorField
+                :id="`queue-notes-${row.id}`"
+                v-model="row.reviewNotes"
+                label="Notes"
+                multiline
+                :rows="3"
+                placeholder="What needs to change?"
+                :disabled="!isAdmin || savingNotesId === row.id"
+              />
             </div>
           </li>
         </ul>

@@ -495,6 +495,22 @@ fieldset.author-stack {
   background: #fafafa;
 }
 
+.author-list-row.has-notes {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.queue-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.queue-notes {
+  margin-top: 12px;
+}
+
 .author-list-title {
   margin: 0;
   font-size: 14px;

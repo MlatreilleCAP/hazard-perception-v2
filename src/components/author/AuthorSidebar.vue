@@ -82,7 +82,7 @@ const peopleOpen = computed(
         class="author-nav-link"
         :class="{ active: queueOpen }"
       >
-        Queue
+        Queue (Not in Scope)
       </RouterLink>
       <RouterLink
         v-if="auth.isAdmin"

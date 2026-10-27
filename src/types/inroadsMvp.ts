@@ -59,6 +59,8 @@ export type InroadsMvpDefinition = {
   version: 1
   /** Absent until someone sets a queue status. A live publish stays published until then. */
   reviewStatus?: LessonReviewStatus
+  /** Reviewer notes shown on Changes requested queue rows. */
+  reviewNotes: string
   /** Section 1 — intro clip before Observe / Process / Anticipate. */
   introMedia: MediaRef | null
   introShowOnFirstVisitOnly: boolean
@@ -138,6 +140,7 @@ export function createDefaultInroadsMvpDefinition(
   return {
     version: 1,
     reviewStatus: 'draft',
+    reviewNotes: '',
     introMedia: null,
     introShowOnFirstVisitOnly: true,
     introductionActivityId: '',
@@ -179,6 +182,7 @@ export function cloneInroadsMvpDefinition(
   return {
     version: 1,
     reviewStatus: readLessonReviewStatus(definition.reviewStatus),
+    reviewNotes: definition.reviewNotes.trim(),
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
@@ -251,6 +255,7 @@ export function normalizeInroadsMvpDefinition(
   return {
     version: 1,
     reviewStatus: readLessonReviewStatus(raw.reviewStatus),
+    reviewNotes: typeof raw.reviewNotes === 'string' ? raw.reviewNotes.trim() : '',
     introMedia,
     introShowOnFirstVisitOnly: raw.introShowOnFirstVisitOnly !== false,
     introductionActivityId:

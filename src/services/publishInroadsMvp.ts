@@ -67,3 +67,12 @@ export async function setLessonReviewStatus(
     writeInroadsMvpDefinition(parent, { ...mvp, reviewStatus: status }),
   )
 }
+
+export async function setLessonReviewNotes(parentId: string, notes: string): Promise<void> {
+  const parent = await loadActivityOrThrow(parentId)
+  const mvp = readInroadsMvpDefinition(parent)
+  if (!mvp) throw new Error('Inroads MVP definition was not found')
+  await services.persistence.save(
+    writeInroadsMvpDefinition(parent, { ...mvp, reviewNotes: notes.trim() }),
+  )
+}
