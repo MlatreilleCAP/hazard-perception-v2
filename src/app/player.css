@@ -1721,8 +1721,7 @@ body:has(.player-page) {
   gap: 12px;
 }
 
-.lesson-results-section-title,
-.lesson-results-section-pts {
+.lesson-results-section-title {
   margin: 0;
   font-family: var(--font-poppins);
   font-size: 12.96px;
@@ -1770,6 +1769,15 @@ body:has(.player-page) {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.lesson-results-metrics.is-centered {
+  justify-content: center;
+  gap: 48px;
+}
+
+.lesson-results-metrics.is-centered .lesson-results-metric {
+  flex: 0 1 6.5rem;
 }
 
 .lesson-results-metric {

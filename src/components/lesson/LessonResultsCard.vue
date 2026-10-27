@@ -10,7 +10,6 @@ import {
 import { resultsChromeLabel, useResultsChrome } from '@/lib/lesson/resultsChrome'
 import LessonAccuracyIcon from '@/components/lesson/LessonAccuracyIcon.vue'
 import LessonMetricRing from '@/components/lesson/LessonMetricRing.vue'
-import metricCoachingIdleIcon from '@/assets/lesson/metric-coaching-idle.svg'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
 import metricPassIcon from '@/assets/lesson/metric-pass.svg'
 import backIcon from '@/assets/lesson/results/back.svg'
@@ -190,10 +189,16 @@ const percentDeltaDown = computed(() => (props.percentDelta ?? 0) < 0)
 const percentDeltaAbs = computed(() => Math.abs(Math.round(props.percentDelta ?? 0)))
 
 function metricIcon(metric: LessonMetricToken): string {
-  if (metric.id === 'coaching') {
-    return metric.status === 'idle' ? metricCoachingIdleIcon : metricFailIcon
-  }
   return metric.status === 'pass' ? metricPassIcon : metricFailIcon
+}
+
+function sectionMetrics(section: LessonResultsSection): LessonMetricToken[] {
+  if (section.id !== 'see') return section.metrics
+  return section.metrics.filter((metric) => metric.id !== 'coaching' || metric.status !== 'idle')
+}
+
+function centerSectionMetrics(section: LessonResultsSection): boolean {
+  return section.id === 'see' && sectionMetrics(section).length < section.metrics.length
 }
 
 function metricAlt(metric: LessonMetricToken): string {
@@ -218,10 +223,11 @@ function sectionTitle(section: LessonResultsSection): string {
 function displayedMetricLabel(metric: LessonMetricToken): string {
   if (metric.id === 'detection') return resultsLabels.value.detection
   if (metric.id === 'accuracy') return resultsLabels.value.accuracy
-  if (metric.id === 'coaching') return resultsLabels.value.coaching
-  const question = /^Q(\d+)$/.exec(metric.label.trim())
-  if (question) return lessonResultsQuestionLabel(resultsLabels.value, Number(question[1]) - 1)
-  return metric.label
+  if (metric.id === 'coaching') return lessonResultsQuestionLabel(resultsLabels.value, 0)
+  const question = /^(\+)?Q(\d+)$/.exec(metric.label.trim())
+  if (!question) return metric.label
+  const label = lessonResultsQuestionLabel(resultsLabels.value, Number(question[2]) - 1)
+  return question[1] ? `+${label}` : label
 }
 
 function sectionDelay(index: number): string {
@@ -295,7 +301,6 @@ function goToSession(): void {
           >
             <div class="lesson-results-section-head">
               <p class="lesson-results-section-title">{{ sectionTitle(section) }}</p>
-              <p class="lesson-results-section-pts">{{ section.points }} {{ resultsLabels.pts }}</p>
             </div>
             <div class="lesson-results-bar" aria-hidden="true">
               <span
@@ -307,9 +312,13 @@ function goToSession(): void {
                 }"
               />
             </div>
-            <ul v-if="section.metrics.length > 0" class="lesson-results-metrics">
+            <ul
+              v-if="sectionMetrics(section).length > 0"
+              class="lesson-results-metrics"
+              :class="{ 'is-centered': centerSectionMetrics(section) }"
+            >
               <li
-                v-for="(metric, metricIndex) in section.metrics"
+                v-for="(metric, metricIndex) in sectionMetrics(section)"
                 :key="metric.id"
                 class="lesson-results-metric"
                 :style="{ animationDelay: metricDelay(sectionIndex, metricIndex) }"

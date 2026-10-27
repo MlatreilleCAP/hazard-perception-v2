@@ -395,7 +395,7 @@ export function accuracySegmentsFromAttempts(attempts: number): number {
   return 4 - band
 }
 
-/** Build Detection / Accuracy / Coaching tokens from Observe hazard outcomes. */
+/** Build Detection / Accuracy / Q1 tokens from Observe hazard outcomes. */
 export function buildObserveMetrics(
   hazards: LessonSeeHazardResult[],
   spotted: number,
@@ -438,7 +438,7 @@ export function buildObserveMetrics(
 function coachingQuestionMetric(correct: boolean, id: string): LessonMetricToken {
   return {
     id,
-    label: 'Q4',
+    label: '+Q4',
     status: correct ? 'pass' : 'fail',
   }
 }
