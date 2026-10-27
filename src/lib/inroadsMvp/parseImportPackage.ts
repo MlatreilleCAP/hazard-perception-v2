@@ -295,6 +295,38 @@ function bytesToVideoFile(path: string, bytes: Uint8Array): File {
   return new File([blob], name, { type, lastModified: Date.now() })
 }
 
+function emptyLessonFields(): ImportedLessonFields {
+  return {
+    title: '',
+    description: '',
+    introFirstVisit: null,
+    country: '',
+    language: '',
+    sku: null,
+    button: null,
+    submit: null,
+    challengePassed: null,
+    challengeFailed: null,
+    maneuverHeading: null,
+    roadwayHeading: null,
+    trafficDensityHeading: null,
+    timeOfDayHeading: null,
+    roadConditionsHeading: null,
+    pts: null,
+    detection: null,
+    accuracy: null,
+    coaching: null,
+    q1: null,
+    q2: null,
+    q3: null,
+    q4: null,
+    observation: null,
+    processSection: null,
+    anticipation: null,
+    resultsChrome: {},
+  }
+}
+
 function parseLessonSheet(
   workbook: XLSX.WorkBook,
   warnings: string[],
@@ -302,35 +334,7 @@ function parseLessonSheet(
   const sheet = findSheet(workbook, SHEET_NAMES.lesson)
   if (!sheet) {
     warnings.push(`Missing "${SHEET_NAMES.lesson}" sheet.`)
-    return {
-      title: '',
-      description: '',
-      introFirstVisit: null,
-      country: '',
-      language: '',
-      sku: null,
-      button: null,
-      submit: null,
-      challengePassed: null,
-      challengeFailed: null,
-      maneuverHeading: null,
-      roadwayHeading: null,
-      trafficDensityHeading: null,
-      timeOfDayHeading: null,
-      roadConditionsHeading: null,
-      pts: null,
-      detection: null,
-      accuracy: null,
-      coaching: null,
-      q1: null,
-      q2: null,
-      q3: null,
-      q4: null,
-      observation: null,
-      processSection: null,
-      anticipation: null,
-      resultsChrome: {},
-    }
+    return emptyLessonFields()
   }
 
   const lesson: ImportedLessonFields = {
@@ -670,7 +674,16 @@ function pickCaptionForSlot(
   return chosen
 }
 
-export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage> {
+export type ParseImportZipOptions = {
+  /** When false, a workbook in the zip is ignored and lesson text stays unchanged. */
+  requireWorkbook?: boolean
+}
+
+export async function parseImportZip(
+  zipFile: File,
+  options: ParseImportZipOptions = {},
+): Promise<ParsedImportPackage> {
+  const requireWorkbook = options.requireWorkbook !== false
   const warnings: string[] = []
   const unusedFiles: string[] = []
   const videos: Partial<Record<VideoSlotId, ImportedVideoFile>> = {}
@@ -685,6 +698,13 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
     if (shouldIgnoreZipPath(path)) continue
 
     if (isWorkbookName(path)) {
+      if (!requireWorkbook) {
+        unusedFiles.push(path)
+        warnings.push(
+          `Ignored ${path}. Choose Text file or Full package to update the spreadsheet.`,
+        )
+        continue
+      }
       const name = basename(path).toLowerCase()
       const isCanonical = name === 'lesson.xlsx' || name === 'lesson.xls'
       const haveCanonical = workbookPath
@@ -769,14 +789,19 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
     }
   }
 
-  if (!workbookBytes) {
+  const parsed = requireWorkbook
+    ? workbookBytes
+      ? parseWorkbookBytes(workbookBytes, warnings, 'upload')
+      : null
+    : null
+  const englishText =
+    requireWorkbook && workbookBytes ? parseWorkbookBytes(workbookBytes, [], 'text') : undefined
+
+  if (requireWorkbook && !workbookBytes) {
     throw new Error('Zip must include lesson.xls or lesson.xlsx.')
   }
 
-  const parsed = parseWorkbookBytes(workbookBytes, warnings, 'upload')
-  const englishText = parseWorkbookBytes(workbookBytes, [], 'text')
-
-  const missing = REQUIRED_VIDEO_SLOTS.filter((slot) => !videos[slot])
+  const missing = requireWorkbook ? REQUIRED_VIDEO_SLOTS.filter((slot) => !videos[slot]) : []
   if (missing.length > 0) {
     warnings.push(
       `No video in ${missing.map((slot) => SLOT_FOLDER_LABELS[slot]).join(', ')}.`,
@@ -808,6 +833,22 @@ export async function parseImportZip(zipFile: File): Promise<ParsedImportPackage
       unusedFiles,
     )
     if (chosen) captions[slotKey] = chosen
+  }
+
+  if (!parsed) {
+    if (Object.keys(videos).length === 0 && Object.keys(captions).length === 0) {
+      throw new Error('Zip has no media files in the named folders.')
+    }
+    return {
+      lesson: emptyLessonFields(),
+      copy: {},
+      questions: [],
+      mediaMetadata: {},
+      videos,
+      captions,
+      warnings,
+      unusedFiles,
+    }
   }
 
   return {

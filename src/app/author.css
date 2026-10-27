@@ -744,12 +744,14 @@ fieldset.author-stack {
 }
 
 .inroads-download-menu,
+.inroads-import-menu,
 .inroads-replace-menu {
   left: 0;
   right: auto;
 }
 
-.inroads-download-menu {
+.inroads-download-menu,
+.inroads-import-menu {
   min-width: 240px;
 }
 
