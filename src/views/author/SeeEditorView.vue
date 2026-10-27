@@ -15,6 +15,7 @@ import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import SeeTimelineEditor from '@/components/author/SeeTimelineEditor.vue'
 import { useAuthorAutosave } from '@/composables/useAuthorAutosave'
 import { useStudioAccess } from '@/composables/useStudioAccess'
+import { contentReadonlyMessage } from '@/lib/auth/roles'
 import { services } from '@/app/container'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
@@ -74,7 +75,7 @@ const emit = defineEmits<{
 const route = useRoute()
 const router = useRouter()
 const activities = useActivityStore()
-const { canEdit } = useStudioAccess()
+const { canEditLesson } = useStudioAccess()
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)
@@ -110,7 +111,10 @@ const isPublished = computed(
   () => activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
 )
 const editable = computed(() =>
-  canEdit(sourceActivity.value?.metadata.authorId ?? activities.current?.metadata.authorId),
+  canEditLesson(
+    sourceActivity.value?.metadata.authorId ?? activities.current?.metadata.authorId,
+    isPublished.value,
+  ),
 )
 
 const instructionText = computed({
@@ -385,7 +389,7 @@ defineExpose({ save })
       </div>
 
       <p v-if="!editable" class="author-readonly-banner">
-        View only — you can open this scenario, but only the owner or an admin can edit it.
+        {{ contentReadonlyMessage('scenario', isPublished) }}
       </p>
 
       <fieldset class="author-stack" :disabled="!editable">

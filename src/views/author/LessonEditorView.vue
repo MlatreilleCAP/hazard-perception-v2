@@ -12,6 +12,7 @@ import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import { useStudioAccess } from '@/composables/useStudioAccess'
+import { contentReadonlyMessage } from '@/lib/auth/roles'
 import { useActivityStore } from '@/stores/activityStore'
 import type { ActivitySummary } from '@/types/activity'
 import {
@@ -39,7 +40,7 @@ type SectionPick = {
 const route = useRoute()
 const router = useRouter()
 const activities = useActivityStore()
-const { canEdit } = useStudioAccess()
+const { canEditLesson } = useStudioAccess()
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)
@@ -65,7 +66,9 @@ const isPublished = computed(
     activities.summaries.find((item) => item.id === activityId.value)?.published ??
     false,
 )
-const editable = computed(() => canEdit(activities.current?.metadata.authorId))
+const editable = computed(() =>
+  canEditLesson(activities.current?.metadata.authorId, isPublished.value),
+)
 
 const seeCatalog = computed(() =>
   activities.summaries.filter(
@@ -372,7 +375,7 @@ async function remove(): Promise<void> {
 
       <template v-else>
         <p v-if="!editable" class="author-readonly-banner">
-          View only — you can open this lesson, but only the owner or an admin can edit it.
+          {{ contentReadonlyMessage('lesson', isPublished) }}
         </p>
         <p class="author-muted">
           Choose Observe, Process, and Anticipate content for this lesson.

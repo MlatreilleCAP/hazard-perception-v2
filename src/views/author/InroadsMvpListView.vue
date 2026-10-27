@@ -13,7 +13,7 @@ import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
 
 const activities = useActivityStore()
 const router = useRouter()
-const { canCreate, canEdit } = useStudioAccess()
+const { canCreate, canEditLesson, canRemoveLesson } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
 const searchQuery = ref('')
 const duplicatingId = ref<string | null>(null)
@@ -27,6 +27,7 @@ type LessonListRow = {
   title: string
   id: string
   published: boolean
+  openedPublished: boolean
   updatedAt: string
   createdBy: string | null
   versionCount: number
@@ -50,6 +51,7 @@ function groupLessonRows(summaries: ActivitySummary[]): LessonListRow[] {
         title: representative.title,
         id: representative.id,
         published: group.some((item) => item.published),
+        openedPublished: representative.published,
         updatedAt: representative.updatedAt,
         createdBy: representative.createdBy,
         versionCount: group.length,
@@ -179,7 +181,7 @@ async function remove(row: LessonListRow): Promise<void> {
               </RouterLink>
               <p class="author-list-sub">
                 {{ item.published ? 'Published' : 'Draft'
-                }}{{ canEdit(item.createdBy) ? '' : ' · View only' }}
+                }}{{ canEditLesson(item.createdBy, item.openedPublished) ? '' : ' · View only' }}
                 · {{ languagesLabel(item.versionCount) }}
               </p>
             </div>
@@ -203,7 +205,7 @@ async function remove(row: LessonListRow): Promise<void> {
                   class="author-menu-item"
                   role="menuitem"
                 >
-                  {{ canEdit(item.createdBy) ? 'Open' : 'View' }}
+                  {{ canEditLesson(item.createdBy, item.openedPublished) ? 'Open' : 'View' }}
                 </RouterLink>
                 <button
                   v-if="canCreate"
@@ -216,7 +218,7 @@ async function remove(row: LessonListRow): Promise<void> {
                   {{ duplicatingId === item.id ? 'Duplicating…' : 'Duplicate' }}
                 </button>
                 <button
-                  v-if="canEdit(item.createdBy)"
+                  v-if="canRemoveLesson(item.createdBy, item.published)"
                   type="button"
                   class="author-menu-item danger"
                   role="menuitem"

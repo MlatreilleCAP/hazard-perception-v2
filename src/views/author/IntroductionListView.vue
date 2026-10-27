@@ -10,7 +10,7 @@ import type { ActivitySummary } from '@/types/activity'
 import { isIntroductionActivity } from '@/types/introduction'
 
 const activities = useActivityStore()
-const { canCreate, canEdit } = useStudioAccess()
+const { canCreate, canEditLesson, canRemoveLesson } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
 const searchQuery = ref('')
 
@@ -23,6 +23,7 @@ type VideoListRow = {
   title: string
   id: string
   published: boolean
+  openedPublished: boolean
   updatedAt: string
   createdBy: string | null
   versionCount: number
@@ -46,6 +47,7 @@ function groupVideoRows(summaries: ActivitySummary[]): VideoListRow[] {
         title: representative.title,
         id: representative.id,
         published: group.some((item) => item.published),
+        openedPublished: representative.published,
         updatedAt: representative.updatedAt,
         createdBy: representative.createdBy,
         versionCount: group.length,
@@ -148,7 +150,7 @@ async function remove(id: string, title: string): Promise<void> {
               </RouterLink>
               <p class="author-list-sub">
                 {{ item.published ? 'Published' : 'Draft' }}
-                · {{ versionsLabel(item.versionCount) }}{{ canEdit(item.createdBy) ? '' : ' · View only' }}
+                · {{ versionsLabel(item.versionCount) }}{{ canEditLesson(item.createdBy, item.openedPublished) ? '' : ' · View only' }}
               </p>
             </div>
             <AuthorStatusChip :label="item.published ? 'PUBLISHED' : 'DRAFT'" />
@@ -171,10 +173,10 @@ async function remove(id: string, title: string): Promise<void> {
                   class="author-menu-item"
                   role="menuitem"
                 >
-                  {{ canEdit(item.createdBy) ? 'Open' : 'View' }}
+                  {{ canEditLesson(item.createdBy, item.openedPublished) ? 'Open' : 'View' }}
                 </RouterLink>
                 <button
-                  v-if="canEdit(item.createdBy)"
+                  v-if="canRemoveLesson(item.createdBy, item.published)"
                   type="button"
                   class="author-menu-item danger"
                   role="menuitem"

@@ -14,6 +14,7 @@ import type { ProfileRole } from '@/types/database'
 export const useAuthStore = defineStore('auth', () => {
   const session = ref<Session | null>(null)
   const role = ref<ProfileRole | null>(null)
+  const canEditOthers = ref(false)
   const ready = ref(false)
   let initializePromise: Promise<void> | null = null
   let profileLoadToken = 0
@@ -31,6 +32,7 @@ export const useAuthStore = defineStore('auth', () => {
     const token = ++profileLoadToken
     if (!nextUserId) {
       role.value = null
+      canEditOthers.value = false
       return
     }
 
@@ -38,25 +40,43 @@ export const useAuthStore = defineStore('auth', () => {
     if (!client) {
       // Local / memory mode: treat signed-in users as authors so studio stays usable.
       role.value = 'author'
+      canEditOthers.value = false
       return
     }
 
     const { data, error } = await client
       .from('profiles')
-      .select('role')
+      .select('role, can_edit_others')
       .eq('id', nextUserId)
       .maybeSingle()
 
     if (token !== profileLoadToken) return
 
     if (error || !data) {
-      role.value = 'demo'
+      const fallback = await client
+        .from('profiles')
+        .select('role')
+        .eq('id', nextUserId)
+        .maybeSingle()
+      if (token !== profileLoadToken) return
+      if (fallback.error || !fallback.data) {
+        role.value = 'demo'
+        canEditOthers.value = false
+        return
+      }
+      const fallbackRole = fallback.data.role
+      role.value =
+        fallbackRole === 'admin' || fallbackRole === 'author' || fallbackRole === 'demo'
+          ? fallbackRole
+          : 'demo'
+      canEditOthers.value = false
       return
     }
 
     const nextRole = data.role
     role.value =
       nextRole === 'admin' || nextRole === 'author' || nextRole === 'demo' ? nextRole : 'demo'
+    canEditOthers.value = data.can_edit_others === true
   }
 
   async function initialize(): Promise<void> {
@@ -66,6 +86,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (!client) {
         // Local / memory mode: treat users as authors so studio stays usable offline.
         role.value = 'author'
+        canEditOthers.value = false
         ready.value = true
         return
       }
@@ -122,6 +143,7 @@ export const useAuthStore = defineStore('auth', () => {
     await signOutSession()
     session.value = null
     role.value = null
+    canEditOthers.value = false
   }
 
   return {
@@ -134,6 +156,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     isAuthor,
     isDemo,
+    canEditOthers,
     canAccessStudio,
     ready,
     initialize,

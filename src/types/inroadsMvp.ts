@@ -16,6 +16,7 @@ export const INROADS_MVP_CHILD_TAG = 'inroads-mvp-child'
 
 export const LESSON_REVIEW_STATUSES = [
   'draft',
+  'ready_for_media',
   'ready_for_review',
   'changes_requested',
   'approved',
@@ -37,6 +38,7 @@ export function lessonQueueStatus(
 ): LessonReviewStatus {
   if (
     reviewStatus === 'draft' ||
+    reviewStatus === 'ready_for_media' ||
     reviewStatus === 'ready_for_review' ||
     reviewStatus === 'changes_requested' ||
     reviewStatus === 'approved'
@@ -48,6 +50,7 @@ export function lessonQueueStatus(
 }
 
 export function lessonQueueStatusLabel(status: LessonReviewStatus): string {
+  if (status === 'ready_for_media') return 'READY FOR MEDIA'
   if (status === 'ready_for_review') return 'READY FOR REVIEW'
   if (status === 'changes_requested') return 'CHANGES REQUESTED'
   if (status === 'approved') return 'APPROVED'

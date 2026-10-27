@@ -30,6 +30,7 @@ import {
 } from '@/types/inroadsMvp'
 import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { useStudioAccess } from '@/composables/useStudioAccess'
+import { contentReadonlyMessage } from '@/lib/auth/roles'
 import { useActivityStore } from '@/stores/activityStore'
 import {
   INROADS_MVP_SECTIONS,
@@ -55,7 +56,7 @@ import { lessonVersionKey, lessonVersionLabel, lessonLocalesMatch } from '@/lib/
 const route = useRoute()
 const router = useRouter()
 const activities = useActivityStore()
-const { canEdit } = useStudioAccess()
+const { canEditLesson } = useStudioAccess()
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)
@@ -65,6 +66,8 @@ const deleting = ref(false)
 const creatingVersion = ref(false)
 const newLanguageMenuOpen = ref(false)
 const newLanguageMenu = ref<HTMLElement | null>(null)
+const submitMenuOpen = ref(false)
+const submitMenu = ref<HTMLElement | null>(null)
 const saveMessage = ref<string | null>(null)
 const title = ref('')
 const description = ref('')
@@ -114,7 +117,9 @@ const statusLabel = computed(() =>
     lessonQueueStatus(mvp.value?.reviewStatus, isPublished.value),
   ),
 )
-const editable = computed(() => canEdit(activities.current?.metadata.authorId))
+const editable = computed(() =>
+  canEditLesson(activities.current?.metadata.authorId, isPublished.value),
+)
 
 const versionSelectOptions = computed(() => {
   if (!versions.value.length) {
@@ -510,14 +515,26 @@ function toggleNewLanguageMenu(): void {
   if (!editable.value || creatingVersion.value || saving.value || publishing.value || deleting.value) {
     return
   }
+  submitMenuOpen.value = false
   newLanguageMenuOpen.value = !newLanguageMenuOpen.value
 }
 
-function onNewLanguageMenuPointerDown(event: PointerEvent): void {
-  if (!newLanguageMenuOpen.value) return
-  const el = newLanguageMenu.value
-  if (el && event.target instanceof Node && el.contains(event.target)) return
+function toggleSubmitMenu(): void {
+  if (!editable.value || saving.value || publishing.value || deleting.value) return
   newLanguageMenuOpen.value = false
+  submitMenuOpen.value = !submitMenuOpen.value
+}
+
+function onNewLanguageMenuPointerDown(event: PointerEvent): void {
+  if (!(event.target instanceof Node)) return
+  if (newLanguageMenuOpen.value) {
+    const el = newLanguageMenu.value
+    if (!el || !el.contains(event.target)) newLanguageMenuOpen.value = false
+  }
+  if (submitMenuOpen.value) {
+    const el = submitMenu.value
+    if (!el || !el.contains(event.target)) submitMenuOpen.value = false
+  }
 }
 
 async function createVersion(nextLanguage: string): Promise<void> {
@@ -840,17 +857,21 @@ async function saveActiveSection(): Promise<boolean> {
   return saveLesson()
 }
 
-async function sendForReview(): Promise<void> {
+async function submitLesson(status: 'ready_for_review' | 'ready_for_media'): Promise<void> {
   if (!editable.value || !mvp.value) return
+  submitMenuOpen.value = false
   if (!(await saveActiveSection())) return
   if (!(await ensureParentLoaded())) return
-  mvp.value = { ...mvp.value, reviewStatus: 'ready_for_review' }
+  mvp.value = { ...mvp.value, reviewStatus: status }
   publishing.value = true
   try {
     if (!(await saveLesson())) return
-    saveMessage.value = 'Sent for review'
+    saveMessage.value =
+      status === 'ready_for_media' ? 'Marked ready for media' : 'Sent for review'
   } catch (cause) {
-    window.alert(cause instanceof Error ? cause.message : 'Failed to send lesson for review')
+    window.alert(
+      cause instanceof Error ? cause.message : 'Failed to submit lesson',
+    )
   } finally {
     publishing.value = false
   }
@@ -928,14 +949,35 @@ async function deleteVersion(id: string): Promise<void> {
           >
             Preview lesson
           </AuthorPillButton>
-          <AuthorPillButton
-            v-if="editable"
-            variant="primary"
-            :disabled="saving || publishing || deleting"
-            @click="sendForReview"
-          >
-            {{ publishing ? 'Sending…' : 'Send for review' }}
-          </AuthorPillButton>
+          <div v-if="editable" ref="submitMenu" class="author-menu mvp-submit-menu">
+            <AuthorPillButton
+              variant="primary"
+              :disabled="saving || publishing || deleting"
+              :aria-expanded="submitMenuOpen"
+              aria-haspopup="menu"
+              @click="toggleSubmitMenu"
+            >
+              {{ publishing ? 'Submitting…' : 'Submit' }}
+            </AuthorPillButton>
+            <div v-if="submitMenuOpen" class="author-menu-panel" role="menu" aria-label="Submit">
+              <button
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                @click="submitLesson('ready_for_review')"
+              >
+                Send for review
+              </button>
+              <button
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                @click="submitLesson('ready_for_media')"
+              >
+                Ready for media
+              </button>
+            </div>
+          </div>
           <div v-if="editable" ref="newLanguageMenu" class="author-menu mvp-new-language-menu">
             <AuthorPillButton
               variant="white"
@@ -974,7 +1016,7 @@ async function deleteVersion(id: string): Promise<void> {
       </div>
 
       <p v-if="!editable" class="author-readonly-banner">
-        View only — you can open this lesson, but only the owner or an admin can edit it.
+        {{ contentReadonlyMessage('lesson', isPublished) }}
       </p>
 
       <div class="mvp-section-bar">

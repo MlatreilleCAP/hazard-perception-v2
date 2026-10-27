@@ -36,6 +36,7 @@ type ReviewAction = LessonReviewStatus
 
 const QUEUE_TABS: { status: LessonReviewStatus; label: string }[] = [
   { status: 'draft', label: 'Draft' },
+  { status: 'ready_for_media', label: 'Ready for media' },
   { status: 'ready_for_review', label: 'Ready for approval' },
   { status: 'changes_requested', label: 'Changes requested' },
   { status: 'approved', label: 'Approved' },

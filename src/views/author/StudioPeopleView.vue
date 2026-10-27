@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
-import { listStudioPeople, setStudioVisible, type StudioPerson } from '@/services/studioAccess'
+import {
+  listStudioPeople,
+  setCanEditOthers,
+  setStudioVisible,
+  type StudioPerson,
+} from '@/services/studioAccess'
 import { useAuthStore } from '@/stores/authStore'
 
 const auth = useAuthStore()
@@ -30,8 +35,24 @@ async function toggleStudio(person: StudioPerson): Promise<void> {
   try {
     await setStudioVisible(person.id, visible)
     person.role = visible ? 'author' : 'demo'
+    if (!visible) person.canEditOthers = false
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Failed to update Studio access'
+  } finally {
+    savingId.value = null
+  }
+}
+
+async function toggleEditOthers(person: StudioPerson): Promise<void> {
+  if (person.role !== 'author' || savingId.value) return
+  const allowed = !person.canEditOthers
+  savingId.value = person.id
+  error.value = null
+  try {
+    await setCanEditOthers(person.id, allowed)
+    person.canEditOthers = allowed
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Failed to update lesson editing'
   } finally {
     savingId.value = null
   }
@@ -46,7 +67,8 @@ async function toggleStudio(person: StudioPerson): Promise<void> {
           <h1>People</h1>
           <p>
             Turn Studio off for people who should sign in and play lessons, but not see Studio.
-            Admins always keep Studio.
+            Authors can be allowed to edit unpublished lessons created by other people. Published
+            lessons stay locked to administrators.
           </p>
         </div>
       </div>
@@ -62,14 +84,23 @@ async function toggleStudio(person: StudioPerson): Promise<void> {
             <p v-if="person.displayName" class="author-list-sub">{{ person.displayName }}</p>
           </div>
           <p v-if="person.role === 'admin'" class="author-muted">Admin</p>
-          <AuthorPillButton
-            v-else
-            variant="white"
-            :disabled="person.id === auth.userId || savingId === person.id"
-            @click="toggleStudio(person)"
-          >
-            {{ person.role === 'demo' ? 'Studio off' : 'Studio on' }}
-          </AuthorPillButton>
+          <div v-else class="author-section-actions">
+            <AuthorPillButton
+              v-if="person.role === 'author'"
+              variant="white"
+              :disabled="savingId === person.id"
+              @click="toggleEditOthers(person)"
+            >
+              {{ person.canEditOthers ? 'Can edit others' : 'Own lessons only' }}
+            </AuthorPillButton>
+            <AuthorPillButton
+              variant="white"
+              :disabled="person.id === auth.userId || savingId === person.id"
+              @click="toggleStudio(person)"
+            >
+              {{ person.role === 'demo' ? 'Studio off' : 'Studio on' }}
+            </AuthorPillButton>
+          </div>
         </li>
       </ul>
     </div>

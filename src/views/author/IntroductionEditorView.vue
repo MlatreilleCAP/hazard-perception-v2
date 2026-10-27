@@ -15,6 +15,7 @@ import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import { services } from '@/app/container'
 import { duplicateIntroductionVersion } from '@/services/createIntroduction'
 import { useStudioAccess } from '@/composables/useStudioAccess'
+import { contentReadonlyMessage } from '@/lib/auth/roles'
 import { useActivityStore } from '@/stores/activityStore'
 import {
   canonicalizeLessonCountry,
@@ -32,7 +33,7 @@ import type { MediaRef } from '@/types/media'
 const route = useRoute()
 const router = useRouter()
 const activities = useActivityStore()
-const { canEdit } = useStudioAccess()
+const { canEditLesson } = useStudioAccess()
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)
@@ -62,7 +63,9 @@ const activityId = computed(() => String(route.params.id ?? ''))
 const isPublished = computed(
   () => activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
 )
-const editable = computed(() => canEdit(activities.current?.metadata.authorId))
+const editable = computed(() =>
+  canEditLesson(activities.current?.metadata.authorId, isPublished.value),
+)
 
 const versionSelectOptions = computed(() => {
   if (!versions.value.length) {
@@ -497,7 +500,7 @@ async function remove(): Promise<void> {
       </div>
 
       <p v-if="!editable" class="author-readonly-banner">
-        View only — you can open this stand alone video, but only the owner or an admin can edit it.
+        {{ contentReadonlyMessage('video', isPublished) }}
       </p>
 
       <div class="mvp-section-bar intro-language-bar">

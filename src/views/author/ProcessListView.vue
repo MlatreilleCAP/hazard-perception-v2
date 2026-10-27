@@ -9,7 +9,7 @@ import { isProcessActivity } from '@/types/process'
 import { useActivityStore } from '@/stores/activityStore'
 
 const activities = useActivityStore()
-const { canCreate, canEdit } = useStudioAccess()
+const { canCreate, canEditLesson, canRemoveLesson } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
 
 const processItems = computed(() =>
@@ -84,7 +84,7 @@ async function remove(id: string, title: string): Promise<void> {
               </RouterLink>
               <p class="author-list-sub">
                 {{ item.published ? 'Published' : 'Draft'
-                }}{{ canEdit(item.createdBy) ? '' : ' · View only' }}
+                }}{{ canEditLesson(item.createdBy, item.published) ? '' : ' · View only' }}
               </p>
             </div>
             <AuthorStatusChip :label="item.published ? 'PUBLISHED' : 'DRAFT'" />
@@ -103,10 +103,10 @@ async function remove(id: string, title: string): Promise<void> {
               </button>
               <div v-if="menuOpenId === item.id" class="author-menu-panel" role="menu">
                 <RouterLink :to="`/studio/process/${item.id}`" class="author-menu-item" role="menuitem">
-                  {{ canEdit(item.createdBy) ? 'Open' : 'View' }}
+                  {{ canEditLesson(item.createdBy, item.published) ? 'Open' : 'View' }}
                 </RouterLink>
                 <button
-                  v-if="canEdit(item.createdBy)"
+                  v-if="canRemoveLesson(item.createdBy, item.published)"
                   type="button"
                   class="author-menu-item danger"
                   role="menuitem"

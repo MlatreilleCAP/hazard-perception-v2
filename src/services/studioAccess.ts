@@ -6,6 +6,7 @@ export type StudioPerson = {
   email: string
   displayName: string | null
   role: ProfileRole
+  canEditOthers: boolean
 }
 
 function requireClient() {
@@ -25,6 +26,7 @@ export async function listStudioPeople(): Promise<StudioPerson[]> {
       email?: string | null
       display_name?: string | null
       role?: string
+      can_edit_others?: boolean
     }
     const role: ProfileRole =
       record.role === 'admin' || record.role === 'author' || record.role === 'demo'
@@ -35,6 +37,7 @@ export async function listStudioPeople(): Promise<StudioPerson[]> {
       email: record.email?.trim() || 'Unknown email',
       displayName: record.display_name?.trim() || null,
       role,
+      canEditOthers: record.can_edit_others === true,
     }
   })
 }
@@ -44,7 +47,17 @@ export async function setStudioVisible(userId: string, visible: boolean): Promis
   const client = requireClient()
   const { error } = await client
     .from('profiles')
-    .update({ role: visible ? 'author' : 'demo' })
+    .update(visible ? { role: 'author' } : { role: 'demo', can_edit_others: false })
+    .eq('id', userId)
+  if (error) throw new Error(error.message)
+}
+
+/** Authors with this flag can edit unpublished lessons created by other people. */
+export async function setCanEditOthers(userId: string, allowed: boolean): Promise<void> {
+  const client = requireClient()
+  const { error } = await client
+    .from('profiles')
+    .update({ can_edit_others: allowed })
     .eq('id', userId)
   if (error) throw new Error(error.message)
 }
