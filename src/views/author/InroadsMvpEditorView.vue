@@ -111,7 +111,7 @@ const isPublished = computed(
 )
 const statusLabel = computed(() =>
   lessonQueueStatusLabel(
-    lessonQueueStatus(mvp.value?.reviewStatus ?? 'draft', isPublished.value),
+    lessonQueueStatus(mvp.value?.reviewStatus, isPublished.value),
   ),
 )
 const editable = computed(() => canEdit(activities.current?.metadata.authorId))

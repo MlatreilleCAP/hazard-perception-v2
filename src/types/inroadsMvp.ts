@@ -24,18 +24,19 @@ export const LESSON_REVIEW_STATUSES = [
 
 export type LessonReviewStatus = (typeof LESSON_REVIEW_STATUSES)[number]
 
-export function readLessonReviewStatus(value: unknown): LessonReviewStatus {
+export function readLessonReviewStatus(value: unknown): LessonReviewStatus | undefined {
   return LESSON_REVIEW_STATUSES.includes(value as LessonReviewStatus)
     ? (value as LessonReviewStatus)
-    : 'draft'
+    : undefined
 }
 
-/** Review state wins while a lesson is in review. A live publish still shows as published. */
+/** An explicit review status wins over a live publish. A lesson with no status still shows as published. */
 export function lessonQueueStatus(
-  reviewStatus: LessonReviewStatus,
+  reviewStatus: LessonReviewStatus | undefined,
   published: boolean,
 ): LessonReviewStatus {
   if (
+    reviewStatus === 'draft' ||
     reviewStatus === 'ready_for_review' ||
     reviewStatus === 'changes_requested' ||
     reviewStatus === 'approved'
@@ -56,7 +57,8 @@ export function lessonQueueStatusLabel(status: LessonReviewStatus): string {
 
 export type InroadsMvpDefinition = {
   version: 1
-  reviewStatus: LessonReviewStatus
+  /** Absent until someone sets a queue status. A live publish stays published until then. */
+  reviewStatus?: LessonReviewStatus
   /** Section 1 — intro clip before Observe / Process / Anticipate. */
   introMedia: MediaRef | null
   introShowOnFirstVisitOnly: boolean

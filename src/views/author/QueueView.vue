@@ -25,7 +25,7 @@ type QueueRow = {
   status: LessonReviewStatus
 }
 
-type ReviewAction = 'changes_requested' | 'approved' | 'published'
+type ReviewAction = LessonReviewStatus
 
 const QUEUE_TABS: { status: LessonReviewStatus; label: string }[] = [
   { status: 'draft', label: 'Draft' },
@@ -83,7 +83,7 @@ onMounted(async () => {
           title: definition?.metadata.title.trim() || item.title,
           country: mvp?.country.trim() ?? '',
           language: mvp?.language.trim() ?? '',
-          status: lessonQueueStatus(mvp?.reviewStatus ?? 'draft', item.published),
+          status: lessonQueueStatus(mvp?.reviewStatus, item.published),
         }
       } catch {
         return {
@@ -188,6 +188,15 @@ async function updateStatus(row: QueueRow, status: ReviewAction): Promise<void> 
               <p class="author-list-sub">{{ localeLabel(row) }}</p>
             </div>
             <AuthorStatusChip :label="lessonQueueStatusLabel(row.status)" />
+            <RouterLink
+              class="author-pill author-pill-white"
+              :to="{
+                path: '/player',
+                query: { activity: row.id, preview: '1', mvp: '1', section: 'lesson' },
+              }"
+            >
+              Preview lesson
+            </RouterLink>
             <div
               v-if="isAdmin"
               class="author-menu queue-status-menu"
@@ -208,6 +217,15 @@ async function updateStatus(row: QueueRow, status: ReviewAction): Promise<void> 
                 </svg>
               </button>
               <div v-if="menuOpenId === row.id" class="author-menu-panel" role="menu">
+                <button
+                  type="button"
+                  class="author-menu-item"
+                  role="menuitem"
+                  :disabled="row.status === 'draft'"
+                  @click="updateStatus(row, 'draft')"
+                >
+                  Draft
+                </button>
                 <button
                   type="button"
                   class="author-menu-item"
