@@ -743,9 +743,17 @@ fieldset.author-stack {
   pointer-events: none;
 }
 
+.inroads-download-menu,
 .inroads-replace-menu {
   left: 0;
   right: auto;
+}
+
+.inroads-download-menu {
+  min-width: 240px;
+}
+
+.inroads-replace-menu {
   min-width: 280px;
   max-height: 360px;
   overflow: auto;
