@@ -24,7 +24,10 @@ import ProcessEditorView from '@/views/author/ProcessEditorView.vue'
 import SeeEditorView from '@/views/author/SeeEditorView.vue'
 import { services } from '@/app/container'
 import { duplicateInroadsMvpVersion } from '@/services/createInroadsMvp'
-import { publishInroadsMvpLesson } from '@/services/publishInroadsMvp'
+import {
+  lessonQueueStatus,
+  lessonQueueStatusLabel,
+} from '@/types/inroadsMvp'
 import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { useActivityStore } from '@/stores/activityStore'
@@ -105,6 +108,11 @@ let loadGeneration = 0
 const activityId = computed(() => String(route.params.id ?? ''))
 const isPublished = computed(
   () => activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
+)
+const statusLabel = computed(() =>
+  lessonQueueStatusLabel(
+    lessonQueueStatus(mvp.value?.reviewStatus ?? 'draft', isPublished.value),
+  ),
 )
 const editable = computed(() => canEdit(activities.current?.metadata.authorId))
 
@@ -832,19 +840,17 @@ async function saveActiveSection(): Promise<boolean> {
   return saveLesson()
 }
 
-async function publish(): Promise<void> {
+async function sendForReview(): Promise<void> {
   if (!editable.value || !mvp.value) return
   if (!(await saveActiveSection())) return
-  if (activeSection.value !== 'lesson' && activeSection.value !== 'results' && !(await saveLesson())) return
   if (!(await ensureParentLoaded())) return
+  mvp.value = { ...mvp.value, reviewStatus: 'ready_for_review' }
   publishing.value = true
   try {
-    await publishInroadsMvpLesson(activityId.value)
-    await activities.refreshList()
-    await ensureParentLoaded()
-    saveMessage.value = 'Published'
+    if (!(await saveLesson())) return
+    saveMessage.value = 'Sent for review'
   } catch (cause) {
-    window.alert(cause instanceof Error ? cause.message : 'Failed to publish Inroads MVP')
+    window.alert(cause instanceof Error ? cause.message : 'Failed to send lesson for review')
   } finally {
     publishing.value = false
   }
@@ -912,7 +918,7 @@ async function deleteVersion(id: string): Promise<void> {
             <span v-else>{{ title.trim() || 'Inroads MVP' }}</span>
             <span v-if="country.trim()">{{ ` - ${country.trim()}` }}</span>
           </h1>
-          <AuthorStatusChip :label="isPublished ? 'PUBLISHED' : 'DRAFT'" />
+          <AuthorStatusChip :label="statusLabel" />
         </div>
         <div class="mvp-header-actions">
           <AuthorPillButton
@@ -926,9 +932,9 @@ async function deleteVersion(id: string): Promise<void> {
             v-if="editable"
             variant="primary"
             :disabled="saving || publishing || deleting"
-            @click="publish"
+            @click="sendForReview"
           >
-            {{ publishing ? 'Publishing…' : 'Publish lesson' }}
+            {{ publishing ? 'Sending…' : 'Send for review' }}
           </AuthorPillButton>
           <div v-if="editable" ref="newLanguageMenu" class="author-menu mvp-new-language-menu">
             <AuthorPillButton

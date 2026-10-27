@@ -23,7 +23,7 @@ import LessonEditorView from '@/views/author/LessonEditorView.vue'
 import LessonListView from '@/views/author/LessonListView.vue'
 import LessonNewView from '@/views/author/LessonNewView.vue'
 import MediaLibraryView from '@/views/author/MediaLibraryView.vue'
-import PublishedActivitiesView from '@/views/author/PublishedActivitiesView.vue'
+import QueueView from '@/views/author/QueueView.vue'
 import StudioPeopleView from '@/views/author/StudioPeopleView.vue'
 import SeeEditorView from '@/views/author/SeeEditorView.vue'
 import SeeListView from '@/views/author/SeeListView.vue'
@@ -244,13 +244,14 @@ export const router = createRouter({
             requiresStudio: true,
           },
         },
+        { path: 'published', redirect: { name: 'lesson-queue' } },
         {
-          path: 'published',
-          name: 'published-activities',
-          component: PublishedActivitiesView,
+          path: 'queue',
+          name: 'lesson-queue',
+          component: QueueView,
           meta: {
             layout: 'author',
-            title: 'Published',
+            title: 'Queue',
             requiresAuth: true,
             requiresStudio: true,
           },

@@ -1,7 +1,14 @@
-import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
+import {
+  readInroadsMvpDefinition,
+  writeInroadsMvpDefinition,
+} from '@/activities/inroadsMvpDefinition'
 import { services } from '@/app/container'
 import { loadActivityOrThrow } from '@/services/createInroadsMvp'
-import { isInroadsMvpActivity, type InroadsMvpSectionId } from '@/types/inroadsMvp'
+import {
+  isInroadsMvpActivity,
+  type InroadsMvpSectionId,
+  type LessonReviewStatus,
+} from '@/types/inroadsMvp'
 
 export type InroadsMvpParentMatch = {
   parentId: string
@@ -47,4 +54,16 @@ export async function publishInroadsMvpLesson(parentId: string): Promise<void> {
   await services.persistence.publish(mvp.processActivityId)
   await services.persistence.publish(mvp.anticipateActivityId)
   await services.persistence.publish(parentId)
+}
+
+export async function setLessonReviewStatus(
+  parentId: string,
+  status: LessonReviewStatus,
+): Promise<void> {
+  const parent = await loadActivityOrThrow(parentId)
+  const mvp = readInroadsMvpDefinition(parent)
+  if (!mvp) throw new Error('Inroads MVP definition was not found')
+  await services.persistence.save(
+    writeInroadsMvpDefinition(parent, { ...mvp, reviewStatus: status }),
+  )
 }

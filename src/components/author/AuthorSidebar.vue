@@ -23,9 +23,8 @@ const scoringOpen = computed(
   () =>
     route.path === '/studio/inroads-scoring' || route.path.startsWith('/studio/inroads-scoring/'),
 )
-const publishedOpen = computed(
-  () =>
-    route.path === '/studio/published' || route.path.startsWith('/studio/published/'),
+const queueOpen = computed(
+  () => route.path === '/studio/queue' || route.path.startsWith('/studio/queue/'),
 )
 const peopleOpen = computed(
   () => route.path === '/studio/people' || route.path.startsWith('/studio/people/'),
@@ -79,11 +78,11 @@ const peopleOpen = computed(
         Media
       </RouterLink>
       <RouterLink
-        to="/studio/published"
+        to="/studio/queue"
         class="author-nav-link"
-        :class="{ active: publishedOpen }"
+        :class="{ active: queueOpen }"
       >
-        Published
+        Queue
       </RouterLink>
       <RouterLink
         v-if="auth.isAdmin"

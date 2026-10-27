@@ -14,8 +14,49 @@ export const INROADS_MVP_NODE_TYPE = 'inroads.mvp'
 /** Marks Observe/Process/Anticipate activities owned by an Inroads MVP lesson. */
 export const INROADS_MVP_CHILD_TAG = 'inroads-mvp-child'
 
+export const LESSON_REVIEW_STATUSES = [
+  'draft',
+  'ready_for_review',
+  'changes_requested',
+  'approved',
+  'published',
+] as const
+
+export type LessonReviewStatus = (typeof LESSON_REVIEW_STATUSES)[number]
+
+export function readLessonReviewStatus(value: unknown): LessonReviewStatus {
+  return LESSON_REVIEW_STATUSES.includes(value as LessonReviewStatus)
+    ? (value as LessonReviewStatus)
+    : 'draft'
+}
+
+/** Review state wins while a lesson is in review. A live publish still shows as published. */
+export function lessonQueueStatus(
+  reviewStatus: LessonReviewStatus,
+  published: boolean,
+): LessonReviewStatus {
+  if (
+    reviewStatus === 'ready_for_review' ||
+    reviewStatus === 'changes_requested' ||
+    reviewStatus === 'approved'
+  ) {
+    return reviewStatus
+  }
+  if (reviewStatus === 'published' || published) return 'published'
+  return 'draft'
+}
+
+export function lessonQueueStatusLabel(status: LessonReviewStatus): string {
+  if (status === 'ready_for_review') return 'READY FOR REVIEW'
+  if (status === 'changes_requested') return 'CHANGES REQUESTED'
+  if (status === 'approved') return 'APPROVED'
+  if (status === 'published') return 'PUBLISHED'
+  return 'DRAFT'
+}
+
 export type InroadsMvpDefinition = {
   version: 1
+  reviewStatus: LessonReviewStatus
   /** Section 1 — intro clip before Observe / Process / Anticipate. */
   introMedia: MediaRef | null
   introShowOnFirstVisitOnly: boolean
@@ -94,6 +135,7 @@ export function createDefaultInroadsMvpDefinition(
 ): InroadsMvpDefinition {
   return {
     version: 1,
+    reviewStatus: 'draft',
     introMedia: null,
     introShowOnFirstVisitOnly: true,
     introductionActivityId: '',
@@ -134,6 +176,7 @@ export function cloneInroadsMvpDefinition(
 ): InroadsMvpDefinition {
   return {
     version: 1,
+    reviewStatus: readLessonReviewStatus(definition.reviewStatus),
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
@@ -205,6 +248,7 @@ export function normalizeInroadsMvpDefinition(
 
   return {
     version: 1,
+    reviewStatus: readLessonReviewStatus(raw.reviewStatus),
     introMedia,
     introShowOnFirstVisitOnly: raw.introShowOnFirstVisitOnly !== false,
     introductionActivityId:
