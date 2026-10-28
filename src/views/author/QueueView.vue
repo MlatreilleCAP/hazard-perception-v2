@@ -300,6 +300,24 @@ async function saveNotes(row: QueueRow): Promise<void> {
                   type="button"
                   class="author-menu-item"
                   role="menuitem"
+                  :disabled="row.status === 'ready_for_media'"
+                  @click="updateStatus(row, 'ready_for_media')"
+                >
+                  Ready for media
+                </button>
+                <button
+                  type="button"
+                  class="author-menu-item"
+                  role="menuitem"
+                  :disabled="row.status === 'ready_for_review'"
+                  @click="updateStatus(row, 'ready_for_review')"
+                >
+                  Ready for approval
+                </button>
+                <button
+                  type="button"
+                  class="author-menu-item"
+                  role="menuitem"
                   :disabled="row.status === 'changes_requested'"
                   @click="updateStatus(row, 'changes_requested')"
                 >
