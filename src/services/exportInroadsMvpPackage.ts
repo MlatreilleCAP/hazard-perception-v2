@@ -1,5 +1,8 @@
 import { readAnticipateDefinition } from '@/activities/anticipateDefinition'
-import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
+import {
+  readInroadsMvpDefinition,
+  readInroadsMvpEnglishTextReference,
+} from '@/activities/inroadsMvpDefinition'
 import { readProcessDefinition } from '@/activities/processDefinition'
 import { readSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
@@ -12,6 +15,7 @@ import {
   type ImportWorkbookContent,
   type ImportZipFolderFile,
 } from '@/lib/inroadsMvp/buildImportTemplate'
+import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
 import {
   canonicalizeLessonCountry,
   canonicalizeLessonLanguage,
@@ -35,7 +39,7 @@ import {
   type AnticipateDefinition,
 } from '@/types/anticipate'
 import type { ActivityDefinition } from '@/types/activity'
-import type { InroadsMvpDefinition } from '@/types/inroadsMvp'
+import { isInroadsMvpActivity, type InroadsMvpDefinition } from '@/types/inroadsMvp'
 import { mediaAssetDisplayName } from '@/types/media'
 import {
   DEFAULT_PROCESS_INSTRUCTION_PILL,
@@ -75,11 +79,10 @@ export async function exportLessonWorkbook(
   options: { onProgress?: (message: string) => void } = {},
 ): Promise<{ blob: Blob; filename: string }> {
   options.onProgress?.('Building workbook…')
-  const content = await lessonWorkbookContent(parentId)
-  const bytes = await buildWorkbookBytes(content)
+  const packed = await buildLessonWorkbookBytes(parentId)
   return {
-    blob: workbookBlob(bytes),
-    filename: `${slugForFilename(content.title)}.xlsx`,
+    blob: workbookBlob(packed.bytes),
+    filename: `${slugForFilename(packed.upload.title)}.xlsx`,
   }
 }
 
@@ -98,8 +101,9 @@ export async function exportLessonTemplateZip(
   const includeMedia = options.includeMedia === true
   const source = options.source ?? 'draft'
   options.onProgress?.(includeMedia ? 'Building workbook…' : 'Building template…')
-  const content = await lessonWorkbookContent(parentId, source)
-  const bytes = await buildWorkbookBytes(content)
+  const packed = await buildLessonWorkbookBytes(parentId, source)
+  const content = packed.upload
+  const bytes = packed.bytes
   const folderFiles = includeMedia
     ? await collectLessonMediaFiles(parentId, source, options.onProgress)
     : []
@@ -211,6 +215,72 @@ async function loadLessonForExport(
   return published
 }
 
+async function findEnglishSiblingId(title: string, excludeId: string): Promise<string | null> {
+  const key = lessonVersionKey(title)
+  if (!key) return null
+  const summaries = await services.persistence.list('authoring')
+  const candidates = summaries
+    .filter(
+      (item) =>
+        item.id !== excludeId &&
+        isInroadsMvpActivity(item.tags) &&
+        lessonVersionKey(item.title) === key,
+    )
+    .sort((left, right) => Number(right.published) - Number(left.published))
+  for (const item of candidates) {
+    const definition = await services.persistence.getById(item.id)
+    const parsed = definition ? readInroadsMvpDefinition(definition) : null
+    if (parsed && canonicalizeLessonLanguage(parsed.language) === 'English') return item.id
+  }
+  return null
+}
+
+async function englishWorkbookContent(
+  parentId: string,
+  source: 'draft' | 'published',
+  upload: ImportWorkbookContent,
+): Promise<ImportWorkbookContent> {
+  const parent = await loadLessonForExport(parentId, source)
+  const mvp = readInroadsMvpDefinition(parent)
+  if (!mvp || (canonicalizeLessonLanguage(mvp.language) || 'English') === 'English') {
+    return upload
+  }
+
+  const siblingId = await findEnglishSiblingId(parent.metadata.title, parentId)
+  if (siblingId) {
+    try {
+      return await lessonWorkbookContent(siblingId, source)
+    } catch {
+      if (source === 'published') {
+        try {
+          return await lessonWorkbookContent(siblingId, 'draft')
+        } catch {
+          // Use the stored English reference, or the lesson text, below.
+        }
+      }
+    }
+  }
+
+  const reference = readInroadsMvpEnglishTextReference(parent)
+  if (!reference) return upload
+  return workbookContentFromParts(
+    { title: reference.title, description: reference.description },
+    reference.mvp,
+    reference.see,
+    reference.process,
+    reference.anticipate,
+  )
+}
+
+async function buildLessonWorkbookBytes(
+  parentId: string,
+  source: 'draft' | 'published' = 'draft',
+): Promise<{ upload: ImportWorkbookContent; bytes: Uint8Array }> {
+  const upload = await lessonWorkbookContent(parentId, source)
+  const english = await englishWorkbookContent(parentId, source, upload)
+  return { upload, bytes: await buildWorkbookBytes(upload, english) }
+}
+
 async function lessonWorkbookContent(
   parentId: string,
   source: 'draft' | 'published' = 'draft',
@@ -224,6 +294,22 @@ async function lessonWorkbookContent(
   const anticipate = readAnticipateDefinition(
     await loadLessonForExport(mvp.anticipateActivityId, source),
   )
+  return workbookContentFromParts(
+    { title: parent.metadata.title, description: parent.metadata.description },
+    mvp,
+    see,
+    process,
+    anticipate,
+  )
+}
+
+function workbookContentFromParts(
+  meta: { title: string; description: string },
+  mvp: InroadsMvpDefinition,
+  see: SeeDefinition,
+  process: ProcessDefinition,
+  anticipate: AnticipateDefinition,
+): ImportWorkbookContent {
   const hazard = see.hazards[0]
   const questions: ImportWorkbookContent['questions'] = []
   for (const item of see.hazards) {
@@ -238,8 +324,8 @@ async function lessonWorkbookContent(
   const language = canonicalizeLessonLanguage(mvp.language) || 'English'
 
   return {
-    title: parent.metadata.title,
-    description: parent.metadata.description,
+    title: meta.title,
+    description: meta.description,
     introFirstVisit: mvp.introShowOnFirstVisitOnly,
     country,
     language,

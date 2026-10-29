@@ -298,8 +298,14 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
 
 type ActivityTextRow = [string, string, string, string, string]
 
-function activityRow(screen: string, element: string, text: string, when: string): ActivityTextRow {
-  return [screen, element, text, text, when]
+function activityRow(
+  screen: string,
+  element: string,
+  text: string,
+  when: string,
+  uploadText = text,
+): ActivityTextRow {
+  return [screen, element, text, uploadText, when]
 }
 
 function chromeText(
@@ -336,23 +342,37 @@ function questionScreenLabel(
   return `${name} question ${index + 1}`
 }
 
+function filledAnswers(
+  question: ProcessSurveyQuestion | undefined,
+): Array<{ text: string; answerIndex: number }> {
+  return (question?.answers ?? [])
+    .map((answer, answerIndex) => ({ text: answer?.text?.trim() ?? '', answerIndex }))
+    .filter((answer) => answer.text.length > 0)
+}
+
 function pushQuestionRows(
   rows: ActivityTextRow[],
-  content: ImportWorkbookContent,
+  upload: ImportWorkbookContent,
+  english: ImportWorkbookContent,
   section: 'observe' | 'process' | 'anticipate',
   segment: 1 | 2,
 ): void {
-  const items = content.questions.filter(
+  const items = upload.questions.filter(
+    (item) => item.section === section && item.segment === segment,
+  )
+  const englishItems = english.questions.filter(
     (item) => item.section === section && item.segment === segment,
   )
   const when = questionWhen(section, segment)
   items.forEach((item, index) => {
     const screen = questionScreenLabel(section, segment, index, items.length)
     const question = item.question
-    rows.push(activityRow(screen, 'Question', question.questionText, when))
-    const answers = question.answers
-      .map((answer, answerIndex) => ({ text: answer?.text?.trim() ?? '', answerIndex }))
-      .filter((answer) => answer.text.length > 0)
+    const englishQuestion = englishItems[index]?.question
+    rows.push(
+      activityRow(screen, 'Question', englishQuestion?.questionText ?? '', when, question.questionText),
+    )
+    const answers = filledAnswers(question)
+    const englishAnswers = filledAnswers(englishQuestion)
     answers.forEach((answer, position) => {
       const letter = 'ABCDEF'[position] ?? String(position + 1)
       const correct = answer.answerIndex === question.correctIndex
@@ -360,257 +380,377 @@ function pushQuestionRows(
         activityRow(
           screen,
           correct ? `Answer ${letter} (correct)` : `Answer ${letter}`,
-          answer.text,
+          englishAnswers[position]?.text ?? '',
           when,
+          answer.text,
         ),
       )
     })
-    rows.push(activityRow(screen, 'Explanation', question.explanation, 'After the answer'))
+    rows.push(
+      activityRow(
+        screen,
+        'Explanation',
+        englishQuestion?.explanation ?? '',
+        'After the answer',
+        question.explanation,
+      ),
+    )
     if (question.kind === 'severity') {
       rows.push(
-        activityRow(screen, 'Button', content.submitLabel, 'Before the answer is submitted'),
+        activityRow(
+          screen,
+          'Button',
+          english.submitLabel,
+          'Before the answer is submitted',
+          upload.submitLabel,
+        ),
       )
     }
-    rows.push(activityRow(screen, 'Button', content.buttonLabel, 'After the answer'))
+    rows.push(
+      activityRow(screen, 'Button', english.buttonLabel, 'After the answer', upload.buttonLabel),
+    )
   })
 }
 
 function instructionRows(
   rows: ActivityTextRow[],
   screen: string,
-  pill: string,
-  instruction: string,
-  button: string,
+  englishPill: string,
+  uploadPill: string,
+  englishInstruction: string,
+  uploadInstruction: string,
+  englishButton: string,
+  uploadButton: string,
   when: string,
 ): void {
-  rows.push(activityRow(screen, 'Pill', pill, when))
-  rows.push(activityRow(screen, 'Instruction', instruction, when))
-  rows.push(activityRow(screen, 'Button', button, when))
+  rows.push(activityRow(screen, 'Pill', englishPill, when, uploadPill))
+  rows.push(activityRow(screen, 'Instruction', englishInstruction, when, uploadInstruction))
+  rows.push(activityRow(screen, 'Button', englishButton, when, uploadButton))
 }
 
-function activityTextRows(content: ImportWorkbookContent): ActivityTextRow[] {
+function activityTextRows(
+  upload: ImportWorkbookContent,
+  english: ImportWorkbookContent = upload,
+): ActivityTextRow[] {
   const rows: ActivityTextRow[] = []
-  const button = content.buttonLabel
-  const title = content.title.trim()
-  rows.push(activityRow('Title', 'Country', content.country, 'Always'))
-  rows.push(activityRow('Title', 'Title', title, 'Always'))
-  rows.push(activityRow('Title', 'Description', content.description, 'Always'))
-  rows.push(activityRow('Title', 'Button', button, 'Always'))
+  const title = english.title.trim()
+  rows.push(activityRow('Title', 'Country', english.country, 'Always', upload.country))
+  rows.push(activityRow('Title', 'Title', title, 'Always', upload.title.trim()))
+  rows.push(activityRow('Title', 'Description', english.description, 'Always', upload.description))
+  rows.push(activityRow('Title', 'Button', english.buttonLabel, 'Always', upload.buttonLabel))
 
   instructionRows(
     rows,
     'Observe instruction',
-    content.observe.instructionPill,
-    content.observe.instruction,
-    button,
+    english.observe.instructionPill,
+    upload.observe.instructionPill,
+    english.observe.instruction,
+    upload.observe.instruction,
+    english.buttonLabel,
+    upload.buttonLabel,
     'Always',
   )
   rows.push(
     activityRow(
       'Observe instruction',
       'Example button',
-      content.exampleButtonLabel,
+      english.exampleButtonLabel,
       'When an example video is available',
+      upload.exampleButtonLabel,
     ),
   )
   rows.push(
     activityRow(
       'Observe challenge',
       'No clicks remain',
-      content.observe.noClicksRemain,
+      english.observe.noClicksRemain,
       'Shown when no clicks remain',
+      upload.observe.noClicksRemain,
     ),
   )
-  const summary: Array<[string, string]> = [
-    [content.maneuverHeading || 'Maneuver', content.observe.maneuver],
-    [content.roadwayHeading || 'Roadway', content.observe.roadway],
-    [content.trafficDensityHeading || 'Traffic Density', content.observe.trafficDensity],
-    [content.timeOfDayHeading || 'Time of Day', content.observe.timeOfDay],
-    [content.roadConditionsHeading || 'Road Conditions', content.observe.roadConditions],
+  const summary: Array<[string, string, string]> = [
+    [english.maneuverHeading || 'Maneuver', english.observe.maneuver, upload.observe.maneuver],
+    [english.roadwayHeading || 'Roadway', english.observe.roadway, upload.observe.roadway],
+    [
+      english.trafficDensityHeading || 'Traffic Density',
+      english.observe.trafficDensity,
+      upload.observe.trafficDensity,
+    ],
+    [english.timeOfDayHeading || 'Time of Day', english.observe.timeOfDay, upload.observe.timeOfDay],
+    [
+      english.roadConditionsHeading || 'Road Conditions',
+      english.observe.roadConditions,
+      upload.observe.roadConditions,
+    ],
   ]
-  for (const [element, value] of summary) {
-    rows.push(activityRow('Observe clip summary', element, value, 'After the hazard clip'))
+  for (const [element, value, translated] of summary) {
+    rows.push(activityRow('Observe clip summary', element, value, 'After the hazard clip', translated))
   }
-  rows.push(
-    activityRow(
-      'Observe results',
-      'Heading',
-      content.observe.successResult,
-      'Hazard spotted on the first attempt',
-    ),
+  const observeResult = (
+    element: string,
+    englishText: string,
+    uploadText: string,
+    when: string,
+  ) => {
+    rows.push(activityRow('Observe results', element, englishText, when, uploadText))
+  }
+  observeResult(
+    'Heading',
+    english.observe.successResult,
+    upload.observe.successResult,
+    'Hazard spotted on the first attempt',
   )
-  rows.push(activityRow('Observe results', 'Heading', content.observe.failScreen, 'Any other outcome'))
-  rows.push(
-    activityRow(
-      'Observe results',
-      'Subtext',
-      content.observe.twoAttempts,
-      'Spotted on the second attempt',
-    ),
+  observeResult('Heading', english.observe.failScreen, upload.observe.failScreen, 'Any other outcome')
+  observeResult(
+    'Subtext',
+    english.observe.twoAttempts,
+    upload.observe.twoAttempts,
+    'Spotted on the second attempt',
   )
-  rows.push(
-    activityRow(
-      'Observe results',
-      'Subtext',
-      content.observe.threeAttempts,
-      'Spotted on the third attempt',
-    ),
+  observeResult(
+    'Subtext',
+    english.observe.threeAttempts,
+    upload.observe.threeAttempts,
+    'Spotted on the third attempt',
   )
-  rows.push(
-    activityRow('Observe results', 'Subtext', content.observe.timeOut, 'Missed with no attempts'),
+  observeResult(
+    'Subtext',
+    english.observe.timeOut,
+    upload.observe.timeOut,
+    'Missed with no attempts',
   )
-  rows.push(
-    activityRow(
-      'Observe results',
-      'Subtext',
-      content.observe.missed1Attempt,
-      'Missed after one attempt',
-    ),
+  observeResult(
+    'Subtext',
+    english.observe.missed1Attempt,
+    upload.observe.missed1Attempt,
+    'Missed after one attempt',
   )
-  rows.push(
-    activityRow(
-      'Observe results',
-      'Subtext',
-      content.observe.missed2Attempt,
-      'Missed after two attempts',
-    ),
+  observeResult(
+    'Subtext',
+    english.observe.missed2Attempt,
+    upload.observe.missed2Attempt,
+    'Missed after two attempts',
   )
-  rows.push(
-    activityRow(
-      'Observe results',
-      'Explanation',
-      content.observe.hazardExplanation,
-      'Shown unless the hazard is spotted on the first attempt',
-    ),
+  observeResult(
+    'Explanation',
+    english.observe.hazardExplanation,
+    upload.observe.hazardExplanation,
+    'Shown unless the hazard is spotted on the first attempt',
   )
-  rows.push(activityRow('Observe results', 'Button', button, 'Always'))
+  observeResult('Button', english.buttonLabel, upload.buttonLabel, 'Always')
 
   instructionRows(
     rows,
     'Observe coaching',
-    content.observe.secondInstructionPill,
-    content.observe.secondInstruction,
-    button,
+    english.observe.secondInstructionPill,
+    upload.observe.secondInstructionPill,
+    english.observe.secondInstruction,
+    upload.observe.secondInstruction,
+    english.buttonLabel,
+    upload.buttonLabel,
     'When coaching is required',
   )
-  pushQuestionRows(rows, content, 'observe', 1)
+  pushQuestionRows(rows, upload, english, 'observe', 1)
 
   instructionRows(
     rows,
     'Process instruction',
-    content.process.instructionPill,
-    content.process.instruction,
-    button,
+    english.process.instructionPill,
+    upload.process.instructionPill,
+    english.process.instruction,
+    upload.process.instruction,
+    english.buttonLabel,
+    upload.buttonLabel,
     'Always',
   )
-  pushQuestionRows(rows, content, 'process', 1)
+  pushQuestionRows(rows, upload, english, 'process', 1)
   instructionRows(
     rows,
     'Process coaching',
-    content.process.secondInstructionPill,
-    content.process.secondInstruction,
-    button,
+    english.process.secondInstructionPill,
+    upload.process.secondInstructionPill,
+    english.process.secondInstruction,
+    upload.process.secondInstruction,
+    english.buttonLabel,
+    upload.buttonLabel,
     'When the Process score is below the pass threshold',
   )
-  pushQuestionRows(rows, content, 'process', 2)
+  pushQuestionRows(rows, upload, english, 'process', 2)
 
   instructionRows(
     rows,
     'Anticipate instruction',
-    content.anticipate.instructionPill,
-    content.anticipate.instruction,
-    button,
+    english.anticipate.instructionPill,
+    upload.anticipate.instructionPill,
+    english.anticipate.instruction,
+    upload.anticipate.instruction,
+    english.buttonLabel,
+    upload.buttonLabel,
     'Always',
   )
-  pushQuestionRows(rows, content, 'anticipate', 1)
+  pushQuestionRows(rows, upload, english, 'anticipate', 1)
   instructionRows(
     rows,
     'Anticipate coaching',
-    content.anticipate.secondInstructionPill,
-    content.anticipate.secondInstruction,
-    button,
+    english.anticipate.secondInstructionPill,
+    upload.anticipate.secondInstructionPill,
+    english.anticipate.secondInstruction,
+    upload.anticipate.secondInstruction,
+    english.buttonLabel,
+    upload.buttonLabel,
     'When the Anticipate score is below the pass threshold',
   )
-  pushQuestionRows(rows, content, 'anticipate', 2)
+  pushQuestionRows(rows, upload, english, 'anticipate', 2)
 
-  const scoreBase = chromeText(content, 'scoreBase', title ? `${title} Score` : 'Score')
-  rows.push(activityRow('Challenge results', 'Title', chromeText(content, 'resultsTitle', title), 'Always'))
-  rows.push(
-    activityRow('Challenge results', 'Status', content.challengePassedLabel, 'Score is 70% or higher'),
+  const uploadTitle = upload.title.trim()
+  const englishScoreBase = chromeText(english, 'scoreBase', title ? `${title} Score` : 'Score')
+  const uploadScoreBase = chromeText(
+    upload,
+    'scoreBase',
+    uploadTitle ? `${uploadTitle} Score` : 'Score',
   )
-  rows.push(
-    activityRow('Challenge results', 'Status', content.challengeFailedLabel, 'Score is below 70%'),
+  const chrome = (
+    screen: string,
+    element: string,
+    englishText: string,
+    uploadText: string,
+    when: string,
+  ) => {
+    rows.push(activityRow(screen, element, englishText, when, uploadText))
+  }
+  chrome(
+    'Challenge results',
+    'Title',
+    chromeText(english, 'resultsTitle', title),
+    chromeText(upload, 'resultsTitle', uploadTitle),
+    'Always',
   )
-  rows.push(
-    activityRow('Challenge results', 'Pass mark', chromeText(content, 'passMark', 'Pass mark 70%'), 'Always'),
+  chrome(
+    'Challenge results',
+    'Status',
+    english.challengePassedLabel,
+    upload.challengePassedLabel,
+    'Score is 70% or higher',
   )
-  rows.push(activityRow('Challenge results', 'Section title', content.observationLabel, 'Always'))
-  rows.push(activityRow('Challenge results', 'Section title', content.processSectionLabel, 'Always'))
-  rows.push(activityRow('Challenge results', 'Section title', content.anticipationLabel, 'Always'))
-  rows.push(activityRow('Challenge results', 'Points suffix', content.ptsLabel, 'After each section score'))
-  rows.push(activityRow('Challenge results', 'Metric', content.detectionLabel, 'Observation'))
-  rows.push(activityRow('Challenge results', 'Metric', content.accuracyLabel, 'Observation'))
-  rows.push(activityRow('Challenge results', 'Metric', content.coachingLabel, 'Each section'))
-  rows.push(activityRow('Challenge results', 'Metric', content.q1Label, 'Process and Anticipation'))
-  rows.push(activityRow('Challenge results', 'Metric', content.q2Label, 'Process and Anticipation'))
-  rows.push(activityRow('Challenge results', 'Metric', content.q3Label, 'Process and Anticipation'))
-  rows.push(activityRow('Challenge results', 'Score row', scoreBase, 'Always'))
-  rows.push(activityRow('Challenge results', 'Score row', chromeText(content, 'multiplier', 'Multiplier'), 'Always'))
-  rows.push(activityRow('Challenge results', 'Score row', chromeText(content, 'completion', 'Completion'), 'Always'))
-  rows.push(activityRow('Challenge results', 'Score row', chromeText(content, 'perfectRun', 'Perfect Run'), 'Always'))
-  rows.push(activityRow('Challenge results', 'Score row', chromeText(content, 'streak', 'Streak'), 'Always'))
-  rows.push(activityRow('Challenge results', 'Score row', chromeText(content, 'total', 'TOTAL'), 'Always'))
-  rows.push(
-    activityRow('Challenge results', 'Button', chromeText(content, 'continueLabel', button), 'Always'),
+  chrome(
+    'Challenge results',
+    'Status',
+    english.challengeFailedLabel,
+    upload.challengeFailedLabel,
+    'Score is below 70%',
+  )
+  chrome(
+    'Challenge results',
+    'Pass mark',
+    chromeText(english, 'passMark', 'Pass mark 70%'),
+    chromeText(upload, 'passMark', 'Pass mark 70%'),
+    'Always',
+  )
+  chrome('Challenge results', 'Section title', english.observationLabel, upload.observationLabel, 'Always')
+  chrome(
+    'Challenge results',
+    'Section title',
+    english.processSectionLabel,
+    upload.processSectionLabel,
+    'Always',
+  )
+  chrome(
+    'Challenge results',
+    'Section title',
+    english.anticipationLabel,
+    upload.anticipationLabel,
+    'Always',
+  )
+  chrome('Challenge results', 'Points suffix', english.ptsLabel, upload.ptsLabel, 'After each section score')
+  chrome('Challenge results', 'Metric', english.detectionLabel, upload.detectionLabel, 'Observation')
+  chrome('Challenge results', 'Metric', english.accuracyLabel, upload.accuracyLabel, 'Observation')
+  chrome('Challenge results', 'Metric', english.coachingLabel, upload.coachingLabel, 'Each section')
+  chrome('Challenge results', 'Metric', english.q1Label, upload.q1Label, 'Process and Anticipation')
+  chrome('Challenge results', 'Metric', english.q2Label, upload.q2Label, 'Process and Anticipation')
+  chrome('Challenge results', 'Metric', english.q3Label, upload.q3Label, 'Process and Anticipation')
+  chrome('Challenge results', 'Score row', englishScoreBase, uploadScoreBase, 'Always')
+  chrome(
+    'Challenge results',
+    'Score row',
+    chromeText(english, 'multiplier', 'Multiplier'),
+    chromeText(upload, 'multiplier', 'Multiplier'),
+    'Always',
+  )
+  chrome(
+    'Challenge results',
+    'Score row',
+    chromeText(english, 'completion', 'Completion'),
+    chromeText(upload, 'completion', 'Completion'),
+    'Always',
+  )
+  chrome(
+    'Challenge results',
+    'Score row',
+    chromeText(english, 'perfectRun', 'Perfect Run'),
+    chromeText(upload, 'perfectRun', 'Perfect Run'),
+    'Always',
+  )
+  chrome(
+    'Challenge results',
+    'Score row',
+    chromeText(english, 'streak', 'Streak'),
+    chromeText(upload, 'streak', 'Streak'),
+    'Always',
+  )
+  chrome(
+    'Challenge results',
+    'Score row',
+    chromeText(english, 'total', 'TOTAL'),
+    chromeText(upload, 'total', 'TOTAL'),
+    'Always',
+  )
+  chrome(
+    'Challenge results',
+    'Button',
+    chromeText(english, 'continueLabel', english.buttonLabel),
+    chromeText(upload, 'continueLabel', upload.buttonLabel),
+    'Always',
   )
 
-  rows.push(
-    activityRow(
-      'Progress',
-      'Heading',
-      chromeText(content, 'progress', 'Progress'),
-      'After Continue on the results screen',
-    ),
-  )
-  rows.push(
-    activityRow(
-      'Progress',
-      'Heading',
-      chromeText(content, 'competencyHeading', 'Core Competency Scores to Date'),
-      'Always on this screen',
-    ),
-  )
-  rows.push(activityRow('Progress', 'Competency', chromeText(content, 'speedManagement', 'Speed Management'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Competency', chromeText(content, 'spaceManagement', 'Space Management'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Competency', chromeText(content, 'dangerZones', 'Danger Zones'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Competency', chromeText(content, 'otherMotorists', 'Other Motorists'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Competency', chromeText(content, 'scanning', 'Scanning'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Competency', chromeText(content, 'attitude', 'Attitude'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Rank', chromeText(content, 'departmentRank', 'Department Rank'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Rank', chromeText(content, 'companyRank', 'Company Rank'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Rank', chromeText(content, 'drawEntries', 'Draw Entries'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Draw', chromeText(content, 'drawTitle', 'October Draw'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Draw', chromeText(content, 'drawRemaining', '14 days remain'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Heading', chromeText(content, 'periodHeading', 'This Period'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Phase', chromeText(content, 'phase', 'PHASE 2'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Row', chromeText(content, 'streakRow', 'Streak'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Row value', chromeText(content, 'streakValue', 'Level 2 +10 pts'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Row', chromeText(content, 'perfectRunsRow', 'Perfect Runs'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Row value', chromeText(content, 'perfectRunsValue', '2 this period'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Row', chromeText(content, 'engagementRow', 'Engagement Window'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Row value', chromeText(content, 'engagementValue', 'Active x 1.2'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Row', chromeText(content, 'lifetimePointsRow', 'Lifetime Points'), 'Always on this screen'))
-  rows.push(activityRow('Progress', 'Button', chromeText(content, 'completeSession', 'Complete Session'), 'Always on this screen'))
+  const progress = (element: string, key: keyof ResultsChrome, fallback: string, when: string) => {
+    chrome('Progress', element, chromeText(english, key, fallback), chromeText(upload, key, fallback), when)
+  }
+  progress('Heading', 'progress', 'Progress', 'After Continue on the results screen')
+  progress('Heading', 'competencyHeading', 'Core Competency Scores to Date', 'Always on this screen')
+  progress('Competency', 'speedManagement', 'Speed Management', 'Always on this screen')
+  progress('Competency', 'spaceManagement', 'Space Management', 'Always on this screen')
+  progress('Competency', 'dangerZones', 'Danger Zones', 'Always on this screen')
+  progress('Competency', 'otherMotorists', 'Other Motorists', 'Always on this screen')
+  progress('Competency', 'scanning', 'Scanning', 'Always on this screen')
+  progress('Competency', 'attitude', 'Attitude', 'Always on this screen')
+  progress('Rank', 'departmentRank', 'Department Rank', 'Always on this screen')
+  progress('Rank', 'companyRank', 'Company Rank', 'Always on this screen')
+  progress('Rank', 'drawEntries', 'Draw Entries', 'Always on this screen')
+  progress('Draw', 'drawTitle', 'October Draw', 'Always on this screen')
+  progress('Draw', 'drawRemaining', '14 days remain', 'Always on this screen')
+  progress('Heading', 'periodHeading', 'This Period', 'Always on this screen')
+  progress('Phase', 'phase', 'PHASE 2', 'Always on this screen')
+  progress('Row', 'streakRow', 'Streak', 'Always on this screen')
+  progress('Row value', 'streakValue', 'Level 2 +10 pts', 'Always on this screen')
+  progress('Row', 'perfectRunsRow', 'Perfect Runs', 'Always on this screen')
+  progress('Row value', 'perfectRunsValue', '2 this period', 'Always on this screen')
+  progress('Row', 'engagementRow', 'Engagement Window', 'Always on this screen')
+  progress('Row value', 'engagementValue', 'Active x 1.2', 'Always on this screen')
+  progress('Row', 'lifetimePointsRow', 'Lifetime Points', 'Always on this screen')
+  progress('Button', 'completeSession', 'Complete Session', 'Always on this screen')
   return rows
 }
 
-export async function buildWorkbookBytes(content: ImportWorkbookContent): Promise<Uint8Array> {
+export async function buildWorkbookBytes(
+  content: ImportWorkbookContent,
+  english: ImportWorkbookContent = content,
+): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook()
   workbook.creator = 'Inroads MVP'
   const sheet = workbook.addWorksheet('Activity text')
   sheet.addRow(['Screen', 'Element', 'Text', 'Upload text', 'When'])
   sheet.getRow(1).font = { bold: true }
-  for (const row of activityTextRows(content)) sheet.addRow(row)
+  for (const row of activityTextRows(content, english)) sheet.addRow(row)
   ;[27, 21, 61, 61, 37].forEach((width, index) => {
     sheet.getColumn(index + 1).width = width
   })
