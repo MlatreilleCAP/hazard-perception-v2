@@ -52,6 +52,7 @@ function emptyLesson(): ImportedLessonFields {
     language: '',
     sku: null,
     button: null,
+    exampleButton: null,
     submit: null,
     challengePassed: null,
     challengeFailed: null,
@@ -456,6 +457,10 @@ export function parseActivityTextSheet(
       } else if (value && !buttonFromTitle && lesson.button == null) {
         lesson.button = value
       }
+      continue
+    }
+    if (element === 'example_button') {
+      if (value) lesson.exampleButton = value
       continue
     }
 

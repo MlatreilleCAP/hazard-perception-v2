@@ -3,11 +3,13 @@ import { canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
 
 export const DEFAULT_LESSON_BUTTON_LABEL = 'Continue'
 export const DEFAULT_LESSON_SUBMIT_LABEL = 'Submit'
+export const DEFAULT_LESSON_EXAMPLE_BUTTON_LABEL = 'Example'
 export const DEFAULT_LESSON_CHALLENGE_PASSED_LABEL = 'Challenge Complete'
 export const DEFAULT_LESSON_CHALLENGE_FAILED_LABEL = 'Challenge Failed'
 
 const LESSON_BUTTON_LABEL = Symbol('lessonButtonLabel')
 const LESSON_SUBMIT_LABEL = Symbol('lessonSubmitLabel')
+const LESSON_EXAMPLE_BUTTON_LABEL = Symbol('lessonExampleButtonLabel')
 const LESSON_CHALLENGE_PASSED_LABEL = Symbol('lessonChallengePassedLabel')
 const LESSON_CHALLENGE_FAILED_LABEL = Symbol('lessonChallengeFailedLabel')
 const LESSON_LANGUAGE = Symbol('lessonLanguage')
@@ -76,6 +78,16 @@ export function provideLessonSubmitLabel(source: MaybeRefOrGetter<string>): void
 export function useLessonSubmitLabel(): ComputedRef<string> {
   const injected = inject<ComputedRef<string> | null>(LESSON_SUBMIT_LABEL, null)
   return computed(() => injected?.value.trim() || DEFAULT_LESSON_SUBMIT_LABEL)
+}
+
+export function provideLessonExampleButtonLabel(source: MaybeRefOrGetter<string>): void {
+  const label = computed(() => toValue(source).trim() || DEFAULT_LESSON_EXAMPLE_BUTTON_LABEL)
+  provide(LESSON_EXAMPLE_BUTTON_LABEL, label)
+}
+
+export function useLessonExampleButtonLabel(): ComputedRef<string> {
+  const injected = inject<ComputedRef<string> | null>(LESSON_EXAMPLE_BUTTON_LABEL, null)
+  return computed(() => injected?.value.trim() || DEFAULT_LESSON_EXAMPLE_BUTTON_LABEL)
 }
 
 export function provideLessonChallengeLabels(

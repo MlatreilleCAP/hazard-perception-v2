@@ -24,6 +24,7 @@ import {
   DEFAULT_LESSON_BUTTON_LABEL,
   DEFAULT_LESSON_CHALLENGE_FAILED_LABEL,
   DEFAULT_LESSON_CHALLENGE_PASSED_LABEL,
+  DEFAULT_LESSON_EXAMPLE_BUTTON_LABEL,
   DEFAULT_LESSON_RESULTS_LABELS,
   DEFAULT_LESSON_SUBMIT_LABEL,
   DEFAULT_OBSERVE_SUMMARY_HEADINGS,
@@ -245,6 +246,10 @@ async function lessonWorkbookContent(
     sku: mvp.sku,
     buttonLabel: filledOrDefault(mvp.buttonLabel, DEFAULT_LESSON_BUTTON_LABEL),
     submitLabel: filledOrDefault(mvp.submitLabel, DEFAULT_LESSON_SUBMIT_LABEL),
+    exampleButtonLabel: filledOrDefault(
+      mvp.exampleButtonLabel,
+      DEFAULT_LESSON_EXAMPLE_BUTTON_LABEL,
+    ),
     challengePassedLabel: filledOrDefault(
       mvp.challengePassedLabel,
       DEFAULT_LESSON_CHALLENGE_PASSED_LABEL,

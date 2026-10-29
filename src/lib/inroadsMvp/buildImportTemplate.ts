@@ -18,6 +18,7 @@ export type ImportWorkbookContent = {
   sku: string
   buttonLabel: string
   submitLabel: string
+  exampleButtonLabel: string
   challengePassedLabel: string
   challengeFailedLabel: string
   maneuverHeading: string
@@ -115,6 +116,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     sku: '',
     buttonLabel: 'Continue',
     submitLabel: 'Submit',
+    exampleButtonLabel: 'Example',
     challengePassedLabel: 'Challenge Complete',
     challengeFailedLabel: 'Challenge Failed',
     maneuverHeading: 'Maneuver',
@@ -402,6 +404,14 @@ function activityTextRows(content: ImportWorkbookContent): ActivityTextRow[] {
     content.observe.instruction,
     button,
     'Always',
+  )
+  rows.push(
+    activityRow(
+      'Observe instruction',
+      'Example button',
+      content.exampleButtonLabel,
+      'When an example video is available',
+    ),
   )
   rows.push(
     activityRow(

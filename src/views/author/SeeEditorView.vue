@@ -25,6 +25,7 @@ import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import {
   DEFAULT_OBSERVE_SUMMARY_HEADINGS,
   provideLessonButtonLabel,
+  provideLessonExampleButtonLabel,
   provideLessonSubmitLabel,
   type ObserveSummaryHeadings,
 } from '@/lib/lesson/buttonLabel'
@@ -51,6 +52,7 @@ const props = withDefaults(
     persistExample?: () => Promise<boolean>
     buttonLabel?: string
     submitLabel?: string
+    exampleButtonLabel?: string
   }>(),
   {
     activityIdProp: undefined,
@@ -62,11 +64,13 @@ const props = withDefaults(
     persistExample: undefined,
     buttonLabel: '',
     submitLabel: '',
+    exampleButtonLabel: '',
   },
 )
 
 provideLessonButtonLabel(() => props.buttonLabel)
 provideLessonSubmitLabel(() => props.submitLabel)
+provideLessonExampleButtonLabel(() => props.exampleButtonLabel ?? '')
 
 const emit = defineEmits<{
   'update:exampleActivityId': [id: string]

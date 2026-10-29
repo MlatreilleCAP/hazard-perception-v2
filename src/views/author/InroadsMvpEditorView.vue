@@ -1252,6 +1252,7 @@ async function deleteVersion(id: string): Promise<void> {
           :persist-example="awaitExampleChoice"
           :button-label="mvp.buttonLabel"
           :submit-label="mvp.submitLabel"
+          :example-button-label="mvp.exampleButtonLabel"
           @update:example-activity-id="setExampleActivityId"
         />
       </div>

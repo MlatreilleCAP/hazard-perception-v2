@@ -9,6 +9,7 @@ import { readIntroductionDefinition } from '@/activities/introductionDefinition'
 import {
   provideLessonButtonLabel,
   provideLessonChallengeLabels,
+  provideLessonExampleButtonLabel,
   provideLessonLanguage,
   provideLessonSubmitLabel,
   provideLessonResultsLabels,
@@ -96,6 +97,7 @@ function zoomPreview(delta: number): void {
 }
 const lessonButtonLabel = ref('')
 const lessonSubmitLabel = ref('')
+const lessonExampleButtonLabel = ref('')
 const lessonCountry = ref('')
 const lessonChallengePassedLabel = ref('')
 const lessonChallengeFailedLabel = ref('')
@@ -109,6 +111,7 @@ const observeSummaryHeadings = ref<ObserveSummaryHeadings>({
 })
 provideLessonButtonLabel(lessonButtonLabel)
 provideLessonSubmitLabel(lessonSubmitLabel)
+provideLessonExampleButtonLabel(lessonExampleButtonLabel)
 provideLessonChallengeLabels(lessonChallengePassedLabel, lessonChallengeFailedLabel)
 provideLessonLanguage(lessonLanguage)
 provideObserveSummaryHeadings(observeSummaryHeadings)
@@ -133,6 +136,7 @@ const seeExampleSrc = ref('')
 async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
   button: string
   submit: string
+  exampleButton: string
   country: string
   challengePassed: string
   challengeFailed: string
@@ -160,6 +164,7 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
     return {
       button: mvp?.buttonLabel.trim() ?? '',
       submit: mvp?.submitLabel.trim() ?? '',
+      exampleButton: mvp?.exampleButtonLabel.trim() ?? '',
       country: mvp?.country.trim() ?? '',
       challengePassed: mvp?.challengePassedLabel.trim() ?? '',
       challengeFailed: mvp?.challengeFailedLabel.trim() ?? '',
@@ -186,6 +191,7 @@ async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
   const empty = {
     button: '',
     submit: '',
+    exampleButton: '',
     country: '',
     challengePassed: '',
     challengeFailed: '',
@@ -288,6 +294,7 @@ async function loadActivity(id: string): Promise<void> {
     const labels = await resolveLessonLabels(next)
     lessonButtonLabel.value = labels.button
     lessonSubmitLabel.value = labels.submit
+    lessonExampleButtonLabel.value = labels.exampleButton
     lessonCountry.value = labels.country
     lessonChallengePassedLabel.value = labels.challengePassed
     lessonChallengeFailedLabel.value = labels.challengeFailed

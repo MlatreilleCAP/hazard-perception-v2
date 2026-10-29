@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { parseInstructionBlocks } from '@/lib/instruction/parseInstructionText'
-import { useLessonButtonLabel } from '@/lib/lesson/buttonLabel'
+import { useLessonButtonLabel, useLessonExampleButtonLabel } from '@/lib/lesson/buttonLabel'
 
 const props = defineProps<{
   text: string
@@ -11,6 +11,7 @@ const props = defineProps<{
 }>()
 
 const buttonLabel = useLessonButtonLabel()
+const exampleLabel = useLessonExampleButtonLabel()
 
 defineEmits<{
   begin: []
@@ -39,7 +40,7 @@ const blocks = computed(() => parseInstructionBlocks(props.text))
           class="process-instruction-example"
           @click="$emit('example')"
         >
-          Example
+          {{ exampleLabel }}
         </button>
         <button type="button" class="process-instruction-begin" @click="$emit('begin')">
           {{ buttonLabel }}

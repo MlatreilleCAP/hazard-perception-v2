@@ -63,6 +63,7 @@ export function lessonEnglishGroups(
     group('Buttons', [
       row('Continue / Start', mvp.buttonLabel),
       row('Submit', mvp.submitLabel),
+      row('Example', mvp.exampleButtonLabel),
     ]),
     group('Results', [
       row('Passed', mvp.challengePassedLabel),
