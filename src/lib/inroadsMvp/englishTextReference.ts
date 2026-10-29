@@ -1,3 +1,4 @@
+import { DEFAULT_LESSON_EXAMPLE_BUTTON_LABEL } from '@/lib/lesson/buttonLabel'
 import type { AnticipateDefinition } from '@/types/anticipate'
 import type { InroadsMvpDefinition } from '@/types/inroadsMvp'
 import type { ProcessDefinition } from '@/types/process'
@@ -63,7 +64,10 @@ export function lessonEnglishGroups(
     group('Buttons', [
       row('Continue / Start', mvp.buttonLabel),
       row('Submit', mvp.submitLabel),
-      row('Example', mvp.exampleButtonLabel),
+      row(
+        'Example',
+        mvp.exampleButtonLabel.trim() || DEFAULT_LESSON_EXAMPLE_BUTTON_LABEL,
+      ),
     ]),
     group('Results', [
       row('Passed', mvp.challengePassedLabel),
