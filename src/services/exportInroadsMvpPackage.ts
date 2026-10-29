@@ -33,6 +33,7 @@ import {
   DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
   type AnticipateDefinition,
 } from '@/types/anticipate'
+import type { ActivityDefinition } from '@/types/activity'
 import type { InroadsMvpDefinition } from '@/types/inroadsMvp'
 import { mediaAssetDisplayName } from '@/types/media'
 import {
@@ -51,6 +52,8 @@ import {
 
 export type ExportLessonTemplateOptions = {
   includeMedia?: boolean
+  /** Queue downloads of a published lesson pack the published snapshot. */
+  source?: 'draft' | 'published'
   onProgress?: (message: string) => void
 }
 
@@ -92,11 +95,12 @@ export async function exportLessonTemplateZip(
   options: ExportLessonTemplateOptions = {},
 ): Promise<{ blob: Blob; filename: string }> {
   const includeMedia = options.includeMedia === true
+  const source = options.source ?? 'draft'
   options.onProgress?.(includeMedia ? 'Building workbook…' : 'Building template…')
-  const content = await lessonWorkbookContent(parentId)
+  const content = await lessonWorkbookContent(parentId, source)
   const bytes = await buildWorkbookBytes(content)
   const folderFiles = includeMedia
-    ? await collectLessonMediaFiles(parentId, options.onProgress)
+    ? await collectLessonMediaFiles(parentId, source, options.onProgress)
     : []
   const suffix = includeMedia ? 'package' : 'template'
   return {
@@ -107,15 +111,18 @@ export async function exportLessonTemplateZip(
 
 async function collectLessonMediaFiles(
   parentId: string,
+  source: 'draft' | 'published',
   onProgress?: (message: string) => void,
 ): Promise<ImportZipFolderFile[]> {
-  const parent = await loadActivityOrThrow(parentId)
+  const parent = await loadLessonForExport(parentId, source)
   const mvp = readInroadsMvpDefinition(parent)
   if (!mvp) throw new Error('Inroads MVP definition was not found')
 
-  const see = readSeeDefinition(await loadActivityOrThrow(mvp.seeActivityId))
-  const process = readProcessDefinition(await loadActivityOrThrow(mvp.processActivityId))
-  const anticipate = readAnticipateDefinition(await loadActivityOrThrow(mvp.anticipateActivityId))
+  const see = readSeeDefinition(await loadLessonForExport(mvp.seeActivityId, source))
+  const process = readProcessDefinition(await loadLessonForExport(mvp.processActivityId, source))
+  const anticipate = readAnticipateDefinition(
+    await loadLessonForExport(mvp.anticipateActivityId, source),
+  )
   const files: ImportZipFolderFile[] = []
   for (const slot of TEMPLATE_FOLDER_SLOT_IDS) {
     const folder = SLOT_FOLDER_LABELS[slot]
@@ -193,14 +200,29 @@ function safeZipFilename(name: string, fallback: string): string {
   return cleaned || fallback
 }
 
-async function lessonWorkbookContent(parentId: string): Promise<ImportWorkbookContent> {
-  const parent = await loadActivityOrThrow(parentId)
+async function loadLessonForExport(
+  id: string,
+  source: 'draft' | 'published',
+): Promise<ActivityDefinition> {
+  if (source === 'draft') return loadActivityOrThrow(id)
+  const published = await services.persistence.getPublished(id)
+  if (!published) throw new Error(`Published activity ${id} was not found`)
+  return published
+}
+
+async function lessonWorkbookContent(
+  parentId: string,
+  source: 'draft' | 'published' = 'draft',
+): Promise<ImportWorkbookContent> {
+  const parent = await loadLessonForExport(parentId, source)
   const mvp = readInroadsMvpDefinition(parent)
   if (!mvp) throw new Error('Inroads MVP definition was not found')
 
-  const see = readSeeDefinition(await loadActivityOrThrow(mvp.seeActivityId))
-  const process = readProcessDefinition(await loadActivityOrThrow(mvp.processActivityId))
-  const anticipate = readAnticipateDefinition(await loadActivityOrThrow(mvp.anticipateActivityId))
+  const see = readSeeDefinition(await loadLessonForExport(mvp.seeActivityId, source))
+  const process = readProcessDefinition(await loadLessonForExport(mvp.processActivityId, source))
+  const anticipate = readAnticipateDefinition(
+    await loadLessonForExport(mvp.anticipateActivityId, source),
+  )
   const hazard = see.hazards[0]
   const questions: ImportWorkbookContent['questions'] = []
   for (const item of see.hazards) {

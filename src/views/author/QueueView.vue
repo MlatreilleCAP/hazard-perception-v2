@@ -158,11 +158,14 @@ function onNotesChange(row: QueueRow, event: Event): void {
 }
 
 async function downloadAssets(row: QueueRow): Promise<void> {
-  if (row.status !== 'approved' || downloadingId.value) return
+  if ((row.status !== 'approved' && row.status !== 'published') || downloadingId.value) return
   downloadingId.value = row.id
   actionError.value = null
   try {
-    const packed = await exportLessonTemplateZip(row.id, { includeMedia: true })
+    const packed = await exportLessonTemplateZip(row.id, {
+      includeMedia: true,
+      source: row.status === 'published' ? 'published' : 'draft',
+    })
     downloadBlob(packed.blob, packed.filename)
   } catch (cause) {
     actionError.value = cause instanceof Error ? cause.message : 'Failed to download assets'
@@ -250,7 +253,7 @@ async function saveNotes(row: QueueRow): Promise<void> {
             </div>
             <AuthorStatusChip :label="lessonQueueStatusLabel(row.status)" />
             <button
-              v-if="row.status === 'approved'"
+              v-if="row.status === 'approved' || row.status === 'published'"
               type="button"
               class="author-pill author-pill-white"
               :disabled="downloadingId === row.id"
