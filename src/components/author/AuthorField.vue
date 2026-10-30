@@ -12,6 +12,7 @@ const props = defineProps<{
   options?: readonly string[]
   placeholder?: string
   disabled?: boolean
+  searchable?: boolean
 }>()
 
 const model = defineModel<string>({ required: true })
@@ -35,6 +36,7 @@ const selectOptions = computed(() => {
     :disabled="disabled"
     :error="error"
     :options="selectOptions"
+    :searchable="searchable"
   />
   <div v-else>
     <label class="author-field" :for="id">

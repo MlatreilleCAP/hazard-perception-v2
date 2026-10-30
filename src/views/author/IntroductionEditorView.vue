@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   readIntroductionDefinition,
@@ -50,6 +50,8 @@ const submitMenuOpen = ref(false)
 const submitMenu = ref<HTMLElement | null>(null)
 const newLanguageMenuOpen = ref(false)
 const newLanguageMenu = ref<HTMLElement | null>(null)
+const newLanguageQuery = ref('')
+const newLanguageSearch = ref<HTMLInputElement | null>(null)
 const saveMessage = ref<string | null>(null)
 const title = ref('')
 const description = ref('')
@@ -100,6 +102,20 @@ const availableNewLanguages = computed(() => {
   const current = canonicalizeLessonLanguage(language.value)
   if (current) used.add(current)
   return LESSON_LANGUAGE_OPTIONS.filter((option) => !used.has(option))
+})
+
+const filteredNewLanguages = computed(() => {
+  const term = newLanguageQuery.value.trim().toLowerCase()
+  if (!term) return availableNewLanguages.value
+  return availableNewLanguages.value.filter((option) => option.toLowerCase().includes(term))
+})
+
+watch(newLanguageMenuOpen, (isOpen) => {
+  if (!isOpen) {
+    newLanguageQuery.value = ''
+    return
+  }
+  void nextTick(() => newLanguageSearch.value?.focus())
 })
 
 function selectOptions(options: readonly string[], current: string): string[] {
@@ -584,8 +600,19 @@ async function remove(): Promise<void> {
               role="menu"
               aria-label="New language"
             >
+              <input
+                ref="newLanguageSearch"
+                v-model="newLanguageQuery"
+                type="search"
+                class="author-select-search"
+                placeholder="Search"
+                aria-label="Search languages"
+                @click.stop
+                @keydown.stop
+              />
+              <p v-if="filteredNewLanguages.length === 0" class="author-select-empty">No matches.</p>
               <button
-                v-for="option in availableNewLanguages"
+                v-for="option in filteredNewLanguages"
                 :key="option"
                 type="button"
                 class="author-menu-item"
@@ -652,6 +679,7 @@ async function remove(): Promise<void> {
           placeholder="Select language"
           :options="selectOptions(LESSON_LANGUAGE_OPTIONS, language)"
           :disabled="!editable"
+          searchable
         />
       </section>
 

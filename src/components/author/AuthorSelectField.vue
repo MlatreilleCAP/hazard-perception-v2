@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 export type AuthorSelectOption = {
   value: string
@@ -15,6 +15,7 @@ const props = defineProps<{
   error?: string
   options: readonly AuthorSelectOption[]
   removable?: boolean
+  searchable?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -25,7 +26,19 @@ const model = defineModel<string>({ required: true })
 
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
+const searchInput = ref<HTMLInputElement | null>(null)
+const query = ref('')
 const pendingRemove = ref<string | null>(null)
+
+const visibleOptions = computed(() => {
+  const term = query.value.trim().toLowerCase()
+  if (!props.searchable || !term) return props.options
+  return props.options.filter((option) => {
+    const label = option.label.toLowerCase()
+    const subtext = option.subtext?.toLowerCase() ?? ''
+    return label.includes(term) || subtext.includes(term)
+  })
+})
 
 const selectedOption = computed(
   () => props.options.find((option) => option.value === model.value) ?? null,
@@ -41,8 +54,17 @@ const showPlaceholder = computed(() => !selectedOption.value)
 function toggle(): void {
   if (props.disabled) return
   open.value = !open.value
-  if (!open.value) pendingRemove.value = null
 }
+
+watch(open, (isOpen) => {
+  if (!isOpen) {
+    query.value = ''
+    pendingRemove.value = null
+    return
+  }
+  if (!props.searchable) return
+  void nextTick(() => searchInput.value?.focus())
+})
 
 function select(value: string): void {
   model.value = value
@@ -116,8 +138,20 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointerDown))
             role="listbox"
             :aria-labelledby="id"
           >
+            <input
+              v-if="searchable"
+              ref="searchInput"
+              v-model="query"
+              type="search"
+              class="author-select-search"
+              placeholder="Search"
+              aria-label="Search"
+              @click.stop
+              @keydown.stop
+            />
+            <p v-if="visibleOptions.length === 0" class="author-select-empty">No matches.</p>
             <div
-              v-for="option in options"
+              v-for="option in visibleOptions"
               :key="option.value || '__empty__'"
               class="author-select-option"
             >

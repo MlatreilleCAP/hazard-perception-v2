@@ -1,3 +1,7 @@
+import { LANGUAGE_ALIASES } from '@/lib/inroadsMvp/lessonLanguages'
+
+export { LESSON_LANGUAGE_OPTIONS } from '@/lib/inroadsMvp/lessonLanguages'
+
 export const WORKBOOK_EXTENSIONS = ['.xls', '.xlsx'] as const
 
 export const WORKBOOK_REPLACE_ID = 'workbook' as const
@@ -153,8 +157,6 @@ export const LESSON_COUNTRY_OPTIONS = [
   'Ireland',
 ] as const
 
-export const LESSON_LANGUAGE_OPTIONS = ['English', 'French', 'Spanish', 'German'] as const
-
 const COUNTRY_ALIASES: Record<string, string> = {
   'united states': 'USA',
   'united states of america': 'USA',
@@ -201,13 +203,6 @@ const COUNTRY_ALIASES: Record<string, string> = {
   turkiye: 'Turkey',
   türkiye: 'Turkey',
   ireland: 'Ireland',
-}
-
-const LANGUAGE_ALIASES: Record<string, string> = {
-  en: 'English',
-  fr: 'French',
-  es: 'Spanish',
-  de: 'German',
 }
 
 export function canonicalizeLessonCountry(value: string): string {

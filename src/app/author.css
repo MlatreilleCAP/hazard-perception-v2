@@ -1039,6 +1039,41 @@ fieldset.author-stack {
   overflow: auto;
 }
 
+.author-select-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  width: calc(100% - 16px);
+  margin: 4px 8px 6px;
+  height: 32px;
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0 10px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--editor-ink);
+  outline: none;
+}
+
+.author-select-search:focus {
+  border-color: var(--editor-teal);
+}
+
+.author-select-empty {
+  margin: 0;
+  padding: 8px 14px 10px;
+  font-size: 13px;
+  color: var(--editor-muted);
+}
+
+.mvp-new-language-menu .author-menu-panel {
+  min-width: 220px;
+  max-height: 360px;
+  overflow: auto;
+}
+
 .author-select-option-row {
   display: flex;
   align-items: stretch;
