@@ -1,33 +1,64 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
-import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
-import { LESSON_COUNTRY_OPTIONS } from '@/lib/inroadsMvp/packageSpec'
+import { isWorkbookName, WORKBOOK_FILE_ACCEPT } from '@/lib/inroadsMvp/packageSpec'
+import { parseImportWorkbook } from '@/lib/inroadsMvp/parseImportPackage'
 import { createBlankInroadsMvp } from '@/services/createInroadsMvp'
+import { replaceInroadsMvpWorkbook } from '@/services/inroadsMvpImport'
+import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 
 const router = useRouter()
 const activities = useActivityStore()
-const title = ref('')
-const country = ref('')
-const titleError = ref<string | null>(null)
-const saving = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploading = ref(false)
+const progress = ref<string | null>(null)
+const error = ref<string | null>(null)
 
-async function create(): Promise<void> {
-  titleError.value = title.value.trim() ? null : 'Title is required'
-  if (titleError.value) return
+function chooseFile(): void {
+  if (uploading.value) return
+  fileInput.value?.click()
+}
 
-  saving.value = true
+async function onFile(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  input.value = ''
+  if (!file || uploading.value) return
+
+  uploading.value = true
+  error.value = null
+  progress.value = 'Reading spreadsheet…'
+  let createdId = ''
   try {
-    const id = await createBlankInroadsMvp(title.value.trim(), '', country.value)
+    if (!isWorkbookName(file.name)) {
+      throw new Error('Choose a .xls or .xlsx file.')
+    }
+    const preview = await parseImportWorkbook(file)
+    progress.value = 'Creating lesson…'
+    createdId = await createBlankInroadsMvp(
+      preview.lesson.title.trim() || 'Imported Inroads MVP',
+      preview.lesson.description,
+      preview.lesson.country,
+    )
+    await replaceInroadsMvpWorkbook(createdId, file, (message) => {
+      progress.value = message
+    })
     await activities.refreshList()
-    await router.push(`/studio/inroads-mvp/${id}`)
+    await router.push(`/studio/inroads-mvp/${createdId}`)
   } catch (cause) {
-    window.alert(cause instanceof Error ? cause.message : 'Failed to create Inroads MVP')
+    if (createdId) {
+      try {
+        await removeInroadsMvpParent(createdId)
+      } catch {
+        // The import failed; ignore cleanup errors.
+      }
+    }
+    error.value = cause instanceof Error ? cause.message : 'Failed to create lesson from the spreadsheet'
+    progress.value = null
   } finally {
-    saving.value = false
+    uploading.value = false
   }
 }
 </script>
@@ -52,34 +83,25 @@ async function create(): Promise<void> {
         </div>
       </div>
 
-      <section class="author-stack-sm">
-        <AuthorSectionHeader title="Lesson Info" />
-        <AuthorField
-          id="mvp-title"
-          v-model="title"
-          label="Title"
-          :error="titleError ?? undefined"
-          placeholder="Inroads MVP title"
-        />
-        <AuthorField
-          id="mvp-country"
-          v-model="country"
-          label="Country"
-          placeholder="Select country"
-          :options="LESSON_COUNTRY_OPTIONS"
-        />
-      </section>
-
       <p class="author-muted">
-        Creates Observe, Process, and Anticipate authoring pages nested in this lesson.
-        After creating, pick a published Stand Alone Video on the lesson page.
+        Upload a lesson spreadsheet. Its title, country, and copy become the new lesson.
       </p>
 
-      <div class="author-actions">
-        <AuthorPillButton variant="primary" :disabled="saving" @click="create">
-          {{ saving ? 'Creating…' : 'Create' }}
+      <div class="author-actions inroads-import-panel">
+        <input
+          ref="fileInput"
+          type="file"
+          :accept="WORKBOOK_FILE_ACCEPT"
+          :disabled="uploading"
+          @change="onFile"
+        />
+        <AuthorPillButton variant="primary" :disabled="uploading" @click="chooseFile">
+          {{ uploading ? 'Uploading…' : 'Upload xls' }}
         </AuthorPillButton>
       </div>
+
+      <p v-if="progress" class="author-muted">{{ progress }}</p>
+      <p v-if="error" class="author-error">{{ error }}</p>
     </div>
   </div>
 </template>
