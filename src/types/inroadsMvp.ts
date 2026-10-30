@@ -16,19 +16,28 @@ export const INROADS_MVP_CHILD_TAG = 'inroads-mvp-child'
 
 export const LESSON_REVIEW_STATUSES = [
   'draft',
-  'ready_for_media',
-  'ready_for_review',
-  'changes_requested',
+  'available',
+  'in_progress',
+  'review',
+  'approval',
   'approved',
   'published',
 ] as const
 
 export type LessonReviewStatus = (typeof LESSON_REVIEW_STATUSES)[number]
 
+const LEGACY_LESSON_REVIEW_STATUSES: Record<string, LessonReviewStatus> = {
+  ready_for_media: 'available',
+  ready_for_review: 'review',
+  changes_requested: 'in_progress',
+}
+
 export function readLessonReviewStatus(value: unknown): LessonReviewStatus | undefined {
-  return LESSON_REVIEW_STATUSES.includes(value as LessonReviewStatus)
-    ? (value as LessonReviewStatus)
-    : undefined
+  if (typeof value !== 'string') return undefined
+  if (LESSON_REVIEW_STATUSES.includes(value as LessonReviewStatus)) {
+    return value as LessonReviewStatus
+  }
+  return LEGACY_LESSON_REVIEW_STATUSES[value]
 }
 
 /** An explicit review status wins over a live publish. A lesson with no status still shows as published. */
@@ -36,34 +45,35 @@ export function lessonQueueStatus(
   reviewStatus: LessonReviewStatus | undefined,
   published: boolean,
 ): LessonReviewStatus {
-  if (
-    reviewStatus === 'draft' ||
-    reviewStatus === 'ready_for_media' ||
-    reviewStatus === 'ready_for_review' ||
-    reviewStatus === 'changes_requested' ||
-    reviewStatus === 'approved'
-  ) {
-    return reviewStatus
-  }
+  if (reviewStatus && reviewStatus !== 'published') return reviewStatus
   if (reviewStatus === 'published' || published) return 'published'
   return 'draft'
 }
 
+const LESSON_REVIEW_STATUS_LABELS: Record<LessonReviewStatus, string> = {
+  draft: 'DRAFT',
+  available: 'AVAILABLE',
+  in_progress: 'IN PROGRESS',
+  review: 'REVIEW',
+  approval: 'APPROVAL',
+  approved: 'APPROVED',
+  published: 'PUBLISHED',
+}
+
 export function lessonQueueStatusLabel(status: LessonReviewStatus): string {
-  if (status === 'ready_for_media') return 'READY FOR MEDIA'
-  if (status === 'ready_for_review') return 'READY FOR REVIEW'
-  if (status === 'changes_requested') return 'CHANGES REQUESTED'
-  if (status === 'approved') return 'APPROVED'
-  if (status === 'published') return 'PUBLISHED'
-  return 'DRAFT'
+  return LESSON_REVIEW_STATUS_LABELS[status]
 }
 
 export type InroadsMvpDefinition = {
   version: 1
   /** Absent until someone sets a queue status. A live publish stays published until then. */
   reviewStatus?: LessonReviewStatus
-  /** Reviewer notes shown on Changes requested queue rows. */
+  /** Reviewer notes shown on In progress queue rows. */
   reviewNotes: string
+  /** User who currently holds this lesson in the queue. */
+  assigneeId: string
+  /** Name shown on the queue card for the current holder. */
+  assigneeName: string
   /** Section 1 — intro clip before Observe / Process / Anticipate. */
   introMedia: MediaRef | null
   introShowOnFirstVisitOnly: boolean
@@ -146,6 +156,8 @@ export function createDefaultInroadsMvpDefinition(
     version: 1,
     reviewStatus: 'draft',
     reviewNotes: '',
+    assigneeId: '',
+    assigneeName: '',
     introMedia: null,
     introShowOnFirstVisitOnly: true,
     introductionActivityId: '',
@@ -189,6 +201,8 @@ export function cloneInroadsMvpDefinition(
     version: 1,
     reviewStatus: readLessonReviewStatus(definition.reviewStatus),
     reviewNotes: definition.reviewNotes.trim(),
+    assigneeId: definition.assigneeId.trim(),
+    assigneeName: definition.assigneeName.trim(),
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
@@ -263,6 +277,8 @@ export function normalizeInroadsMvpDefinition(
     version: 1,
     reviewStatus: readLessonReviewStatus(raw.reviewStatus),
     reviewNotes: typeof raw.reviewNotes === 'string' ? raw.reviewNotes.trim() : '',
+    assigneeId: typeof raw.assigneeId === 'string' ? raw.assigneeId.trim() : '',
+    assigneeName: typeof raw.assigneeName === 'string' ? raw.assigneeName.trim() : '',
     introMedia,
     introShowOnFirstVisitOnly: raw.introShowOnFirstVisitOnly !== false,
     introductionActivityId:

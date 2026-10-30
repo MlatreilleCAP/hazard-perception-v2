@@ -60,11 +60,24 @@ export async function setLessonReviewStatus(
   parentId: string,
   status: LessonReviewStatus,
 ): Promise<void> {
+  await setLessonQueuePlacement(parentId, status, null)
+}
+
+export async function setLessonQueuePlacement(
+  parentId: string,
+  status: LessonReviewStatus,
+  assignee: { id: string; name: string } | null,
+): Promise<void> {
   const parent = await loadActivityOrThrow(parentId)
   const mvp = readInroadsMvpDefinition(parent)
   if (!mvp) throw new Error('Inroads MVP definition was not found')
   await services.persistence.save(
-    writeInroadsMvpDefinition(parent, { ...mvp, reviewStatus: status }),
+    writeInroadsMvpDefinition(parent, {
+      ...mvp,
+      reviewStatus: status,
+      assigneeId: assignee?.id.trim() ?? '',
+      assigneeName: assignee?.name.trim() ?? '',
+    }),
   )
 }
 

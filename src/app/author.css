@@ -511,6 +511,147 @@ fieldset.author-stack {
   margin-top: 12px;
 }
 
+.queue-page .author-page-inner {
+  max-width: none;
+}
+
+.queue-board {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.queue-column {
+  display: flex;
+  flex: 0 0 300px;
+  flex-direction: column;
+  gap: 10px;
+  width: 300px;
+  min-height: 120px;
+  padding: 16px;
+  border-radius: 6px;
+  background: #f5f5f5;
+}
+
+.queue-column.is-drop-target {
+  background: #ececec;
+  box-shadow: inset 0 0 0 1px #171918;
+}
+
+.queue-column-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: #171918;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 17px;
+}
+
+.queue-column-title img {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.queue-column-cards {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 48px;
+}
+
+.queue-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #e8e8e6;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+  cursor: grab;
+}
+
+.queue-card.is-dragging {
+  opacity: 0.45;
+}
+
+.queue-card.is-available {
+  padding: 16px 10px;
+}
+
+.queue-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.queue-card-title {
+  color: #171918;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 17px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.queue-card-title:hover {
+  text-decoration: underline;
+}
+
+.queue-card-locale {
+  margin: 0;
+  color: #797b79;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+.queue-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.queue-card-actions.is-claim {
+  justify-content: flex-start;
+}
+
+.queue-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid #e9e9e7;
+  border-radius: 900px;
+  background: #fff;
+  color: #171918;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.queue-pill.is-name {
+  color: #797b79;
+  cursor: default;
+}
+
+.queue-pill:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .author-list-title {
   margin: 0;
   font-size: 14px;

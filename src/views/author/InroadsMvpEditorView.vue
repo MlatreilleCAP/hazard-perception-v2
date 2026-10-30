@@ -29,7 +29,9 @@ import {
   lessonQueueStatusLabel,
 } from '@/types/inroadsMvp'
 import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
+import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { useStudioAccess } from '@/composables/useStudioAccess'
+import { MANAGING_EDITOR_NAME } from '@/lib/lesson/queueAssignment'
 import { contentReadonlyMessage } from '@/lib/auth/roles'
 import { useActivityStore } from '@/stores/activityStore'
 import {
@@ -57,6 +59,7 @@ const route = useRoute()
 const router = useRouter()
 const activities = useActivityStore()
 const { canEditLesson } = useStudioAccess()
+const identity = useQueueIdentity()
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)
@@ -615,6 +618,7 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
 
 onMounted(() => {
   document.addEventListener('pointerdown', onNewLanguageMenuPointerDown)
+  void identity.load()
   void load()
 })
 
@@ -857,17 +861,29 @@ async function saveActiveSection(): Promise<boolean> {
   return saveLesson()
 }
 
-async function submitLesson(status: 'ready_for_review' | 'ready_for_media'): Promise<void> {
+async function submitLesson(
+  status: 'available' | 'in_progress' | 'review',
+): Promise<void> {
   if (!editable.value || !mvp.value) return
   submitMenuOpen.value = false
   if (!(await saveActiveSection())) return
   if (!(await ensureParentLoaded())) return
-  mvp.value = { ...mvp.value, reviewStatus: status }
+  const assignee =
+    status === 'in_progress'
+      ? { assigneeId: identity.userId.value ?? '', assigneeName: identity.name.value }
+      : status === 'review'
+        ? { assigneeId: '', assigneeName: MANAGING_EDITOR_NAME }
+        : { assigneeId: '', assigneeName: '' }
+  mvp.value = { ...mvp.value, reviewStatus: status, ...assignee }
   publishing.value = true
   try {
     if (!(await saveLesson())) return
     saveMessage.value =
-      status === 'ready_for_media' ? 'Marked ready for media' : 'Sent for review'
+      status === 'available'
+        ? 'Marked available'
+        : status === 'in_progress'
+          ? 'Marked in progress'
+          : 'Sent for review'
   } catch (cause) {
     window.alert(
       cause instanceof Error ? cause.message : 'Failed to submit lesson',
@@ -964,17 +980,25 @@ async function deleteVersion(id: string): Promise<void> {
                 type="button"
                 class="author-menu-item"
                 role="menuitem"
-                @click="submitLesson('ready_for_review')"
+                @click="submitLesson('available')"
               >
-                Send for review
+                Available
               </button>
               <button
                 type="button"
                 class="author-menu-item"
                 role="menuitem"
-                @click="submitLesson('ready_for_media')"
+                @click="submitLesson('in_progress')"
               >
-                Ready for media
+                In progress
+              </button>
+              <button
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                @click="submitLesson('review')"
+              >
+                Review
               </button>
             </div>
           </div>
