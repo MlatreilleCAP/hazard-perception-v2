@@ -519,16 +519,17 @@ fieldset.author-stack {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  overflow-x: auto;
-  padding-bottom: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .queue-column {
   display: flex;
-  flex: 0 0 300px;
+  flex: 1 1 0;
   flex-direction: column;
   gap: 10px;
-  width: 300px;
+  width: auto;
+  min-width: 0;
   min-height: 120px;
   padding: 16px;
   border-radius: 6px;
@@ -618,6 +619,7 @@ fieldset.author-stack {
   justify-content: space-between;
   gap: 8px;
   width: 100%;
+  min-width: 0;
 }
 
 .queue-card-actions.is-claim {
@@ -643,8 +645,15 @@ fieldset.author-stack {
 }
 
 .queue-pill.is-name {
+  min-width: 0;
+  overflow: hidden;
   color: #797b79;
+  text-overflow: ellipsis;
   cursor: default;
+}
+
+.queue-card-actions .queue-pill:not(.is-name) {
+  flex: 0 0 auto;
 }
 
 .queue-pill:disabled {

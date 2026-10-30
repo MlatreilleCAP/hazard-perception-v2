@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import availableIcon from '@/assets/queue/available.svg'
@@ -7,10 +7,12 @@ import inProgressIcon from '@/assets/queue/in-progress.svg'
 import reviewIcon from '@/assets/queue/review.svg'
 import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
+import { downloadBlob } from '@/lib/inroadsMvp/buildImportTemplate'
 import {
   APPROVER_NAME,
   MANAGING_EDITOR_NAME,
 } from '@/lib/lesson/queueAssignment'
+import { exportLessonTemplateZip } from '@/services/exportInroadsMvpPackage'
 import { setLessonQueuePlacement } from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 import {
@@ -46,12 +48,30 @@ const BOARD: Array<{
   { status: 'approval', label: 'Approval', icon: reviewIcon, action: 'Approve' },
 ]
 
+const QUEUE_TABS = [
+  { id: 'project', label: 'Project Management' },
+  { id: 'published', label: 'Published' },
+] as const
+
+type QueueTab = (typeof QUEUE_TABS)[number]['id']
+
 const cards = ref<QueueCard[]>([])
 const loading = ref(true)
+const activeTab = ref<QueueTab>('project')
 const updatingId = ref<string | null>(null)
+const downloadingId = ref<string | null>(null)
 const draggingId = ref<string | null>(null)
 const dropStatus = ref<BoardStatus | null>(null)
 const actionError = ref<string | null>(null)
+
+const projectCards = computed(() =>
+  cards.value.filter((card) => BOARD.some((column) => column.status === card.status)),
+)
+const publishedCards = computed(() => cards.value.filter((card) => card.status === 'published'))
+
+function countFor(tab: QueueTab): number {
+  return tab === 'published' ? publishedCards.value.length : projectCards.value.length
+}
 
 function localeLabel(card: QueueCard): string {
   const parts = [card.country, card.language].filter(Boolean)
@@ -184,7 +204,8 @@ onMounted(async () => {
           status !== 'available' &&
           status !== 'in_progress' &&
           status !== 'review' &&
-          status !== 'approval'
+          status !== 'approval' &&
+          status !== 'published'
         ) {
           return null
         }
@@ -208,6 +229,23 @@ onMounted(async () => {
   loading.value = false
 })
 
+async function downloadAssets(card: QueueCard): Promise<void> {
+  if (card.status !== 'published' || downloadingId.value) return
+  downloadingId.value = card.id
+  actionError.value = null
+  try {
+    const packed = await exportLessonTemplateZip(card.id, {
+      includeMedia: true,
+      source: 'published',
+    })
+    downloadBlob(packed.blob, packed.filename)
+  } catch (cause) {
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to download assets'
+  } finally {
+    downloadingId.value = null
+  }
+}
+
 function act(card: QueueCard): void {
   if (!canAct(card)) return
   if (card.status === 'available') void moveCard(card.id, 'in_progress')
@@ -226,11 +264,25 @@ function act(card: QueueCard): void {
         </div>
       </div>
 
+      <nav class="mvp-section-nav" aria-label="Queue">
+        <button
+          v-for="tab in QUEUE_TABS"
+          :key="tab.id"
+          type="button"
+          class="mvp-section-tab"
+          :class="{ active: activeTab === tab.id }"
+          :aria-pressed="activeTab === tab.id"
+          @click="activeTab = tab.id"
+        >
+          {{ tab.label }}{{ loading ? '' : ` (${countFor(tab.id)})` }}
+        </button>
+      </nav>
+
       <p v-if="activities.error" class="author-error">{{ activities.error }}</p>
       <p v-if="actionError" class="author-error">{{ actionError }}</p>
       <p v-if="loading" class="author-muted">Loading lessons…</p>
 
-      <div v-else class="queue-board">
+      <div v-else-if="activeTab === 'project'" class="queue-board">
         <section
           v-for="column in BOARD"
           :key="column.status"
@@ -287,6 +339,45 @@ function act(card: QueueCard): void {
           </div>
         </section>
       </div>
+
+      <section v-else class="author-list-card">
+        <div class="author-list-card-head">
+          <h2>Published</h2>
+          <span class="author-count">{{ publishedCards.length }}</span>
+        </div>
+        <div v-if="publishedCards.length === 0" class="author-list-empty">
+          <p class="author-muted">No published lessons.</p>
+        </div>
+        <ul v-else class="author-list">
+          <li v-for="card in publishedCards" :key="card.id" class="author-list-row">
+            <div class="queue-row-main">
+              <div style="min-width: 0; flex: 1">
+                <RouterLink :to="`/studio/inroads-mvp/${card.id}`" class="author-list-title">
+                  {{ card.title }}
+                </RouterLink>
+                <p class="author-list-sub">{{ localeLabel(card) }}</p>
+              </div>
+              <button
+                type="button"
+                class="author-pill author-pill-white"
+                :disabled="downloadingId === card.id"
+                @click="downloadAssets(card)"
+              >
+                {{ downloadingId === card.id ? 'Downloading…' : 'Download assets' }}
+              </button>
+              <RouterLink
+                class="author-pill author-pill-white"
+                :to="{
+                  path: '/player',
+                  query: { activity: card.id, preview: '1', mvp: '1', section: 'lesson' },
+                }"
+              >
+                Preview lesson
+              </RouterLink>
+            </div>
+          </li>
+        </ul>
+      </section>
     </div>
   </div>
 </template>
