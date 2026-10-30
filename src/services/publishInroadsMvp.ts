@@ -2,8 +2,13 @@ import {
   readInroadsMvpDefinition,
   writeInroadsMvpDefinition,
 } from '@/activities/inroadsMvpDefinition'
+import {
+  readIntroductionDefinition,
+  writeIntroductionDefinition,
+} from '@/activities/introductionDefinition'
 import { services } from '@/app/container'
 import { loadActivityOrThrow } from '@/services/createInroadsMvp'
+import { isIntroductionActivity } from '@/types/introduction'
 import {
   isInroadsMvpActivity,
   type InroadsMvpSectionId,
@@ -69,14 +74,28 @@ export async function setLessonQueuePlacement(
   assignee: { id: string; name: string } | null,
 ): Promise<void> {
   const parent = await loadActivityOrThrow(parentId)
+  const assigneeId = assignee?.id.trim() ?? ''
+  const assigneeName = assignee?.name.trim() ?? ''
+  if (isIntroductionActivity(parent.metadata.tags)) {
+    const intro = readIntroductionDefinition(parent)
+    await services.persistence.save(
+      writeIntroductionDefinition(parent, {
+        ...intro,
+        reviewStatus: status,
+        assigneeId,
+        assigneeName,
+      }),
+    )
+    return
+  }
   const mvp = readInroadsMvpDefinition(parent)
   if (!mvp) throw new Error('Inroads MVP definition was not found')
   await services.persistence.save(
     writeInroadsMvpDefinition(parent, {
       ...mvp,
       reviewStatus: status,
-      assigneeId: assignee?.id.trim() ?? '',
-      assigneeName: assignee?.name.trim() ?? '',
+      assigneeId,
+      assigneeName,
     }),
   )
 }

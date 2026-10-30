@@ -3,12 +3,22 @@ import {
   canonicalizeLessonCountry,
   canonicalizeLessonLanguage,
 } from '@/lib/inroadsMvp/packageSpec'
+import {
+  readLessonReviewStatus,
+  type LessonReviewStatus,
+} from '@/types/inroadsMvp'
 
 export const INTRODUCTION_TAG = 'introduction'
 export const INTRODUCTION_NODE_TYPE = 'introduction.video'
 
 export type IntroductionDefinition = {
   version: 1
+  /** Absent until someone sets a queue status. A live publish stays published until then. */
+  reviewStatus?: LessonReviewStatus
+  /** User who currently holds this video in the queue. */
+  assigneeId: string
+  /** Name shown on the queue card for the current holder. */
+  assigneeName: string
   introMedia: MediaRef | null
   /** Closed captions (.vtt) for the intro video. */
   introCaptions: MediaRef | null
@@ -33,6 +43,8 @@ function readMediaRef(raw: unknown): MediaRef | null {
 export function createDefaultIntroductionDefinition(): IntroductionDefinition {
   return {
     version: 1,
+    assigneeId: '',
+    assigneeName: '',
     introMedia: null,
     introCaptions: null,
     exampleMedia: null,
@@ -47,6 +59,9 @@ export function cloneIntroductionDefinition(
 ): IntroductionDefinition {
   return {
     version: 1,
+    reviewStatus: readLessonReviewStatus(definition.reviewStatus),
+    assigneeId: definition.assigneeId.trim(),
+    assigneeName: definition.assigneeName.trim(),
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
@@ -67,6 +82,9 @@ export function normalizeIntroductionDefinition(
 ): IntroductionDefinition {
   return {
     version: 1,
+    reviewStatus: readLessonReviewStatus(raw?.reviewStatus),
+    assigneeId: typeof raw?.assigneeId === 'string' ? raw.assigneeId.trim() : '',
+    assigneeName: typeof raw?.assigneeName === 'string' ? raw.assigneeName.trim() : '',
     introMedia: readMediaRef(raw?.introMedia),
     introCaptions: readMediaRef(raw?.introCaptions),
     exampleMedia: readMediaRef(raw?.exampleMedia),

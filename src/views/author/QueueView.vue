@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
+import { readIntroductionDefinition } from '@/activities/introductionDefinition'
 import availableIcon from '@/assets/queue/available.svg'
 import inProgressIcon from '@/assets/queue/in-progress.svg'
 import reviewIcon from '@/assets/queue/review.svg'
@@ -12,9 +13,11 @@ import {
   APPROVER_NAME,
   MANAGING_EDITOR_NAME,
 } from '@/lib/lesson/queueAssignment'
+import { exportIntroductionAssetsZip } from '@/services/exportIntroductionPackage'
 import { exportLessonTemplateZip } from '@/services/exportInroadsMvpPackage'
 import { setLessonQueuePlacement } from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
+import { isIntroductionActivity } from '@/types/introduction'
 import {
   isInroadsMvpActivity,
   lessonQueueStatus,
@@ -26,6 +29,7 @@ const identity = useQueueIdentity()
 
 type QueueCard = {
   id: string
+  kind: 'lesson' | 'video'
   title: string
   country: string
   language: string
@@ -55,9 +59,18 @@ const QUEUE_TABS = [
 
 type QueueTab = (typeof QUEUE_TABS)[number]['id']
 
+const PUBLISHED_TYPES = [
+  { id: 'all', label: 'All types' },
+  { id: 'lesson', label: 'Lesson' },
+  { id: 'video', label: 'Stand Alone Video' },
+] as const
+
+type PublishedType = (typeof PUBLISHED_TYPES)[number]['id']
+
 const cards = ref<QueueCard[]>([])
 const loading = ref(true)
 const activeTab = ref<QueueTab>('project')
+const publishedType = ref<PublishedType>('all')
 const updatingId = ref<string | null>(null)
 const downloadingId = ref<string | null>(null)
 const draggingId = ref<string | null>(null)
@@ -68,6 +81,16 @@ const projectCards = computed(() =>
   cards.value.filter((card) => BOARD.some((column) => column.status === card.status)),
 )
 const publishedCards = computed(() => cards.value.filter((card) => card.status === 'published'))
+const visiblePublishedCards = computed(() => {
+  if (publishedType.value === 'all') return publishedCards.value
+  return publishedCards.value.filter((card) => card.kind === publishedType.value)
+})
+
+function publishedEmptyMessage(): string {
+  if (publishedType.value === 'lesson') return 'No published lessons.'
+  if (publishedType.value === 'video') return 'No published stand alone videos.'
+  return 'Nothing published yet.'
+}
 
 function countFor(tab: QueueTab): number {
   return tab === 'published' ? publishedCards.value.length : projectCards.value.length
@@ -75,7 +98,33 @@ function countFor(tab: QueueTab): number {
 
 function localeLabel(card: QueueCard): string {
   const parts = [card.country, card.language].filter(Boolean)
-  return parts.join(' - ') || 'Language not set'
+  const locale = parts.join(' - ')
+  if (card.kind === 'video') {
+    return locale ? `Stand Alone Video · ${locale}` : 'Stand Alone Video'
+  }
+  return locale || 'Language not set'
+}
+
+function editorPath(card: QueueCard): string {
+  return card.kind === 'video'
+    ? `/studio/stand-alone-video/${card.id}`
+    : `/studio/inroads-mvp/${card.id}`
+}
+
+function previewRoute(card: QueueCard): { path: string; query: Record<string, string> } {
+  if (card.kind === 'video') {
+    return { path: '/player', query: { activity: card.id, preview: '1', intro: '1' } }
+  }
+  return {
+    path: '/player',
+    query: { activity: card.id, preview: '1', mvp: '1', section: 'lesson' },
+  }
+}
+
+const BOARD_STATUSES: BoardStatus[] = ['available', 'in_progress', 'review', 'approval']
+
+function isBoardStatus(status: LessonReviewStatus): status is BoardStatus {
+  return BOARD_STATUSES.includes(status as BoardStatus)
 }
 
 function cardsFor(status: QueueCard['status']): QueueCard[] {
@@ -194,23 +243,17 @@ onMounted(async () => {
   loading.value = true
   await Promise.all([activities.refreshList(), identity.load()])
   const lessons = activities.summaries.filter((item) => isInroadsMvpActivity(item.tags))
-  const loaded = await Promise.all(
-    lessons.map(async (item): Promise<QueueCard | null> => {
+  const videos = activities.summaries.filter((item) => isIntroductionActivity(item.tags))
+  const loaded = await Promise.all([
+    ...lessons.map(async (item): Promise<QueueCard | null> => {
       try {
         const definition = await services.persistence.getById(item.id)
         const mvp = definition ? readInroadsMvpDefinition(definition) : null
         const status = lessonQueueStatus(mvp?.reviewStatus, item.published)
-        if (
-          status !== 'available' &&
-          status !== 'in_progress' &&
-          status !== 'review' &&
-          status !== 'approval' &&
-          status !== 'published'
-        ) {
-          return null
-        }
+        if (!isBoardStatus(status) && status !== 'published') return null
         return {
           id: item.id,
+          kind: 'lesson',
           title: definition?.metadata.title.trim() || item.title,
           country: mvp?.country.trim() ?? '',
           language: mvp?.language.trim() ?? '',
@@ -222,7 +265,27 @@ onMounted(async () => {
         return null
       }
     }),
-  )
+    ...videos.map(async (item): Promise<QueueCard | null> => {
+      try {
+        const definition = await services.persistence.getById(item.id)
+        const intro = definition ? readIntroductionDefinition(definition) : null
+        const status = lessonQueueStatus(intro?.reviewStatus, item.published)
+        if (!isBoardStatus(status) && status !== 'published') return null
+        return {
+          id: item.id,
+          kind: 'video',
+          title: definition?.metadata.title.trim() || item.title,
+          country: intro?.country.trim() ?? '',
+          language: intro?.language.trim() ?? '',
+          status,
+          assigneeId: intro?.assigneeId ?? '',
+          assigneeName: intro?.assigneeName ?? '',
+        }
+      } catch {
+        return null
+      }
+    }),
+  ])
   cards.value = loaded
     .filter((card): card is QueueCard => card != null)
     .sort((left, right) => left.title.localeCompare(right.title))
@@ -234,10 +297,13 @@ async function downloadAssets(card: QueueCard): Promise<void> {
   downloadingId.value = card.id
   actionError.value = null
   try {
-    const packed = await exportLessonTemplateZip(card.id, {
-      includeMedia: true,
-      source: 'published',
-    })
+    const packed =
+      card.kind === 'video'
+        ? await exportIntroductionAssetsZip(card.id)
+        : await exportLessonTemplateZip(card.id, {
+            includeMedia: true,
+            source: 'published',
+          })
     downloadBlob(packed.blob, packed.filename)
   } catch (cause) {
     actionError.value = cause instanceof Error ? cause.message : 'Failed to download assets'
@@ -312,7 +378,7 @@ function act(card: QueueCard): void {
             >
               <div class="queue-card-copy">
                 <RouterLink
-                  :to="`/studio/inroads-mvp/${card.id}`"
+                  :to="editorPath(card)"
                   class="queue-card-title"
                   draggable="false"
                 >
@@ -343,16 +409,24 @@ function act(card: QueueCard): void {
       <section v-else class="author-list-card">
         <div class="author-list-card-head">
           <h2>Published</h2>
-          <span class="author-count">{{ publishedCards.length }}</span>
+          <span class="author-count">{{ visiblePublishedCards.length }}</span>
+          <label class="queue-type-filter">
+            <span>Type</span>
+            <select v-model="publishedType" aria-label="Type">
+              <option v-for="option in PUBLISHED_TYPES" :key="option.id" :value="option.id">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
         </div>
-        <div v-if="publishedCards.length === 0" class="author-list-empty">
-          <p class="author-muted">No published lessons.</p>
+        <div v-if="visiblePublishedCards.length === 0" class="author-list-empty">
+          <p class="author-muted">{{ publishedEmptyMessage() }}</p>
         </div>
         <ul v-else class="author-list">
-          <li v-for="card in publishedCards" :key="card.id" class="author-list-row">
+          <li v-for="card in visiblePublishedCards" :key="card.id" class="author-list-row">
             <div class="queue-row-main">
               <div style="min-width: 0; flex: 1">
-                <RouterLink :to="`/studio/inroads-mvp/${card.id}`" class="author-list-title">
+                <RouterLink :to="editorPath(card)" class="author-list-title">
                   {{ card.title }}
                 </RouterLink>
                 <p class="author-list-sub">{{ localeLabel(card) }}</p>
@@ -365,14 +439,8 @@ function act(card: QueueCard): void {
               >
                 {{ downloadingId === card.id ? 'Downloading…' : 'Download assets' }}
               </button>
-              <RouterLink
-                class="author-pill author-pill-white"
-                :to="{
-                  path: '/player',
-                  query: { activity: card.id, preview: '1', mvp: '1', section: 'lesson' },
-                }"
-              >
-                Preview lesson
+              <RouterLink class="author-pill author-pill-white" :to="previewRoute(card)">
+                {{ card.kind === 'video' ? 'Preview video' : 'Preview lesson' }}
               </RouterLink>
             </div>
           </li>

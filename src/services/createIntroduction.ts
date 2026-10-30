@@ -42,6 +42,9 @@ export async function duplicateIntroductionVersion(
     language: language.trim()
       ? canonicalizeLessonLanguage(language)
       : '',
+    reviewStatus: undefined,
+    assigneeId: '',
+    assigneeName: '',
   })
   const saved = await services.persistence.save(next)
   return saved.id

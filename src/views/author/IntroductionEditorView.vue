@@ -13,6 +13,8 @@ import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import { services } from '@/app/container'
+import { useQueueIdentity } from '@/composables/useQueueIdentity'
+import { MANAGING_EDITOR_NAME } from '@/lib/lesson/queueAssignment'
 import { duplicateIntroductionVersion } from '@/services/createIntroduction'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { contentReadonlyMessage } from '@/lib/auth/roles'
@@ -28,11 +30,13 @@ import {
   isIntroductionActivity,
   type IntroductionDefinition,
 } from '@/types/introduction'
+import { lessonQueueStatus, lessonQueueStatusLabel } from '@/types/inroadsMvp'
 import type { MediaRef } from '@/types/media'
 
 const route = useRoute()
 const router = useRouter()
 const activities = useActivityStore()
+const identity = useQueueIdentity()
 const { canEditLesson } = useStudioAccess()
 
 const loading = ref(true)
@@ -41,6 +45,9 @@ const saving = ref(false)
 const publishing = ref(false)
 const deleting = ref(false)
 const creatingVersion = ref(false)
+const submitting = ref(false)
+const submitMenuOpen = ref(false)
+const submitMenu = ref<HTMLElement | null>(null)
 const newLanguageMenuOpen = ref(false)
 const newLanguageMenu = ref<HTMLElement | null>(null)
 const saveMessage = ref<string | null>(null)
@@ -62,6 +69,11 @@ let loadGeneration = 0
 const activityId = computed(() => String(route.params.id ?? ''))
 const isPublished = computed(
   () => activities.summaries.find((item) => item.id === activityId.value)?.published ?? false,
+)
+const statusLabel = computed(() =>
+  lessonQueueStatusLabel(
+    lessonQueueStatus(introduction.value?.reviewStatus, isPublished.value),
+  ),
 )
 const editable = computed(() =>
   canEditLesson(activities.current?.metadata.authorId, isPublished.value),
@@ -176,17 +188,36 @@ function onVersionSelect(nextId: string): void {
 }
 
 function toggleNewLanguageMenu(): void {
-  if (!editable.value || creatingVersion.value || saving.value || publishing.value || deleting.value) {
+  if (
+    !editable.value ||
+    creatingVersion.value ||
+    saving.value ||
+    publishing.value ||
+    submitting.value ||
+    deleting.value
+  ) {
     return
   }
+  submitMenuOpen.value = false
   newLanguageMenuOpen.value = !newLanguageMenuOpen.value
 }
 
-function onNewLanguageMenuPointerDown(event: PointerEvent): void {
-  if (!newLanguageMenuOpen.value) return
-  const el = newLanguageMenu.value
-  if (el && event.target instanceof Node && el.contains(event.target)) return
+function toggleSubmitMenu(): void {
+  if (!editable.value || saving.value || publishing.value || submitting.value || deleting.value) return
   newLanguageMenuOpen.value = false
+  submitMenuOpen.value = !submitMenuOpen.value
+}
+
+function onNewLanguageMenuPointerDown(event: PointerEvent): void {
+  if (!(event.target instanceof Node)) return
+  if (newLanguageMenuOpen.value) {
+    const el = newLanguageMenu.value
+    if (!el || !el.contains(event.target)) newLanguageMenuOpen.value = false
+  }
+  if (submitMenuOpen.value) {
+    const el = submitMenu.value
+    if (!el || !el.contains(event.target)) submitMenuOpen.value = false
+  }
 }
 
 async function createVersion(nextLanguage: string): Promise<void> {
@@ -241,6 +272,7 @@ async function load(): Promise<void> {
 
 onMounted(() => {
   document.addEventListener('pointerdown', onNewLanguageMenuPointerDown)
+  void identity.load()
   void load()
 })
 
@@ -353,6 +385,36 @@ async function openPreview(): Promise<void> {
   })
 }
 
+async function submitVideo(
+  status: 'available' | 'in_progress' | 'review',
+): Promise<void> {
+  if (!editable.value || !introduction.value) return
+  submitMenuOpen.value = false
+  const assignee =
+    status === 'in_progress'
+      ? { assigneeId: identity.userId.value ?? '', assigneeName: identity.name.value }
+      : status === 'review'
+        ? { assigneeId: '', assigneeName: MANAGING_EDITOR_NAME }
+        : { assigneeId: '', assigneeName: '' }
+  introduction.value = { ...introduction.value, reviewStatus: status, ...assignee }
+  submitting.value = true
+  try {
+    if (!(await saveIntro())) return
+    saveMessage.value =
+      status === 'available'
+        ? 'Marked available'
+        : status === 'in_progress'
+          ? 'Marked in progress'
+          : 'Sent for review'
+  } catch (cause) {
+    window.alert(
+      cause instanceof Error ? cause.message : 'Failed to submit stand alone video',
+    )
+  } finally {
+    submitting.value = false
+  }
+}
+
 async function publish(): Promise<void> {
   if (!editable.value) return
   if (!introduction.value?.introMedia?.media_asset_id) {
@@ -444,20 +506,57 @@ async function remove(): Promise<void> {
           <h1 class="author-header-title">
             {{ title.trim() || 'Stand Alone Video' }}{{ country.trim() ? ` - ${country.trim()}` : '' }}
           </h1>
-          <AuthorStatusChip :label="isPublished ? 'PUBLISHED' : 'DRAFT'" />
+          <AuthorStatusChip :label="statusLabel" />
         </div>
         <div class="mvp-header-actions">
           <AuthorPillButton
             variant="ghost"
-            :disabled="saving || publishing || deleting || creatingVersion"
+            :disabled="saving || publishing || submitting || deleting || creatingVersion"
             @click="openPreview"
           >
             Preview
           </AuthorPillButton>
+          <div v-if="editable" ref="submitMenu" class="author-menu mvp-submit-menu">
+            <AuthorPillButton
+              variant="primary"
+              :disabled="saving || publishing || submitting || deleting || creatingVersion"
+              :aria-expanded="submitMenuOpen"
+              aria-haspopup="menu"
+              @click="toggleSubmitMenu"
+            >
+              {{ submitting ? 'Submitting…' : 'Submit' }}
+            </AuthorPillButton>
+            <div v-if="submitMenuOpen" class="author-menu-panel" role="menu" aria-label="Submit">
+              <button
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                @click="submitVideo('available')"
+              >
+                Available
+              </button>
+              <button
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                @click="submitVideo('in_progress')"
+              >
+                In progress
+              </button>
+              <button
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                @click="submitVideo('review')"
+              >
+                Review
+              </button>
+            </div>
+          </div>
           <AuthorPillButton
             v-if="editable"
-            variant="primary"
-            :disabled="saving || publishing || deleting || creatingVersion"
+            variant="white"
+            :disabled="saving || publishing || submitting || deleting || creatingVersion"
             @click="publish"
           >
             {{ publishing ? 'Publishing…' : 'Publish' }}
@@ -468,6 +567,7 @@ async function remove(): Promise<void> {
               :disabled="
                 saving ||
                 publishing ||
+                submitting ||
                 deleting ||
                 creatingVersion ||
                 availableNewLanguages.length === 0
@@ -591,14 +691,14 @@ async function remove(): Promise<void> {
       <div v-if="editable" class="author-actions">
         <AuthorPillButton
           variant="primary"
-          :disabled="saving || publishing || deleting || creatingVersion"
+          :disabled="saving || publishing || submitting || deleting || creatingVersion"
           @click="saveIntro"
         >
           {{ saving ? 'Saving…' : 'Save' }}
         </AuthorPillButton>
         <AuthorPillButton
           variant="ghost"
-          :disabled="saving || publishing || deleting || creatingVersion"
+          :disabled="saving || publishing || submitting || deleting || creatingVersion"
           @click="remove"
         >
           {{ deleting ? 'Removing…' : 'Remove' }}
