@@ -94,6 +94,7 @@ export async function duplicateInroadsMvpVersion(
     seeActivityId: savedSee.id,
     processActivityId: savedProcess.id,
     anticipateActivityId: savedAnticipate.id,
+    priority: false,
   })
   const saved = await services.persistence.save(next)
   const reference = readInroadsMvpEnglishTextReference(parent)

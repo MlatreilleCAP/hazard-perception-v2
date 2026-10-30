@@ -622,7 +622,15 @@ fieldset.author-stack {
   min-width: 0;
 }
 
+.queue-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
 .queue-card-title {
+  flex: 1;
+  min-width: 0;
   color: #171918;
   font-size: 13px;
   font-weight: 500;
@@ -633,6 +641,40 @@ fieldset.author-stack {
 
 .queue-card-title:hover {
   text-decoration: underline;
+}
+
+.queue-card-star {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #c4c4c2;
+  cursor: pointer;
+}
+
+.queue-card-star svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+
+.queue-card-star.is-priority {
+  color: #e0a100;
+}
+
+.queue-card-star.is-priority svg {
+  fill: currentColor;
+  stroke: none;
+}
+
+.queue-card-star:disabled {
+  cursor: default;
 }
 
 .queue-card-locale {

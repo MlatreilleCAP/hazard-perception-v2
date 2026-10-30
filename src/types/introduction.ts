@@ -19,6 +19,8 @@ export type IntroductionDefinition = {
   assigneeId: string
   /** Name shown on the queue card for the current holder. */
   assigneeName: string
+  /** Starred cards stay at the top of their queue column. */
+  priority: boolean
   introMedia: MediaRef | null
   /** Closed captions (.vtt) for the intro video. */
   introCaptions: MediaRef | null
@@ -45,6 +47,7 @@ export function createDefaultIntroductionDefinition(): IntroductionDefinition {
     version: 1,
     assigneeId: '',
     assigneeName: '',
+    priority: false,
     introMedia: null,
     introCaptions: null,
     exampleMedia: null,
@@ -62,6 +65,7 @@ export function cloneIntroductionDefinition(
     reviewStatus: readLessonReviewStatus(definition.reviewStatus),
     assigneeId: definition.assigneeId.trim(),
     assigneeName: definition.assigneeName.trim(),
+    priority: definition.priority === true,
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
@@ -85,6 +89,7 @@ export function normalizeIntroductionDefinition(
     reviewStatus: readLessonReviewStatus(raw?.reviewStatus),
     assigneeId: typeof raw?.assigneeId === 'string' ? raw.assigneeId.trim() : '',
     assigneeName: typeof raw?.assigneeName === 'string' ? raw.assigneeName.trim() : '',
+    priority: raw?.priority === true,
     introMedia: readMediaRef(raw?.introMedia),
     introCaptions: readMediaRef(raw?.introCaptions),
     exampleMedia: readMediaRef(raw?.exampleMedia),

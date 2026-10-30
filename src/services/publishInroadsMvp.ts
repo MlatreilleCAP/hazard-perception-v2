@@ -100,6 +100,22 @@ export async function setLessonQueuePlacement(
   )
 }
 
+export async function setLessonQueuePriority(parentId: string, priority: boolean): Promise<void> {
+  const parent = await loadActivityOrThrow(parentId)
+  if (isIntroductionActivity(parent.metadata.tags)) {
+    const intro = readIntroductionDefinition(parent)
+    await services.persistence.save(
+      writeIntroductionDefinition(parent, { ...intro, priority }),
+    )
+    return
+  }
+  const mvp = readInroadsMvpDefinition(parent)
+  if (!mvp) throw new Error('Inroads MVP definition was not found')
+  await services.persistence.save(
+    writeInroadsMvpDefinition(parent, { ...mvp, priority }),
+  )
+}
+
 export async function setLessonReviewNotes(parentId: string, notes: string): Promise<void> {
   const parent = await loadActivityOrThrow(parentId)
   const mvp = readInroadsMvpDefinition(parent)

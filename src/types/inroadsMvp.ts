@@ -74,6 +74,8 @@ export type InroadsMvpDefinition = {
   assigneeId: string
   /** Name shown on the queue card for the current holder. */
   assigneeName: string
+  /** Starred cards stay at the top of their queue column. */
+  priority: boolean
   /** Section 1 — intro clip before Observe / Process / Anticipate. */
   introMedia: MediaRef | null
   introShowOnFirstVisitOnly: boolean
@@ -158,6 +160,7 @@ export function createDefaultInroadsMvpDefinition(
     reviewNotes: '',
     assigneeId: '',
     assigneeName: '',
+    priority: false,
     introMedia: null,
     introShowOnFirstVisitOnly: true,
     introductionActivityId: '',
@@ -203,6 +206,7 @@ export function cloneInroadsMvpDefinition(
     reviewNotes: definition.reviewNotes.trim(),
     assigneeId: definition.assigneeId.trim(),
     assigneeName: definition.assigneeName.trim(),
+    priority: definition.priority === true,
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
@@ -279,6 +283,7 @@ export function normalizeInroadsMvpDefinition(
     reviewNotes: typeof raw.reviewNotes === 'string' ? raw.reviewNotes.trim() : '',
     assigneeId: typeof raw.assigneeId === 'string' ? raw.assigneeId.trim() : '',
     assigneeName: typeof raw.assigneeName === 'string' ? raw.assigneeName.trim() : '',
+    priority: raw.priority === true,
     introMedia,
     introShowOnFirstVisitOnly: raw.introShowOnFirstVisitOnly !== false,
     introductionActivityId:

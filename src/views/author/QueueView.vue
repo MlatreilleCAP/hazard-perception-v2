@@ -15,7 +15,7 @@ import {
 } from '@/lib/lesson/queueAssignment'
 import { exportIntroductionAssetsZip } from '@/services/exportIntroductionPackage'
 import { exportLessonTemplateZip } from '@/services/exportInroadsMvpPackage'
-import { setLessonQueuePlacement } from '@/services/publishInroadsMvp'
+import { setLessonQueuePlacement, setLessonQueuePriority } from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 import { isIntroductionActivity } from '@/types/introduction'
 import {
@@ -36,6 +36,7 @@ type QueueCard = {
   status: LessonReviewStatus
   assigneeId: string
   assigneeName: string
+  priority: boolean
 }
 
 type BoardStatus = 'available' | 'in_progress' | 'review' | 'approval'
@@ -71,6 +72,7 @@ const cards = ref<QueueCard[]>([])
 const loading = ref(true)
 const activeTab = ref<QueueTab>('project')
 const publishedType = ref<PublishedType>('all')
+const starringId = ref<string | null>(null)
 const updatingId = ref<string | null>(null)
 const downloadingId = ref<string | null>(null)
 const draggingId = ref<string | null>(null)
@@ -164,7 +166,29 @@ function placementFor(status: BoardStatus | 'approved'): { id: string; name: str
 }
 
 function sortCards(items: QueueCard[]): QueueCard[] {
-  return [...items].sort((left, right) => left.title.localeCompare(right.title))
+  return [...items].sort((left, right) => {
+    if (left.priority !== right.priority) return left.priority ? -1 : 1
+    return left.title.localeCompare(right.title)
+  })
+}
+
+async function togglePriority(card: QueueCard): Promise<void> {
+  if (starringId.value || updatingId.value) return
+  starringId.value = card.id
+  actionError.value = null
+  const next = !card.priority
+  const previous = cards.value
+  cards.value = sortCards(
+    cards.value.map((item) => (item.id === card.id ? { ...item, priority: next } : item)),
+  )
+  try {
+    await setLessonQueuePriority(card.id, next)
+  } catch (cause) {
+    cards.value = previous
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to update priority'
+  } finally {
+    starringId.value = null
+  }
 }
 
 async function moveCard(id: string, status: BoardStatus | 'approved'): Promise<void> {
@@ -256,6 +280,7 @@ onMounted(async () => {
           status,
           assigneeId: mvp?.assigneeId ?? '',
           assigneeName: mvp?.assigneeName ?? '',
+          priority: mvp?.priority === true,
         }
       } catch {
         return null
@@ -276,15 +301,14 @@ onMounted(async () => {
           status,
           assigneeId: intro?.assigneeId ?? '',
           assigneeName: intro?.assigneeName ?? '',
+          priority: intro?.priority === true,
         }
       } catch {
         return null
       }
     }),
   ])
-  cards.value = loaded
-    .filter((card): card is QueueCard => card != null)
-    .sort((left, right) => left.title.localeCompare(right.title))
+  cards.value = sortCards(loaded.filter((card): card is QueueCard => card != null))
   loading.value = false
 })
 
@@ -373,13 +397,32 @@ function act(card: QueueCard): void {
               @dragend="onDragEnd"
             >
               <div class="queue-card-copy">
-                <RouterLink
-                  :to="editorPath(card)"
-                  class="queue-card-title"
-                  draggable="false"
-                >
-                  {{ card.title }}
-                </RouterLink>
+                <div class="queue-card-heading">
+                  <RouterLink
+                    :to="editorPath(card)"
+                    class="queue-card-title"
+                    draggable="false"
+                  >
+                    {{ card.title }}
+                  </RouterLink>
+                  <button
+                    type="button"
+                    class="queue-card-star"
+                    :class="{ 'is-priority': card.priority }"
+                    :aria-pressed="card.priority"
+                    :aria-label="card.priority ? 'Remove priority' : 'Mark as priority'"
+                    :disabled="starringId === card.id"
+                    draggable="false"
+                    @pointerdown.stop
+                    @click.stop="togglePriority(card)"
+                  >
+                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                      <path
+                        d="M8 1.6 9.7 5.5l4.2.4-3.2 2.8.9 4.1L8 10.7 4.4 13l.9-4.1L2.1 5.9l4.2-.4L8 1.6Z"
+                      />
+                    </svg>
+                  </button>
+                </div>
                 <p class="queue-card-locale">{{ localeLabel(card) }}</p>
               </div>
               <div
