@@ -98,11 +98,7 @@ function countFor(tab: QueueTab): number {
 
 function localeLabel(card: QueueCard): string {
   const parts = [card.country, card.language].filter(Boolean)
-  const locale = parts.join(' - ')
-  if (card.kind === 'video') {
-    return locale ? `Stand Alone Video · ${locale}` : 'Stand Alone Video'
-  }
-  return locale || 'Language not set'
+  return parts.join(' - ') || 'Language not set'
 }
 
 function editorPath(card: QueueCard): string {
