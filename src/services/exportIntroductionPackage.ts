@@ -6,10 +6,20 @@ import { mediaAssetDisplayName } from '@/types/media'
 
 export async function exportIntroductionAssetsZip(
   activityId: string,
+  source: 'draft' | 'published' = 'published',
 ): Promise<{ blob: Blob; filename: string }> {
-  const published = await services.persistence.getPublished(activityId)
-  if (!published) throw new Error('Published stand alone video was not found')
-  const intro = readIntroductionDefinition(published)
+  const activity =
+    source === 'draft'
+      ? await services.persistence.getById(activityId)
+      : await services.persistence.getPublished(activityId)
+  if (!activity) {
+    throw new Error(
+      source === 'draft'
+        ? 'Stand alone video was not found'
+        : 'Published stand alone video was not found',
+    )
+  }
+  const intro = readIntroductionDefinition(activity)
   const files: Array<{ id: string; fallback: string }> = []
   if (intro.introMedia?.media_asset_id) {
     files.push({ id: intro.introMedia.media_asset_id, fallback: 'video' })
@@ -29,7 +39,7 @@ export async function exportIntroductionAssetsZip(
     const filename = uniqueZipFilename(safeZipFilename(mediaAssetDisplayName(asset), file.fallback), used)
     zip.file(filename, await services.media.getBlob(file.id))
   }
-  const title = published.metadata.title.trim() || 'stand-alone-video'
+  const title = activity.metadata.title.trim() || 'stand-alone-video'
   return {
     blob: await zip.generateAsync({ type: 'blob' }),
     filename: `${slugForFilename(title)}-package.zip`,

@@ -9,7 +9,12 @@ import reviewIcon from '@/assets/queue/review.svg'
 import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { downloadBlob } from '@/lib/inroadsMvp/buildImportTemplate'
-import { APPROVER_NAME, approverAssignee } from '@/lib/lesson/queueAssignment'
+import {
+  APPROVER_NAME,
+  MANAGING_EDITOR_NAME,
+  approverAssignee,
+  reviewerAssignee,
+} from '@/lib/lesson/queueAssignment'
 import { exportIntroductionAssetsZip } from '@/services/exportIntroductionPackage'
 import { exportLessonTemplateZip } from '@/services/exportInroadsMvpPackage'
 import { setLessonQueuePlacement, setLessonReviewNotes } from '@/services/publishInroadsMvp'
@@ -83,11 +88,15 @@ const dropStatus = ref<BoardStatus | null>(null)
 const dropPlace = ref<{ id: string; place: 'before' | 'after' } | null>(null)
 const actionError = ref<string | null>(null)
 
+function isOnPublishedTab(status: LessonReviewStatus): boolean {
+  return status === 'published' || status === 'approved'
+}
+
 const projectCards = computed(() =>
   cards.value.filter((card) => BOARD.some((column) => column.status === card.status)),
 )
 const publishedCards = computed(() =>
-  sortCards(cards.value.filter((card) => card.status === 'published')),
+  sortCards(cards.value.filter((card) => isOnPublishedTab(card.status))),
 )
 const visiblePublishedCards = computed(() => {
   if (publishedType.value === 'all') return publishedCards.value
@@ -136,7 +145,8 @@ function cardsFor(status: QueueCard['status']): QueueCard[] {
 }
 
 function holderName(card: QueueCard): string {
-  if (card.status === 'review' || card.status === 'approval') return APPROVER_NAME
+  if (card.status === 'review') return MANAGING_EDITOR_NAME
+  if (card.status === 'approval') return APPROVER_NAME
   return card.assigneeName
 }
 
@@ -146,14 +156,15 @@ function canAct(card: QueueCard): boolean {
   if (card.status === 'in_progress') {
     return !card.assigneeId || card.assigneeId === identity.userId.value
   }
-  if (card.status === 'review' || card.status === 'approval') return identity.canApprove.value
+  if (card.status === 'review') return identity.canReview.value
+  if (card.status === 'approval') return identity.canApprove.value
   return false
 }
 
 function actionTitle(card: QueueCard): string | undefined {
   if (canAct(card)) return undefined
   if (card.status === 'in_progress') return 'Only the person who claimed this lesson can submit it'
-  if (card.status === 'review') return `Only ${APPROVER_NAME} can submit these lessons`
+  if (card.status === 'review') return `Only ${MANAGING_EDITOR_NAME} can submit these lessons`
   if (card.status === 'approval') return `Only ${APPROVER_NAME} can approve lessons`
   return undefined
 }
@@ -169,16 +180,16 @@ function editorAssignee(card: QueueCard): { id: string; name: string } | null {
 }
 
 function placementFor(status: BoardStatus | 'approved'): { id: string; name: string } | null {
+  const actor = {
+    id: identity.userId.value ?? '',
+    name: identity.name.value,
+    email: identity.email.value ?? '',
+  }
   if (status === 'in_progress') {
-    return { id: identity.userId.value ?? '', name: identity.name.value || 'Unassigned' }
+    return { id: actor.id, name: actor.name || 'Unassigned' }
   }
-  if (status === 'review' || status === 'approval' || status === 'approved') {
-    return approverAssignee({
-      id: identity.userId.value ?? '',
-      name: identity.name.value,
-      email: identity.email.value ?? '',
-    })
-  }
+  if (status === 'review') return reviewerAssignee(actor)
+  if (status === 'approval' || status === 'approved') return approverAssignee(actor)
   return null
 }
 
@@ -212,7 +223,7 @@ function assigneeFor(
   card: QueueCard,
   status: BoardStatus | 'approved',
 ): { id: string; name: string } | null {
-  if (status === 'review') return editorAssignee(card)
+  if (status === 'review') return editorAssignee(card) ?? placementFor(status)
   return placementFor(status)
 }
 
@@ -227,8 +238,8 @@ async function moveCard(
     actionError.value = `Only ${APPROVER_NAME} can approve lessons`
     return false
   }
-  if (status === 'approval' && !identity.canApprove.value) {
-    actionError.value = `Only ${APPROVER_NAME} can submit these lessons`
+  if (status === 'approval' && !identity.canReview.value) {
+    actionError.value = `Only ${MANAGING_EDITOR_NAME} can submit these lessons`
     return false
   }
   updatingId.value = id
@@ -239,19 +250,16 @@ async function moveCard(
   const reviewNotes =
     options?.reviewNotes !== undefined ? options.reviewNotes.trim() : previous.reviewNotes
   const without = cards.value.filter((item) => item.id !== id)
-  cards.value =
-    status === 'approved'
-      ? without
-      : sortCards([
-          ...without,
-          {
-            ...previous,
-            status,
-            assigneeId: assignee?.id ?? '',
-            assigneeName: assignee?.name ?? '',
-            reviewNotes,
-          },
-        ])
+  cards.value = sortCards([
+    ...without,
+    {
+      ...previous,
+      status,
+      assigneeId: assignee?.id ?? '',
+      assigneeName: assignee?.name ?? '',
+      reviewNotes,
+    },
+  ])
   try {
     await setLessonQueuePlacement(id, status, assignee, options?.reviewNotes)
     return true
@@ -339,8 +347,8 @@ async function placeCard(
 ): Promise<void> {
   const previous = cards.value.find((item) => item.id === id)
   if (!previous || updatingId.value || id === targetId) return
-  if (status !== previous.status && status === 'approval' && !identity.canApprove.value) {
-    actionError.value = `Only ${APPROVER_NAME} can submit these lessons`
+  if (status !== previous.status && status === 'approval' && !identity.canReview.value) {
+    actionError.value = `Only ${MANAGING_EDITOR_NAME} can submit these lessons`
     return
   }
   const column = sortCards(
@@ -414,7 +422,7 @@ onMounted(async () => {
         const definition = await services.persistence.getById(item.id)
         const mvp = definition ? readInroadsMvpDefinition(definition) : null
         const status = lessonQueueStatus(mvp?.reviewStatus, item.published)
-        if (!isBoardStatus(status) && status !== 'published') return null
+        if (!isBoardStatus(status) && !isOnPublishedTab(status)) return null
         return {
           id: item.id,
           kind: 'lesson',
@@ -437,7 +445,7 @@ onMounted(async () => {
         const definition = await services.persistence.getById(item.id)
         const intro = definition ? readIntroductionDefinition(definition) : null
         const status = lessonQueueStatus(intro?.reviewStatus, item.published)
-        if (!isBoardStatus(status) && status !== 'published') return null
+        if (!isBoardStatus(status) && !isOnPublishedTab(status)) return null
         return {
           id: item.id,
           kind: 'video',
@@ -481,16 +489,17 @@ function onDocumentKeyDown(event: KeyboardEvent): void {
 }
 
 async function downloadAssets(card: QueueCard): Promise<void> {
-  if (card.status !== 'published' || downloadingId.value) return
+  if (!isOnPublishedTab(card.status) || downloadingId.value) return
   downloadingId.value = card.id
   actionError.value = null
+  const source = card.status === 'published' ? 'published' : 'draft'
   try {
     const packed =
       card.kind === 'video'
-        ? await exportIntroductionAssetsZip(card.id)
+        ? await exportIntroductionAssetsZip(card.id, source)
         : await exportLessonTemplateZip(card.id, {
             includeMedia: true,
-            source: 'published',
+            source,
           })
     downloadBlob(packed.blob, packed.filename)
   } catch (cause) {

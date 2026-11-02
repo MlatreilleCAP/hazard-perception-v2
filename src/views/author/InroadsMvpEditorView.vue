@@ -31,7 +31,7 @@ import {
 import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { useStudioAccess } from '@/composables/useStudioAccess'
-import { approverAssignee } from '@/lib/lesson/queueAssignment'
+import { reviewerAssignee } from '@/lib/lesson/queueAssignment'
 import { contentReadonlyMessage } from '@/lib/auth/roles'
 import { useActivityStore } from '@/stores/activityStore'
 import {
@@ -884,15 +884,18 @@ async function submitLesson(
   submitMenuOpen.value = false
   if (!(await saveActiveSection())) return
   if (!(await ensureParentLoaded())) return
+  const reviewer = reviewerAssignee({
+    id: identity.userId.value ?? '',
+    name: identity.name.value,
+    email: identity.email.value ?? '',
+  })
   const assignee =
     status === 'in_progress'
       ? { assigneeId: identity.userId.value ?? '', assigneeName: identity.name.value }
       : status === 'review'
-        ? approverAssignee({
-            id: identity.userId.value ?? '',
-            name: identity.name.value,
-            email: identity.email.value ?? '',
-          })
+        ? mvp.value.assigneeId || mvp.value.assigneeName
+          ? { assigneeId: mvp.value.assigneeId, assigneeName: mvp.value.assigneeName }
+          : { assigneeId: reviewer.id, assigneeName: reviewer.name }
         : { assigneeId: '', assigneeName: '' }
   mvp.value = { ...mvp.value, reviewStatus: status, ...assignee }
   publishing.value = true

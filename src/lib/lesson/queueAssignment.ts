@@ -21,11 +21,18 @@ export function isApprover(name: string, email: string): boolean {
   return matchesPerson(name, email, ['matt', 'latreille']) || matchesPerson(name, email, ['latreille'])
 }
 
-/** Review and approval stay with Matt, even when someone else submits the lesson. */
-export function approverAssignee(actor: { id: string; name: string; email: string }): {
-  id: string
-  name: string
-} {
+type QueueActor = { id: string; name: string; email: string }
+
+/** Review stays with Steven, even when someone else submits the lesson. */
+export function reviewerAssignee(actor: QueueActor): { id: string; name: string } {
+  return {
+    id: isManagingEditor(actor.name, actor.email) ? actor.id.trim() : '',
+    name: MANAGING_EDITOR_NAME,
+  }
+}
+
+/** Approval stays with Matt, even when someone else submits the lesson. */
+export function approverAssignee(actor: QueueActor): { id: string; name: string } {
   return {
     id: isApprover(actor.name, actor.email) ? actor.id.trim() : '',
     name: APPROVER_NAME,

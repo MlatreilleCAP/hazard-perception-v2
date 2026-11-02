@@ -14,7 +14,7 @@ import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
-import { approverAssignee } from '@/lib/lesson/queueAssignment'
+import { reviewerAssignee } from '@/lib/lesson/queueAssignment'
 import { duplicateIntroductionVersion } from '@/services/createIntroduction'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { contentReadonlyMessage } from '@/lib/auth/roles'
@@ -406,15 +406,21 @@ async function submitVideo(
 ): Promise<void> {
   if (!editable.value || !introduction.value) return
   submitMenuOpen.value = false
+  const reviewer = reviewerAssignee({
+    id: identity.userId.value ?? '',
+    name: identity.name.value,
+    email: identity.email.value ?? '',
+  })
   const assignee =
     status === 'in_progress'
       ? { assigneeId: identity.userId.value ?? '', assigneeName: identity.name.value }
       : status === 'review'
-        ? approverAssignee({
-            id: identity.userId.value ?? '',
-            name: identity.name.value,
-            email: identity.email.value ?? '',
-          })
+        ? introduction.value.assigneeId || introduction.value.assigneeName
+          ? {
+              assigneeId: introduction.value.assigneeId,
+              assigneeName: introduction.value.assigneeName,
+            }
+          : { assigneeId: reviewer.id, assigneeName: reviewer.name }
         : { assigneeId: '', assigneeName: '' }
   introduction.value = { ...introduction.value, reviewStatus: status, ...assignee }
   submitting.value = true
