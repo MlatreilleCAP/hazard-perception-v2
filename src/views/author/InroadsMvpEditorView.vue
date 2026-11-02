@@ -31,7 +31,7 @@ import {
 import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { useStudioAccess } from '@/composables/useStudioAccess'
-import { MANAGING_EDITOR_NAME } from '@/lib/lesson/queueAssignment'
+import { approverAssignee } from '@/lib/lesson/queueAssignment'
 import { contentReadonlyMessage } from '@/lib/auth/roles'
 import { useActivityStore } from '@/stores/activityStore'
 import {
@@ -888,7 +888,11 @@ async function submitLesson(
     status === 'in_progress'
       ? { assigneeId: identity.userId.value ?? '', assigneeName: identity.name.value }
       : status === 'review'
-        ? { assigneeId: '', assigneeName: MANAGING_EDITOR_NAME }
+        ? approverAssignee({
+            id: identity.userId.value ?? '',
+            name: identity.name.value,
+            email: identity.email.value ?? '',
+          })
         : { assigneeId: '', assigneeName: '' }
   mvp.value = { ...mvp.value, reviewStatus: status, ...assignee }
   publishing.value = true

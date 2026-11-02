@@ -5,6 +5,7 @@ import {
 } from '@/lib/inroadsMvp/packageSpec'
 import {
   readLessonReviewStatus,
+  readQueueOrder,
   type LessonReviewStatus,
 } from '@/types/inroadsMvp'
 
@@ -19,8 +20,10 @@ export type IntroductionDefinition = {
   assigneeId: string
   /** Name shown on the queue card for the current holder. */
   assigneeName: string
-  /** Starred cards stay at the top of their queue column. */
-  priority: boolean
+  /** Reviewer notes shown on the queue card after changes are requested. */
+  reviewNotes: string
+  /** Manual position in a queue column. Unset cards sort by the date they were added. */
+  queueOrder: number | null
   introMedia: MediaRef | null
   /** Closed captions (.vtt) for the intro video. */
   introCaptions: MediaRef | null
@@ -47,7 +50,8 @@ export function createDefaultIntroductionDefinition(): IntroductionDefinition {
     version: 1,
     assigneeId: '',
     assigneeName: '',
-    priority: false,
+    reviewNotes: '',
+    queueOrder: null,
     introMedia: null,
     introCaptions: null,
     exampleMedia: null,
@@ -65,7 +69,8 @@ export function cloneIntroductionDefinition(
     reviewStatus: readLessonReviewStatus(definition.reviewStatus),
     assigneeId: definition.assigneeId.trim(),
     assigneeName: definition.assigneeName.trim(),
-    priority: definition.priority === true,
+    reviewNotes: definition.reviewNotes.trim(),
+    queueOrder: readQueueOrder(definition.queueOrder),
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
@@ -89,7 +94,8 @@ export function normalizeIntroductionDefinition(
     reviewStatus: readLessonReviewStatus(raw?.reviewStatus),
     assigneeId: typeof raw?.assigneeId === 'string' ? raw.assigneeId.trim() : '',
     assigneeName: typeof raw?.assigneeName === 'string' ? raw.assigneeName.trim() : '',
-    priority: raw?.priority === true,
+    reviewNotes: typeof raw?.reviewNotes === 'string' ? raw.reviewNotes.trim() : '',
+    queueOrder: readQueueOrder(raw?.queueOrder),
     introMedia: readMediaRef(raw?.introMedia),
     introCaptions: readMediaRef(raw?.introCaptions),
     exampleMedia: readMediaRef(raw?.exampleMedia),

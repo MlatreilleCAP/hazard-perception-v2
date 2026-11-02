@@ -21,6 +21,17 @@ export function isApprover(name: string, email: string): boolean {
   return matchesPerson(name, email, ['matt', 'latreille']) || matchesPerson(name, email, ['latreille'])
 }
 
+/** Review and approval stay with Matt, even when someone else submits the lesson. */
+export function approverAssignee(actor: { id: string; name: string; email: string }): {
+  id: string
+  name: string
+} {
+  return {
+    id: isApprover(actor.name, actor.email) ? actor.id.trim() : '',
+    name: APPROVER_NAME,
+  }
+}
+
 export function nameFromEmail(email: string): string {
   const local = email.split('@')[0] ?? ''
   const words = local.split(/[._-]+/).filter(Boolean)

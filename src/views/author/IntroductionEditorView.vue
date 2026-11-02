@@ -14,7 +14,7 @@ import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
-import { MANAGING_EDITOR_NAME } from '@/lib/lesson/queueAssignment'
+import { approverAssignee } from '@/lib/lesson/queueAssignment'
 import { duplicateIntroductionVersion } from '@/services/createIntroduction'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { contentReadonlyMessage } from '@/lib/auth/roles'
@@ -410,7 +410,11 @@ async function submitVideo(
     status === 'in_progress'
       ? { assigneeId: identity.userId.value ?? '', assigneeName: identity.name.value }
       : status === 'review'
-        ? { assigneeId: '', assigneeName: MANAGING_EDITOR_NAME }
+        ? approverAssignee({
+            id: identity.userId.value ?? '',
+            name: identity.name.value,
+            email: identity.email.value ?? '',
+          })
         : { assigneeId: '', assigneeName: '' }
   introduction.value = { ...introduction.value, reviewStatus: status, ...assignee }
   submitting.value = true

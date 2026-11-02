@@ -72,10 +72,14 @@ export async function setLessonQueuePlacement(
   parentId: string,
   status: LessonReviewStatus,
   assignee: { id: string; name: string } | null,
+  reviewNotes?: string,
+  queueOrder?: number,
 ): Promise<void> {
   const parent = await loadActivityOrThrow(parentId)
   const assigneeId = assignee?.id.trim() ?? ''
   const assigneeName = assignee?.name.trim() ?? ''
+  const notes = reviewNotes === undefined ? undefined : reviewNotes.trim()
+  const order = queueOrder === undefined ? undefined : queueOrder
   if (isIntroductionActivity(parent.metadata.tags)) {
     const intro = readIntroductionDefinition(parent)
     await services.persistence.save(
@@ -84,6 +88,8 @@ export async function setLessonQueuePlacement(
         reviewStatus: status,
         assigneeId,
         assigneeName,
+        ...(notes === undefined ? {} : { reviewNotes: notes }),
+        ...(order === undefined ? {} : { queueOrder: order }),
       }),
     )
     return
@@ -96,31 +102,25 @@ export async function setLessonQueuePlacement(
       reviewStatus: status,
       assigneeId,
       assigneeName,
+      ...(notes === undefined ? {} : { reviewNotes: notes }),
+      ...(order === undefined ? {} : { queueOrder: order }),
     }),
   )
 }
 
-export async function setLessonQueuePriority(parentId: string, priority: boolean): Promise<void> {
+export async function setLessonReviewNotes(parentId: string, notes: string): Promise<void> {
   const parent = await loadActivityOrThrow(parentId)
+  const trimmed = notes.trim()
   if (isIntroductionActivity(parent.metadata.tags)) {
     const intro = readIntroductionDefinition(parent)
     await services.persistence.save(
-      writeIntroductionDefinition(parent, { ...intro, priority }),
+      writeIntroductionDefinition(parent, { ...intro, reviewNotes: trimmed }),
     )
     return
   }
   const mvp = readInroadsMvpDefinition(parent)
   if (!mvp) throw new Error('Inroads MVP definition was not found')
   await services.persistence.save(
-    writeInroadsMvpDefinition(parent, { ...mvp, priority }),
-  )
-}
-
-export async function setLessonReviewNotes(parentId: string, notes: string): Promise<void> {
-  const parent = await loadActivityOrThrow(parentId)
-  const mvp = readInroadsMvpDefinition(parent)
-  if (!mvp) throw new Error('Inroads MVP definition was not found')
-  await services.persistence.save(
-    writeInroadsMvpDefinition(parent, { ...mvp, reviewNotes: notes.trim() }),
+    writeInroadsMvpDefinition(parent, { ...mvp, reviewNotes: trimmed }),
   )
 }

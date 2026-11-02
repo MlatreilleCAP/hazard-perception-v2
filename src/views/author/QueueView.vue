@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { readIntroductionDefinition } from '@/activities/introductionDefinition'
@@ -9,18 +9,16 @@ import reviewIcon from '@/assets/queue/review.svg'
 import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { downloadBlob } from '@/lib/inroadsMvp/buildImportTemplate'
-import {
-  APPROVER_NAME,
-  MANAGING_EDITOR_NAME,
-} from '@/lib/lesson/queueAssignment'
+import { APPROVER_NAME, approverAssignee } from '@/lib/lesson/queueAssignment'
 import { exportIntroductionAssetsZip } from '@/services/exportIntroductionPackage'
 import { exportLessonTemplateZip } from '@/services/exportInroadsMvpPackage'
-import { setLessonQueuePlacement, setLessonQueuePriority } from '@/services/publishInroadsMvp'
+import { setLessonQueuePlacement, setLessonReviewNotes } from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 import { isIntroductionActivity } from '@/types/introduction'
 import {
   isInroadsMvpActivity,
   lessonQueueStatus,
+  readQueueOrder,
   type LessonReviewStatus,
 } from '@/types/inroadsMvp'
 
@@ -36,7 +34,9 @@ type QueueCard = {
   status: LessonReviewStatus
   assigneeId: string
   assigneeName: string
-  priority: boolean
+  reviewNotes: string
+  addedAt: number
+  queueOrder: number | null
 }
 
 type BoardStatus = 'available' | 'in_progress' | 'review' | 'approval'
@@ -72,17 +72,23 @@ const cards = ref<QueueCard[]>([])
 const loading = ref(true)
 const activeTab = ref<QueueTab>('project')
 const publishedType = ref<PublishedType>('all')
-const starringId = ref<string | null>(null)
 const updatingId = ref<string | null>(null)
+const reviewMenuId = ref<string | null>(null)
+const noteCardId = ref<string | null>(null)
+const changesForId = ref<string | null>(null)
+const changesNote = ref('')
 const downloadingId = ref<string | null>(null)
 const draggingId = ref<string | null>(null)
 const dropStatus = ref<BoardStatus | null>(null)
+const dropPlace = ref<{ id: string; place: 'before' | 'after' } | null>(null)
 const actionError = ref<string | null>(null)
 
 const projectCards = computed(() =>
   cards.value.filter((card) => BOARD.some((column) => column.status === card.status)),
 )
-const publishedCards = computed(() => cards.value.filter((card) => card.status === 'published'))
+const publishedCards = computed(() =>
+  sortCards(cards.value.filter((card) => card.status === 'published')),
+)
 const visiblePublishedCards = computed(() => {
   if (publishedType.value === 'all') return publishedCards.value
   return publishedCards.value.filter((card) => card.kind === publishedType.value)
@@ -126,12 +132,11 @@ function isBoardStatus(status: LessonReviewStatus): status is BoardStatus {
 }
 
 function cardsFor(status: QueueCard['status']): QueueCard[] {
-  return cards.value.filter((card) => card.status === status)
+  return sortCards(cards.value.filter((card) => card.status === status))
 }
 
 function holderName(card: QueueCard): string {
-  if (card.status === 'review') return MANAGING_EDITOR_NAME
-  if (card.status === 'approval') return APPROVER_NAME
+  if (card.status === 'review' || card.status === 'approval') return APPROVER_NAME
   return card.assigneeName
 }
 
@@ -141,62 +146,98 @@ function canAct(card: QueueCard): boolean {
   if (card.status === 'in_progress') {
     return !card.assigneeId || card.assigneeId === identity.userId.value
   }
-  if (card.status === 'review') return identity.canReview.value
-  if (card.status === 'approval') return identity.canApprove.value
+  if (card.status === 'review' || card.status === 'approval') return identity.canApprove.value
   return false
 }
 
 function actionTitle(card: QueueCard): string | undefined {
   if (canAct(card)) return undefined
   if (card.status === 'in_progress') return 'Only the person who claimed this lesson can submit it'
-  if (card.status === 'review') return `${MANAGING_EDITOR_NAME} reviews these lessons`
-  if (card.status === 'approval') return `${APPROVER_NAME} approves these lessons`
+  if (card.status === 'review') return `Only ${APPROVER_NAME} can submit these lessons`
+  if (card.status === 'approval') return `Only ${APPROVER_NAME} can approve lessons`
   return undefined
+}
+
+const changesCard = computed(
+  () => cards.value.find((card) => card.id === changesForId.value) ?? null,
+)
+const canClearNotes = computed(() => identity.canApprove.value)
+
+function editorAssignee(card: QueueCard): { id: string; name: string } | null {
+  if (!card.assigneeId && !card.assigneeName) return null
+  return { id: card.assigneeId, name: card.assigneeName }
 }
 
 function placementFor(status: BoardStatus | 'approved'): { id: string; name: string } | null {
   if (status === 'in_progress') {
     return { id: identity.userId.value ?? '', name: identity.name.value || 'Unassigned' }
   }
-  if (status === 'review') return { id: '', name: MANAGING_EDITOR_NAME }
-  if (status === 'approval' || status === 'approved') {
-    return { id: identity.userId.value ?? '', name: APPROVER_NAME }
+  if (status === 'review' || status === 'approval' || status === 'approved') {
+    return approverAssignee({
+      id: identity.userId.value ?? '',
+      name: identity.name.value,
+      email: identity.email.value ?? '',
+    })
   }
   return null
 }
 
+function orderKey(card: QueueCard): number {
+  return card.queueOrder ?? card.addedAt
+}
+
 function sortCards(items: QueueCard[]): QueueCard[] {
   return [...items].sort((left, right) => {
-    if (left.priority !== right.priority) return left.priority ? -1 : 1
+    const delta = orderKey(left) - orderKey(right)
+    if (delta !== 0) return delta
     return left.title.localeCompare(right.title)
   })
 }
 
-async function togglePriority(card: QueueCard): Promise<void> {
-  if (starringId.value || updatingId.value) return
-  starringId.value = card.id
-  actionError.value = null
-  const next = !card.priority
-  const previous = cards.value
-  cards.value = sortCards(
-    cards.value.map((item) => (item.id === card.id ? { ...item, priority: next } : item)),
-  )
-  try {
-    await setLessonQueuePriority(card.id, next)
-  } catch (cause) {
-    cards.value = previous
-    actionError.value = cause instanceof Error ? cause.message : 'Failed to update priority'
-  } finally {
-    starringId.value = null
-  }
+function orderBetween(before: QueueCard | undefined, after: QueueCard | undefined): number {
+  const left = before ? orderKey(before) : null
+  const right = after ? orderKey(after) : null
+  if (left != null && right != null) return left === right ? left + 1 : (left + right) / 2
+  if (left != null) return left + 1000
+  if (right != null) return right - 1000
+  return Date.now()
 }
 
-async function moveCard(id: string, status: BoardStatus | 'approved'): Promise<void> {
+function addedAtFrom(createdAt: string | undefined): number {
+  const parsed = Date.parse(createdAt ?? '')
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function assigneeFor(
+  card: QueueCard,
+  status: BoardStatus | 'approved',
+): { id: string; name: string } | null {
+  if (status === 'review') return editorAssignee(card)
+  return placementFor(status)
+}
+
+async function moveCard(
+  id: string,
+  status: BoardStatus | 'approved',
+  options?: { reviewNotes?: string; assignee?: { id: string; name: string } | null },
+): Promise<boolean> {
   const previous = cards.value.find((item) => item.id === id)
-  if (!previous || previous.status === status || updatingId.value) return
+  if (!previous || previous.status === status || updatingId.value) return false
+  if (status === 'approved' && !identity.canApprove.value) {
+    actionError.value = `Only ${APPROVER_NAME} can approve lessons`
+    return false
+  }
+  if (status === 'approval' && !identity.canApprove.value) {
+    actionError.value = `Only ${APPROVER_NAME} can submit these lessons`
+    return false
+  }
   updatingId.value = id
   actionError.value = null
-  const assignee = placementFor(status)
+  reviewMenuId.value = null
+  const assignee =
+    options && 'assignee' in options ? (options.assignee ?? null) : assigneeFor(previous, status)
+  const reviewNotes =
+    options?.reviewNotes !== undefined ? options.reviewNotes.trim() : previous.reviewNotes
   const without = cards.value.filter((item) => item.id !== id)
   cards.value =
     status === 'approved'
@@ -208,13 +249,16 @@ async function moveCard(id: string, status: BoardStatus | 'approved'): Promise<v
             status,
             assigneeId: assignee?.id ?? '',
             assigneeName: assignee?.name ?? '',
+            reviewNotes,
           },
         ])
   try {
-    await setLessonQueuePlacement(id, status, assignee)
+    await setLessonQueuePlacement(id, status, assignee, options?.reviewNotes)
+    return true
   } catch (cause) {
     cards.value = sortCards([...cards.value.filter((item) => item.id !== id), previous])
     actionError.value = cause instanceof Error ? cause.message : 'Failed to update the lesson'
+    return false
   } finally {
     updatingId.value = null
   }
@@ -225,6 +269,8 @@ function onDragStart(card: QueueCard, event: DragEvent): void {
     event.preventDefault()
     return
   }
+  reviewMenuId.value = null
+  noteCardId.value = null
   draggingId.value = card.id
   event.dataTransfer?.setData('text/plain', card.id)
   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
@@ -233,13 +279,15 @@ function onDragStart(card: QueueCard, event: DragEvent): void {
 function onDragEnd(): void {
   draggingId.value = null
   dropStatus.value = null
+  dropPlace.value = null
 }
 
 function onDragOver(status: BoardStatus, event: DragEvent): void {
   const card = cards.value.find((item) => item.id === draggingId.value)
-  if (!card || card.status === status) return
+  if (!card) return
   event.preventDefault()
-  dropStatus.value = status
+  dropPlace.value = null
+  dropStatus.value = card.status === status ? null : status
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
 }
 
@@ -248,16 +296,112 @@ function onDragLeave(status: BoardStatus, event: DragEvent): void {
   const next = event.relatedTarget
   if (current instanceof Node && next instanceof Node && current.contains(next)) return
   if (dropStatus.value === status) dropStatus.value = null
+  dropPlace.value = null
+}
+
+function onCardDragOver(card: QueueCard, event: DragEvent): void {
+  if (!draggingId.value || draggingId.value === card.id || !isBoardStatus(card.status)) return
+  event.preventDefault()
+  event.stopPropagation()
+  const target = event.currentTarget
+  if (!(target instanceof HTMLElement)) return
+  const rect = target.getBoundingClientRect()
+  const place = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+  dropPlace.value = { id: card.id, place }
+  const dragged = cards.value.find((item) => item.id === draggingId.value)
+  dropStatus.value = dragged && dragged.status !== card.status ? card.status : null
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+}
+
+function onCardDrop(card: QueueCard, event: DragEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  const id = event.dataTransfer?.getData('text/plain') || draggingId.value
+  const place = dropPlace.value?.id === card.id ? dropPlace.value.place : 'before'
+  onDragEnd()
+  if (!id || !isBoardStatus(card.status)) return
+  void placeCard(id, card.status, card.id, place)
 }
 
 function onDrop(status: BoardStatus, event: DragEvent): void {
   event.preventDefault()
   const id = event.dataTransfer?.getData('text/plain') || draggingId.value
-  draggingId.value = null
-  dropStatus.value = null
+  onDragEnd()
   if (!id) return
-  void moveCard(id, status)
+  void placeCard(id, status, null, 'after')
 }
+
+async function placeCard(
+  id: string,
+  status: BoardStatus,
+  targetId: string | null,
+  place: 'before' | 'after',
+): Promise<void> {
+  const previous = cards.value.find((item) => item.id === id)
+  if (!previous || updatingId.value || id === targetId) return
+  if (status !== previous.status && status === 'approval' && !identity.canApprove.value) {
+    actionError.value = `Only ${APPROVER_NAME} can submit these lessons`
+    return
+  }
+  const column = sortCards(
+    cards.value.filter((item) => item.status === status && item.id !== id),
+  )
+  let index = column.length
+  if (targetId) {
+    const targetIndex = column.findIndex((item) => item.id === targetId)
+    if (targetIndex < 0) return
+    index = place === 'before' ? targetIndex : targetIndex + 1
+  }
+  const before = column[index - 1]
+  const after = column[index]
+  if (previous.status === status) {
+    const current = sortCards(cards.value.filter((item) => item.status === status))
+    const currentIndex = current.findIndex((item) => item.id === id)
+    const sameNeighbors =
+      (current[currentIndex - 1]?.id ?? null) === (before?.id ?? null) &&
+      (current[currentIndex + 1]?.id ?? null) === (after?.id ?? null)
+    if (sameNeighbors) return
+  }
+  const queueOrder = orderBetween(before, after)
+  const assignee =
+    status === previous.status
+      ? previous.assigneeId || previous.assigneeName
+        ? { id: previous.assigneeId, name: previous.assigneeName }
+        : null
+      : assigneeFor(previous, status)
+  updatingId.value = id
+  actionError.value = null
+  reviewMenuId.value = null
+  const without = cards.value.filter((item) => item.id !== id)
+  cards.value = sortCards([
+    ...without,
+    {
+      ...previous,
+      status,
+      assigneeId: assignee?.id ?? '',
+      assigneeName: assignee?.name ?? '',
+      queueOrder,
+    },
+  ])
+  try {
+    await setLessonQueuePlacement(id, status, assignee, undefined, queueOrder)
+  } catch (cause) {
+    cards.value = sortCards([...cards.value.filter((item) => item.id !== id), previous])
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to update the lesson'
+  } finally {
+    updatingId.value = null
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocumentPointerDown)
+  document.addEventListener('keydown', onDocumentKeyDown)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
+  document.removeEventListener('keydown', onDocumentKeyDown)
+})
 
 onMounted(async () => {
   loading.value = true
@@ -280,7 +424,9 @@ onMounted(async () => {
           status,
           assigneeId: mvp?.assigneeId ?? '',
           assigneeName: mvp?.assigneeName ?? '',
-          priority: mvp?.priority === true,
+          reviewNotes: mvp?.reviewNotes.trim() ?? '',
+          addedAt: addedAtFrom(definition?.metadata.createdAt),
+          queueOrder: readQueueOrder(mvp?.queueOrder),
         }
       } catch {
         return null
@@ -301,7 +447,9 @@ onMounted(async () => {
           status,
           assigneeId: intro?.assigneeId ?? '',
           assigneeName: intro?.assigneeName ?? '',
-          priority: intro?.priority === true,
+          reviewNotes: intro?.reviewNotes.trim() ?? '',
+          addedAt: addedAtFrom(definition?.metadata.createdAt),
+          queueOrder: readQueueOrder(intro?.queueOrder),
         }
       } catch {
         return null
@@ -311,6 +459,26 @@ onMounted(async () => {
   cards.value = sortCards(loaded.filter((card): card is QueueCard => card != null))
   loading.value = false
 })
+
+function onDocumentPointerDown(event: PointerEvent): void {
+  const target = event.target
+  if (!(target instanceof Node)) return
+  if (reviewMenuId.value) {
+    const menu = document.querySelector(`[data-review-menu="${reviewMenuId.value}"]`)
+    if (!menu?.contains(target)) reviewMenuId.value = null
+  }
+  if (noteCardId.value) {
+    const note = document.querySelector(`[data-note-popover="${noteCardId.value}"]`)
+    if (!note?.contains(target)) noteCardId.value = null
+  }
+}
+
+function onDocumentKeyDown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape') return
+  reviewMenuId.value = null
+  noteCardId.value = null
+  if (!updatingId.value) changesForId.value = null
+}
 
 async function downloadAssets(card: QueueCard): Promise<void> {
   if (card.status !== 'published' || downloadingId.value) return
@@ -336,8 +504,69 @@ function act(card: QueueCard): void {
   if (!canAct(card)) return
   if (card.status === 'available') void moveCard(card.id, 'in_progress')
   else if (card.status === 'in_progress') void moveCard(card.id, 'review')
-  else if (card.status === 'review') void moveCard(card.id, 'approval')
   else if (card.status === 'approval') void moveCard(card.id, 'approved')
+}
+
+function toggleReviewMenu(card: QueueCard): void {
+  if (!canAct(card)) return
+  noteCardId.value = null
+  reviewMenuId.value = reviewMenuId.value === card.id ? null : card.id
+}
+
+function chooseApproved(card: QueueCard): void {
+  reviewMenuId.value = null
+  void moveCard(card.id, 'approval', { reviewNotes: '' })
+}
+
+function openChanges(card: QueueCard): void {
+  reviewMenuId.value = null
+  noteCardId.value = null
+  changesForId.value = card.id
+  changesNote.value = ''
+}
+
+function closeChanges(): void {
+  if (updatingId.value) return
+  changesForId.value = null
+  changesNote.value = ''
+}
+
+async function submitChanges(): Promise<void> {
+  const card = changesCard.value
+  const note = changesNote.value.trim()
+  if (!card || !note) return
+  const saved = await moveCard(card.id, 'in_progress', {
+    reviewNotes: note,
+    assignee: editorAssignee(card),
+  })
+  if (!saved) return
+  changesForId.value = null
+  changesNote.value = ''
+}
+
+function toggleNote(card: QueueCard): void {
+  reviewMenuId.value = null
+  noteCardId.value = noteCardId.value === card.id ? null : card.id
+}
+
+async function clearNote(card: QueueCard): Promise<void> {
+  if (!identity.canApprove.value || updatingId.value || !card.reviewNotes) return
+  updatingId.value = card.id
+  actionError.value = null
+  const previous = cards.value
+  noteCardId.value = null
+  cards.value = cards.value.map((item) =>
+    item.id === card.id ? { ...item, reviewNotes: '' } : item,
+  )
+  try {
+    await setLessonReviewNotes(card.id, '')
+  } catch (cause) {
+    cards.value = previous
+    noteCardId.value = card.id
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to clear the note'
+  } finally {
+    updatingId.value = null
+  }
 }
 </script>
 
@@ -391,10 +620,15 @@ function act(card: QueueCard): void {
               :class="{
                 'is-available': column.status === 'available',
                 'is-dragging': draggingId === card.id,
+                'is-open': reviewMenuId === card.id || noteCardId === card.id,
+                'is-drop-before': dropPlace?.id === card.id && dropPlace.place === 'before',
+                'is-drop-after': dropPlace?.id === card.id && dropPlace.place === 'after',
               }"
               :draggable="updatingId !== card.id"
               @dragstart="onDragStart(card, $event)"
               @dragend="onDragEnd"
+              @dragover="onCardDragOver(card, $event)"
+              @drop="onCardDrop(card, $event)"
             >
               <div class="queue-card-copy">
                 <div class="queue-card-heading">
@@ -405,23 +639,51 @@ function act(card: QueueCard): void {
                   >
                     {{ card.title }}
                   </RouterLink>
-                  <button
-                    type="button"
-                    class="queue-card-star"
-                    :class="{ 'is-priority': card.priority }"
-                    :aria-pressed="card.priority"
-                    :aria-label="card.priority ? 'Remove priority' : 'Mark as priority'"
-                    :disabled="starringId === card.id"
-                    draggable="false"
-                    @pointerdown.stop
-                    @click.stop="togglePriority(card)"
+                  <div
+                    v-if="card.reviewNotes"
+                    class="queue-note"
+                    :data-note-popover="card.id"
                   >
-                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                      <path
-                        d="M8 1.6 9.7 5.5l4.2.4-3.2 2.8.9 4.1L8 10.7 4.4 13l.9-4.1L2.1 5.9l4.2-.4L8 1.6Z"
-                      />
-                    </svg>
-                  </button>
+                    <button
+                      type="button"
+                      class="queue-card-note"
+                      aria-label="Review notes"
+                      :aria-expanded="noteCardId === card.id"
+                      draggable="false"
+                      @pointerdown.stop
+                      @click.stop="toggleNote(card)"
+                    >
+                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                        <path
+                          d="M6.2 8.6 10.7 4a2.1 2.1 0 0 1 3 3L8.6 12.2a3.1 3.1 0 0 1-4.4-4.4l5.2-5.1a4 4 0 0 1 5.6 5.7l-4.3 4.3"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </button>
+                    <div
+                      v-if="noteCardId === card.id"
+                      class="queue-note-popover"
+                      role="dialog"
+                      aria-label="Review notes"
+                    >
+                      <p>{{ card.reviewNotes }}</p>
+                      <button
+                        v-if="canClearNotes"
+                        type="button"
+                        class="queue-note-clear"
+                        :disabled="updatingId === card.id"
+                        draggable="false"
+                        @pointerdown.stop
+                        @click.stop="clearNote(card)"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <p class="queue-card-locale">{{ localeLabel(card) }}</p>
               </div>
@@ -430,7 +692,50 @@ function act(card: QueueCard): void {
                 :class="{ 'is-claim': column.status === 'available' }"
               >
                 <span v-if="holderName(card)" class="queue-pill is-name">{{ holderName(card) }}</span>
+                <div
+                  v-if="column.status === 'review'"
+                  class="author-menu queue-review-menu"
+                  :data-review-menu="card.id"
+                  @pointerdown.stop
+                >
+                  <button
+                    type="button"
+                    class="queue-pill"
+                    :disabled="!canAct(card)"
+                    :title="actionTitle(card)"
+                    :aria-expanded="reviewMenuId === card.id"
+                    aria-haspopup="menu"
+                    draggable="false"
+                    @click.stop="toggleReviewMenu(card)"
+                  >
+                    {{ updatingId === card.id ? 'Saving…' : 'Submit' }}
+                  </button>
+                  <div
+                    v-if="reviewMenuId === card.id"
+                    class="author-menu-panel queue-review-menu-panel"
+                    role="menu"
+                    aria-label="Submit"
+                  >
+                    <button
+                      type="button"
+                      class="author-menu-item"
+                      role="menuitem"
+                      @click="chooseApproved(card)"
+                    >
+                      Approved
+                    </button>
+                    <button
+                      type="button"
+                      class="author-menu-item"
+                      role="menuitem"
+                      @click="openChanges(card)"
+                    >
+                      Changes needed
+                    </button>
+                  </div>
+                </div>
                 <button
+                  v-else
                   type="button"
                   class="queue-pill"
                   :disabled="!canAct(card)"
@@ -485,6 +790,40 @@ function act(card: QueueCard): void {
           </li>
         </ul>
       </section>
+
+      <div
+        v-if="changesCard"
+        class="queue-notes-backdrop"
+        @click.self="closeChanges"
+        @keydown.esc="closeChanges"
+      >
+        <form class="queue-notes-panel" @submit.prevent="submitChanges">
+          <h2>Changes needed</h2>
+          <p>{{ changesCard.title }}</p>
+          <label>
+            Notes
+            <textarea
+              v-model="changesNote"
+              rows="5"
+              required
+              autofocus
+              placeholder="What needs to change?"
+            />
+          </label>
+          <div class="queue-notes-actions">
+            <button type="button" class="author-pill author-pill-ghost" @click="closeChanges">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="author-pill author-pill-primary"
+              :disabled="!changesNote.trim() || updatingId === changesCard.id"
+            >
+              {{ updatingId === changesCard.id ? 'Saving…' : 'Send back' }}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 </template>

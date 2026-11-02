@@ -45,7 +45,8 @@ export async function duplicateIntroductionVersion(
     reviewStatus: undefined,
     assigneeId: '',
     assigneeName: '',
-    priority: false,
+    reviewNotes: '',
+    queueOrder: null,
   })
   const saved = await services.persistence.save(next)
   return saved.id
