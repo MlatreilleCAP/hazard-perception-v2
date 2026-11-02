@@ -2,6 +2,10 @@
 .branches
 .temp
 
+# Local secrets. Never commit API keys or webhook secrets.
+.env
+functions/.env
+
 # dotenvx
 .env.keys
 .env.local
