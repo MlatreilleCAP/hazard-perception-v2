@@ -28,6 +28,7 @@ import {
   lessonQueueStatus,
   lessonQueueStatusLabel,
 } from '@/types/inroadsMvp'
+import { publishInroadsMvpLesson } from '@/services/publishInroadsMvp'
 import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { useStudioAccess } from '@/composables/useStudioAccess'
@@ -65,6 +66,7 @@ const loading = ref(true)
 const loadError = ref<string | null>(null)
 const saving = ref(false)
 const publishing = ref(false)
+const busyLabel = ref('Submitting…')
 const deleting = ref(false)
 const creatingVersion = ref(false)
 const newLanguageMenuOpen = ref(false)
@@ -125,6 +127,7 @@ const statusLabel = computed(() =>
 const editable = computed(() =>
   canEditLesson(activities.current?.metadata.authorId, isPublished.value),
 )
+const canPublish = computed(() => identity.canApprove.value)
 
 const versionSelectOptions = computed(() => {
   if (!versions.value.length) {
@@ -898,6 +901,7 @@ async function submitLesson(
           : { assigneeId: reviewer.id, assigneeName: reviewer.name }
         : { assigneeId: '', assigneeName: '' }
   mvp.value = { ...mvp.value, reviewStatus: status, ...assignee }
+  busyLabel.value = 'Submitting…'
   publishing.value = true
   try {
     if (!(await saveLesson())) return
@@ -911,6 +915,26 @@ async function submitLesson(
     window.alert(
       cause instanceof Error ? cause.message : 'Failed to submit lesson',
     )
+  } finally {
+    publishing.value = false
+  }
+}
+
+async function publishLesson(): Promise<void> {
+  if (!editable.value || !mvp.value || !canPublish.value) return
+  submitMenuOpen.value = false
+  if (!(await saveActiveSection())) return
+  if (!(await ensureParentLoaded())) return
+  mvp.value = { ...mvp.value, reviewStatus: 'published' }
+  busyLabel.value = 'Publishing…'
+  publishing.value = true
+  try {
+    if (!(await saveLesson())) return
+    await publishInroadsMvpLesson(activityId.value)
+    await activities.refreshList()
+    saveMessage.value = 'Published'
+  } catch (cause) {
+    window.alert(cause instanceof Error ? cause.message : 'Failed to publish lesson')
   } finally {
     publishing.value = false
   }
@@ -996,7 +1020,7 @@ async function deleteVersion(id: string): Promise<void> {
               aria-haspopup="menu"
               @click="toggleSubmitMenu"
             >
-              {{ publishing ? 'Submitting…' : 'Submit' }}
+              {{ publishing ? busyLabel : 'Submit' }}
             </AuthorPillButton>
             <div v-if="submitMenuOpen" class="author-menu-panel" role="menu" aria-label="Submit">
               <button
@@ -1022,6 +1046,15 @@ async function deleteVersion(id: string): Promise<void> {
                 @click="submitLesson('review')"
               >
                 Review
+              </button>
+              <button
+                v-if="canPublish"
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                @click="publishLesson"
+              >
+                Publish
               </button>
             </div>
           </div>
