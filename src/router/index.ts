@@ -5,6 +5,7 @@ import ArchitectureView from '@/views/ArchitectureView.vue'
 import AuthCallbackView from '@/views/AuthCallbackView.vue'
 import HomeView from '@/views/HomeView.vue'
 import LoginView from '@/views/LoginView.vue'
+import ResetPasswordView from '@/views/ResetPasswordView.vue'
 import PlayerView from '@/views/PlayerView.vue'
 import AnticipateEditorView from '@/views/author/AnticipateEditorView.vue'
 import AnticipateListView from '@/views/author/AnticipateListView.vue'
@@ -44,6 +45,12 @@ export const router = createRouter({
       name: 'auth-callback',
       component: AuthCallbackView,
       meta: { layout: 'auth', title: 'Signing in · AlertDriving' },
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: ResetPasswordView,
+      meta: { layout: 'auth', title: 'Create a new password · AlertDriving' },
     },
     {
       path: '/',

@@ -2,38 +2,60 @@
 import { computed, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { safeNextPath } from '@/app/safeNextPath'
+import { isEmailAddress, MIN_PASSWORD_LENGTH } from '@/lib/auth/credentials'
 import { useAuthStore } from '@/stores/authStore'
 
-type Mode = 'signin' | 'signup'
+type Mode = 'signin' | 'signup' | 'recover'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
 const nextPath = computed(() => safeNextPath(String(route.query.next ?? '')) ?? '/')
-const mode = ref<Mode>(route.query.mode === 'signup' ? 'signup' : 'signin')
+const mode = ref<Mode>(initialMode())
 const email = ref('')
 const password = ref('')
-const error = ref<string | null>(
-  route.query.error === 'auth_callback_failed'
-    ? 'Sign-in link expired or failed. Please try again.'
+const error = ref<string | null>(initialError())
+const info = ref<string | null>(
+  route.query.reset === 'success'
+    ? 'Password updated. Sign in with your new password.'
     : null,
 )
-const info = ref<string | null>(null)
 const loading = ref(false)
 
-const title = computed(() =>
-  mode.value === 'signin' ? 'Welcome back' : 'Create your account',
-)
-const subtitle = computed(() =>
-  mode.value === 'signin'
+function initialMode(): Mode {
+  if (route.query.mode === 'recover') return 'recover'
+  if (route.query.mode === 'signup') return 'signup'
+  return 'signin'
+}
+
+function initialError(): string | null {
+  if (route.query.error === 'reset_link_invalid') {
+    return 'This reset link is invalid or has expired. Request another one below.'
+  }
+  if (route.query.error === 'auth_callback_failed') {
+    return 'Sign-in link expired or failed. Please try again.'
+  }
+  return null
+}
+
+const title = computed(() => {
+  if (mode.value === 'recover') return 'Reset your password'
+  return mode.value === 'signin' ? 'Welcome back' : 'Create your account'
+})
+const subtitle = computed(() => {
+  if (mode.value === 'recover') {
+    return "Enter your email address and we'll send you a link to reset your password."
+  }
+  return mode.value === 'signin'
     ? 'Sign in to save progress and continue training.'
-    : 'Create an account to build activities, scenarios, and train.',
-)
+    : 'Create an account to build activities, scenarios, and train.'
+})
 const submitLabel = computed(() => {
   if (loading.value) return 'Please wait…'
   return mode.value === 'signin' ? 'Sign in' : 'Create account'
 })
+const resetLabel = computed(() => (loading.value ? 'Sending…' : 'Send reset link'))
 
 async function handleEmailAuth(): Promise<void> {
   loading.value = true
@@ -88,6 +110,30 @@ function setMode(next: Mode): void {
   error.value = null
   info.value = null
 }
+
+async function handleResetRequest(): Promise<void> {
+  error.value = null
+  info.value = null
+  if (!isEmailAddress(email.value)) {
+    error.value = 'Enter a valid email address.'
+    return
+  }
+
+  loading.value = true
+  try {
+    const resetError = await auth.requestPasswordReset(email.value)
+    if (resetError) {
+      error.value = resetError
+      return
+    }
+    info.value =
+      'If an account exists for that email, we sent a link to reset your password.'
+  } catch {
+    error.value = 'Could not send the reset link. Try again.'
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <template>
@@ -106,6 +152,32 @@ function setMode(next: Mode): void {
         </div>
 
         <div class="auth-card">
+          <form
+            v-if="mode === 'recover'"
+            class="auth-form"
+            novalidate
+            @submit.prevent="handleResetRequest"
+          >
+            <label>
+              <span>Email</span>
+              <input
+                v-model="email"
+                type="email"
+                required
+                autocomplete="email"
+                placeholder="you@company.com"
+              />
+            </label>
+
+            <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
+            <p v-if="info" class="auth-info" role="status">{{ info }}</p>
+
+            <button type="submit" class="auth-submit" :disabled="loading">
+              {{ resetLabel }}
+            </button>
+          </form>
+
+          <template v-else>
           <button
             type="button"
             class="auth-google"
@@ -152,11 +224,19 @@ function setMode(next: Mode): void {
                 v-model="password"
                 type="password"
                 required
-                minlength="6"
+                :minlength="MIN_PASSWORD_LENGTH"
                 :autocomplete="mode === 'signin' ? 'current-password' : 'new-password'"
                 placeholder="••••••••"
               />
             </label>
+            <button
+              v-if="mode === 'signin'"
+              type="button"
+              class="auth-forgot"
+              @click="setMode('recover')"
+            >
+              Forgot password?
+            </button>
 
             <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
             <p v-if="info" class="auth-info" role="status">{{ info }}</p>
@@ -165,10 +245,14 @@ function setMode(next: Mode): void {
               {{ submitLabel }}
             </button>
           </form>
+          </template>
         </div>
 
         <p class="auth-switch">
-          <template v-if="mode === 'signin'">
+          <template v-if="mode === 'recover'">
+            <button type="button" @click="setMode('signin')">Back to login</button>
+          </template>
+          <template v-else-if="mode === 'signin'">
             New here?
             <button type="button" @click="setMode('signup')">Create an account</button>
           </template>

@@ -4,10 +4,13 @@ import { computed, ref } from 'vue'
 import { isStudioRole } from '@/lib/auth/roles'
 import { getSupabase } from '@/services/supabase'
 import {
+  markPasswordRecovery,
+  requestPasswordReset as sendPasswordReset,
   signInWithGoogle as startGoogleSignIn,
   signInWithPassword,
   signOut as signOutSession,
   signUpWithPassword,
+  updatePassword as changePassword,
 } from '@/services/auth'
 import type { ProfileRole } from '@/types/database'
 
@@ -102,7 +105,8 @@ export const useAuthStore = defineStore('auth', () => {
       session.value = data.session
       await loadProfile(data.session?.user.id ?? null)
 
-      client.auth.onAuthStateChange((_event, nextSession) => {
+      client.auth.onAuthStateChange((event, nextSession) => {
+        if (event === 'PASSWORD_RECOVERY') markPasswordRecovery()
         session.value = nextSession
         void loadProfile(nextSession?.user.id ?? null)
       })
@@ -154,6 +158,14 @@ export const useAuthStore = defineStore('auth', () => {
     canEditOthers.value = false
   }
 
+  async function requestPasswordReset(emailValue: string): Promise<string | null> {
+    return sendPasswordReset(emailValue)
+  }
+
+  async function updatePassword(password: string): Promise<string | null> {
+    return changePassword(password)
+  }
+
   return {
     session,
     user,
@@ -173,5 +185,7 @@ export const useAuthStore = defineStore('auth', () => {
     signUp,
     signInWithGoogle,
     signOut,
+    requestPasswordReset,
+    updatePassword,
   }
 })
