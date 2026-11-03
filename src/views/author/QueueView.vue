@@ -150,13 +150,17 @@ function holderName(card: QueueCard): string {
   return card.assigneeName
 }
 
+function canSubmitReview(): boolean {
+  return identity.canReview.value || identity.canApprove.value
+}
+
 function canAct(card: QueueCard): boolean {
   if (updatingId.value) return false
   if (card.status === 'available') return true
   if (card.status === 'in_progress') {
     return !card.assigneeId || card.assigneeId === identity.userId.value
   }
-  if (card.status === 'review') return identity.canReview.value
+  if (card.status === 'review') return canSubmitReview()
   if (card.status === 'approval') return identity.canApprove.value
   return false
 }
@@ -164,7 +168,9 @@ function canAct(card: QueueCard): boolean {
 function actionTitle(card: QueueCard): string | undefined {
   if (canAct(card)) return undefined
   if (card.status === 'in_progress') return 'Only the person who claimed this lesson can submit it'
-  if (card.status === 'review') return `Only ${MANAGING_EDITOR_NAME} can submit these lessons`
+  if (card.status === 'review') {
+    return `Only ${MANAGING_EDITOR_NAME} or ${APPROVER_NAME} can submit these lessons`
+  }
   if (card.status === 'approval') return `Only ${APPROVER_NAME} can approve lessons`
   return undefined
 }
@@ -238,8 +244,8 @@ async function moveCard(
     actionError.value = `Only ${APPROVER_NAME} can approve lessons`
     return false
   }
-  if (status === 'approval' && !identity.canReview.value) {
-    actionError.value = `Only ${MANAGING_EDITOR_NAME} can submit these lessons`
+  if (status === 'approval' && !canSubmitReview()) {
+    actionError.value = `Only ${MANAGING_EDITOR_NAME} or ${APPROVER_NAME} can submit these lessons`
     return false
   }
   updatingId.value = id
@@ -347,8 +353,8 @@ async function placeCard(
 ): Promise<void> {
   const previous = cards.value.find((item) => item.id === id)
   if (!previous || updatingId.value || id === targetId) return
-  if (status !== previous.status && status === 'approval' && !identity.canReview.value) {
-    actionError.value = `Only ${MANAGING_EDITOR_NAME} can submit these lessons`
+  if (status !== previous.status && status === 'approval' && !canSubmitReview()) {
+    actionError.value = `Only ${MANAGING_EDITOR_NAME} or ${APPROVER_NAME} can submit these lessons`
     return
   }
   const column = sortCards(
