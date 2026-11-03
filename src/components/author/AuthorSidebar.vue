@@ -29,6 +29,9 @@ const queueOpen = computed(
 const peopleOpen = computed(
   () => route.path === '/studio/people' || route.path.startsWith('/studio/people/'),
 )
+const emailOpen = computed(
+  () => route.path === '/studio/email' || route.path.startsWith('/studio/email/'),
+)
 </script>
 
 <template>
@@ -91,6 +94,14 @@ const peopleOpen = computed(
         :class="{ active: peopleOpen }"
       >
         People
+      </RouterLink>
+      <RouterLink
+        v-if="auth.isAdmin"
+        to="/studio/email"
+        class="author-nav-link"
+        :class="{ active: emailOpen }"
+      >
+        Email
       </RouterLink>
     </nav>
   </aside>

@@ -235,6 +235,258 @@ fieldset.author-stack {
   color: var(--editor-muted);
 }
 
+.email-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.email-section-link {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--editor-chip);
+  color: var(--editor-body);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.email-section-link.active {
+  background: #eef0f6;
+  color: var(--editor-ink);
+}
+
+.email-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.email-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--editor-border);
+  border-radius: 16px;
+  padding: 16px;
+  background: #fff;
+}
+
+.email-stat span {
+  font-size: 12px;
+  color: var(--editor-muted);
+}
+
+.email-stat strong {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: var(--editor-ink);
+}
+
+.email-section-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--editor-ink);
+}
+
+.email-editor-inner {
+  max-width: 76rem;
+}
+
+.email-library-tools,
+.email-locale-bar,
+.email-mode-bar,
+.email-variable-add,
+.email-editor-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.email-library-tools .email-field,
+.email-locale-bar .email-field {
+  min-width: 180px;
+  flex: 1;
+}
+
+.email-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.email-field span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--editor-muted);
+}
+
+.email-field input,
+.email-field textarea,
+.email-field select,
+.email-block input,
+.email-block textarea,
+.email-variable-add input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--editor-border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--editor-ink);
+}
+
+.email-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.email-table-wrap {
+  overflow-x: auto;
+}
+
+.email-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.email-table th,
+.email-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--editor-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.email-table th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--editor-muted);
+}
+
+.email-table code {
+  font-size: 12px;
+}
+
+.email-table-link {
+  color: var(--editor-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.email-table-link:hover {
+  text-decoration: underline;
+}
+
+.email-text-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--auth-slate, #707591);
+  cursor: pointer;
+}
+
+.email-text-button.is-on {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.email-auth-banner {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f7f4ea;
+  color: var(--editor-body);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.email-editor-layout {
+  align-items: start;
+}
+
+.email-editor-layout > * {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.email-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--editor-border);
+  border-radius: 12px;
+}
+
+.email-block.is-active {
+  border-color: #707591;
+}
+
+.email-variable-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.email-variable-list li,
+.email-variable-add,
+.email-check {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.email-variable-add input {
+  flex: 1 1 140px;
+}
+
+.email-check {
+  justify-content: flex-start;
+  font-size: 13px;
+}
+
+.email-preview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: sticky;
+  top: 16px;
+}
+
+.email-preview-frame {
+  width: min(100%, 640px);
+  height: 560px;
+  border: 1px solid var(--editor-border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.email-preview-frame.is-mobile {
+  width: min(100%, 360px);
+}
+
 .author-section-header {
   display: flex;
   flex-wrap: wrap;

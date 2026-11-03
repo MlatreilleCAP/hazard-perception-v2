@@ -400,6 +400,10 @@ deno_version = 2
 [functions.auth-send-email]
 verify_jwt = false
 
+# Application email. Callers must present a user JWT. This does not send Auth mail.
+[functions.send-application-email]
+verify_jwt = true
+
 # [edge_runtime.secrets]
 # SEND_EMAIL_HOOK_SECRET = "env(SEND_EMAIL_HOOK_SECRET)"
 # RESEND_API_KEY = "env(RESEND_API_KEY)"

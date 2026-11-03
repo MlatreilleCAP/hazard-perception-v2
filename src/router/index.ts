@@ -26,6 +26,12 @@ import LessonNewView from '@/views/author/LessonNewView.vue'
 import MediaLibraryView from '@/views/author/MediaLibraryView.vue'
 import QueueView from '@/views/author/QueueView.vue'
 import StudioPeopleView from '@/views/author/StudioPeopleView.vue'
+import EmailActivityView from '@/views/author/email/EmailActivityView.vue'
+import EmailAutomationsView from '@/views/author/email/EmailAutomationsView.vue'
+import EmailDashboardView from '@/views/author/email/EmailDashboardView.vue'
+import EmailSettingsView from '@/views/author/email/EmailSettingsView.vue'
+import EmailTemplateEditorView from '@/views/author/email/EmailTemplateEditorView.vue'
+import EmailTemplatesView from '@/views/author/email/EmailTemplatesView.vue'
 import SeeEditorView from '@/views/author/SeeEditorView.vue'
 import SeeListView from '@/views/author/SeeListView.vue'
 import SeeNewView from '@/views/author/SeeNewView.vue'
@@ -270,6 +276,78 @@ export const router = createRouter({
           meta: {
             layout: 'author',
             title: 'People',
+            requiresAuth: true,
+            requiresStudio: true,
+            requiresAdmin: true,
+          },
+        },
+        {
+          path: 'email',
+          name: 'email-dashboard',
+          component: EmailDashboardView,
+          meta: {
+            layout: 'author',
+            title: 'Email · AlertDriving',
+            requiresAuth: true,
+            requiresStudio: true,
+            requiresAdmin: true,
+          },
+        },
+        {
+          path: 'email/templates',
+          name: 'email-templates',
+          component: EmailTemplatesView,
+          meta: {
+            layout: 'author',
+            title: 'Email templates · AlertDriving',
+            requiresAuth: true,
+            requiresStudio: true,
+            requiresAdmin: true,
+          },
+        },
+        {
+          path: 'email/templates/:key',
+          name: 'email-template',
+          component: EmailTemplateEditorView,
+          meta: {
+            layout: 'author',
+            title: 'Email template · AlertDriving',
+            requiresAuth: true,
+            requiresStudio: true,
+            requiresAdmin: true,
+          },
+        },
+        {
+          path: 'email/automations',
+          name: 'email-automations',
+          component: EmailAutomationsView,
+          meta: {
+            layout: 'author',
+            title: 'Email automations · AlertDriving',
+            requiresAuth: true,
+            requiresStudio: true,
+            requiresAdmin: true,
+          },
+        },
+        {
+          path: 'email/activity',
+          name: 'email-activity',
+          component: EmailActivityView,
+          meta: {
+            layout: 'author',
+            title: 'Email activity · AlertDriving',
+            requiresAuth: true,
+            requiresStudio: true,
+            requiresAdmin: true,
+          },
+        },
+        {
+          path: 'email/settings',
+          name: 'email-settings',
+          component: EmailSettingsView,
+          meta: {
+            layout: 'author',
+            title: 'Email settings · AlertDriving',
             requiresAuth: true,
             requiresStudio: true,
             requiresAdmin: true,
