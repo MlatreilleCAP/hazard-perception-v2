@@ -15,16 +15,20 @@ export function canEditOwnedContent(
   return false
 }
 
-/** Admins can edit any lesson. Assigned authors can edit unpublished lessons they do not own. */
+/**
+ * Administrators, Steven Turney, and Matt Latreille can edit published content.
+ * Owners and assigned editors can edit unpublished activities and stand alone videos.
+ */
 export function canEditLessonContent(
   role: ProfileRole | null | undefined,
   ownerId: string | null | undefined,
   userId: string | null | undefined,
   published: boolean,
   canEditOthers: boolean,
+  canEditPublished = false,
 ): boolean {
   if (!role || !userId) return false
-  if (role === 'admin') return true
+  if (role === 'admin' || canEditPublished) return true
   if (published || role !== 'author') return false
   if (ownerId && ownerId === userId) return true
   return canEditOthers
@@ -48,7 +52,7 @@ export function contentReadonlyMessage(
 ): string {
   const noun = kind === 'video' ? 'stand alone video' : kind
   if (published) {
-    return `This ${noun} is published and locked. Only an administrator can edit it.`
+    return `This ${noun} is published and locked. Only Steven Turney, Matt Latreille, or an administrator can edit it.`
   }
   return `View only — you can open this ${noun}, but only the owner, an assigned editor, or an administrator can edit it.`
 }

@@ -52,7 +52,7 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
     await setCanEditOthers(person.id, allowed)
     person.canEditOthers = allowed
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to update lesson editing'
+    error.value = cause instanceof Error ? cause.message : 'Failed to update draft editing'
   } finally {
     savingId.value = null
   }
@@ -66,9 +66,10 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
         <div>
           <h1>People</h1>
           <p>
-            Turn Studio off for people who should sign in and play lessons, but not see Studio.
-            Authors can be allowed to edit unpublished lessons created by other people. Published
-            lessons stay locked to administrators.
+            Turn Studio off for people who should sign in and play, but not see Studio.
+            Editors can be allowed to edit unpublished activities and stand alone videos created
+            by other people. Published activities and stand alone videos stay locked, except for
+            Steven Turney, Matt Latreille, and administrators.
           </p>
         </div>
       </div>
@@ -91,7 +92,7 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
               :disabled="savingId === person.id"
               @click="toggleEditOthers(person)"
             >
-              {{ person.canEditOthers ? 'Can edit others' : 'Own lessons only' }}
+              {{ person.canEditOthers ? 'Can edit drafts' : 'Own drafts only' }}
             </AuthorPillButton>
             <AuthorPillButton
               variant="white"

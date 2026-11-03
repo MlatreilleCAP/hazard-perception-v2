@@ -52,7 +52,7 @@ export async function setStudioVisible(userId: string, visible: boolean): Promis
   if (error) throw new Error(error.message)
 }
 
-/** Authors with this flag can edit unpublished lessons created by other people. */
+/** Authors with this flag can edit unpublished activities and stand alone videos created by other people. */
 export async function setCanEditOthers(userId: string, allowed: boolean): Promise<void> {
   const client = requireClient()
   const { error } = await client

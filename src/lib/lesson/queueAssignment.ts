@@ -21,6 +21,11 @@ export function isApprover(name: string, email: string): boolean {
   return matchesPerson(name, email, ['matt', 'latreille']) || matchesPerson(name, email, ['latreille'])
 }
 
+/** Steven Turney and Matt Latreille can edit published activities and stand alone videos. */
+export function canEditPublishedContent(name: string, email: string): boolean {
+  return isManagingEditor(name, email) || isApprover(name, email)
+}
+
 type QueueActor = { id: string; name: string; email: string }
 
 /** Review stays with Steven, even when someone else submits the lesson. */

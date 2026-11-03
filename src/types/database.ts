@@ -8,7 +8,7 @@ export interface ProfileRow {
   id: string
   display_name: string | null
   role: ProfileRole
-  /** Authors with this flag may edit unpublished lessons they did not create. */
+  /** Authors with this flag may edit unpublished activities and stand alone videos they did not create. */
   can_edit_others: boolean
   created_at: string
   updated_at: string
