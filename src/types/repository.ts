@@ -16,5 +16,6 @@ export interface ActivityRepository {
   getPublished(id: ActivityId): Promise<ActivityDefinition | null>
   save(definition: ActivityDefinition): Promise<ActivityDefinition>
   publish(id: ActivityId): Promise<ActivityDefinition>
+  unpublish(id: ActivityId): Promise<void>
   delete(id: ActivityId): Promise<void>
 }

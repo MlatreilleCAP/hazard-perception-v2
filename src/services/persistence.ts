@@ -63,6 +63,16 @@ export class InMemoryActivityRepository implements ActivityRepository {
     return structuredClone(published)
   }
 
+  async unpublish(id: ActivityId): Promise<void> {
+    const current = this.activities.get(id)
+    if (!current) {
+      throw new Error(`Activity ${id} not found`)
+    }
+    const draft = structuredClone(current)
+    draft.version = 0
+    this.activities.set(id, draft)
+  }
+
   async delete(id: ActivityId): Promise<void> {
     this.activities.delete(id)
   }
@@ -206,6 +216,14 @@ export class SupabaseActivityRepository implements ActivityRepository {
       throw new Error(`Activity ${id} has no published version after publish`)
     }
     return published
+  }
+
+  async unpublish(id: ActivityId): Promise<void> {
+    await this.requireUserId()
+    const { error } = await this.client.rpc('unpublish_activity', {
+      p_activity_id: id,
+    })
+    throwIfError(error, 'Failed to unpublish activity')
   }
 
   async delete(id: ActivityId): Promise<void> {

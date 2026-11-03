@@ -61,6 +61,26 @@ export async function publishInroadsMvpLesson(parentId: string): Promise<void> {
   await services.persistence.publish(parentId)
 }
 
+/** Take the intro, section activities, and parent off the live catalog. */
+export async function unpublishInroadsMvpLesson(parentId: string): Promise<void> {
+  const parent = await loadActivityOrThrow(parentId)
+  const mvp = readInroadsMvpDefinition(parent)
+  if (!mvp) throw new Error('Inroads MVP definition was not found')
+
+  const childIds = [
+    mvp.introductionActivityId,
+    mvp.exampleActivityId !== mvp.introductionActivityId ? mvp.exampleActivityId : '',
+    mvp.seeActivityId,
+    mvp.processActivityId,
+    mvp.anticipateActivityId,
+  ]
+  for (const id of childIds) {
+    if (!id.trim()) continue
+    await services.persistence.unpublish(id)
+  }
+  await services.persistence.unpublish(parentId)
+}
+
 export async function setLessonReviewStatus(
   parentId: string,
   status: LessonReviewStatus,

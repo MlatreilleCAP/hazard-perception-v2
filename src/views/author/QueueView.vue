@@ -17,7 +17,12 @@ import {
 } from '@/lib/lesson/queueAssignment'
 import { exportIntroductionAssetsZip } from '@/services/exportIntroductionPackage'
 import { exportLessonTemplateZip } from '@/services/exportInroadsMvpPackage'
-import { setLessonQueuePlacement, setLessonReviewNotes } from '@/services/publishInroadsMvp'
+import {
+  publishInroadsMvpLesson,
+  setLessonQueuePlacement,
+  setLessonReviewNotes,
+  unpublishInroadsMvpLesson,
+} from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
 import { isIntroductionActivity } from '@/types/introduction'
 import {
@@ -82,6 +87,8 @@ const reviewMenuId = ref<string | null>(null)
 const noteCardId = ref<string | null>(null)
 const changesForId = ref<string | null>(null)
 const changesNote = ref('')
+const republishingId = ref<string | null>(null)
+const unpublishingId = ref<string | null>(null)
 const downloadingId = ref<string | null>(null)
 const draggingId = ref<string | null>(null)
 const dropStatus = ref<BoardStatus | null>(null)
@@ -179,6 +186,7 @@ const changesCard = computed(
   () => cards.value.find((card) => card.id === changesForId.value) ?? null,
 )
 const canClearNotes = computed(() => identity.canApprove.value)
+const canRepublish = computed(() => identity.canApprove.value)
 
 function editorAssignee(card: QueueCard): { id: string; name: string } | null {
   if (!card.assigneeId && !card.assigneeName) return null
@@ -494,6 +502,70 @@ function onDocumentKeyDown(event: KeyboardEvent): void {
   if (!updatingId.value) changesForId.value = null
 }
 
+async function republish(card: QueueCard): Promise<void> {
+  if (!canRepublish.value || republishingId.value || unpublishingId.value || !isOnPublishedTab(card.status)) {
+    return
+  }
+  republishingId.value = card.id
+  actionError.value = null
+  try {
+    if (card.kind === 'video') {
+      await services.persistence.publish(card.id)
+    } else {
+      await publishInroadsMvpLesson(card.id)
+    }
+    if (card.status !== 'published') {
+      const assignee = approverAssignee({
+        id: identity.userId.value ?? '',
+        name: identity.name.value,
+        email: identity.email.value ?? '',
+      })
+      await setLessonQueuePlacement(card.id, 'published', assignee)
+      cards.value = cards.value.map((item) =>
+        item.id === card.id
+          ? {
+              ...item,
+              status: 'published',
+              assigneeId: assignee.id,
+              assigneeName: assignee.name,
+            }
+          : item,
+      )
+    }
+    await activities.refreshList()
+  } catch (cause) {
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to re-publish'
+  } finally {
+    republishingId.value = null
+  }
+}
+
+async function unpublish(card: QueueCard): Promise<void> {
+  if (!canRepublish.value || republishingId.value || unpublishingId.value || !isOnPublishedTab(card.status)) {
+    return
+  }
+  unpublishingId.value = card.id
+  actionError.value = null
+  try {
+    if (card.kind === 'video') {
+      await services.persistence.unpublish(card.id)
+    } else {
+      await unpublishInroadsMvpLesson(card.id)
+    }
+    await setLessonQueuePlacement(card.id, 'available', null)
+    cards.value = cards.value.map((item) =>
+      item.id === card.id
+        ? { ...item, status: 'available', assigneeId: '', assigneeName: '' }
+        : item,
+    )
+    await activities.refreshList()
+  } catch (cause) {
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to unpublish'
+  } finally {
+    unpublishingId.value = null
+  }
+}
+
 async function downloadAssets(card: QueueCard): Promise<void> {
   if (!isOnPublishedTab(card.status) || downloadingId.value) return
   downloadingId.value = card.id
@@ -509,7 +581,7 @@ async function downloadAssets(card: QueueCard): Promise<void> {
           })
     downloadBlob(packed.blob, packed.filename)
   } catch (cause) {
-    actionError.value = cause instanceof Error ? cause.message : 'Failed to download assets'
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to download'
   } finally {
     downloadingId.value = null
   }
@@ -791,15 +863,33 @@ async function clearNote(card: QueueCard): Promise<void> {
                 <p class="author-list-sub">{{ localeLabel(card) }}</p>
               </div>
               <button
+                v-if="canRepublish"
+                type="button"
+                class="author-pill author-pill-white"
+                :disabled="republishingId !== null || unpublishingId !== null"
+                @click="republish(card)"
+              >
+                {{ republishingId === card.id ? 'Re-publishing…' : 'Re-publish' }}
+              </button>
+              <button
+                v-if="canRepublish"
+                type="button"
+                class="author-pill author-pill-white"
+                :disabled="republishingId !== null || unpublishingId !== null"
+                @click="unpublish(card)"
+              >
+                {{ unpublishingId === card.id ? 'Unpublishing…' : 'Unpublish' }}
+              </button>
+              <button
                 type="button"
                 class="author-pill author-pill-white"
                 :disabled="downloadingId === card.id"
                 @click="downloadAssets(card)"
               >
-                {{ downloadingId === card.id ? 'Downloading…' : 'Download assets' }}
+                {{ downloadingId === card.id ? 'Downloading…' : 'Download' }}
               </button>
               <RouterLink class="author-pill author-pill-white" :to="previewRoute(card)">
-                {{ card.kind === 'video' ? 'Preview video' : 'Preview lesson' }}
+                Preview
               </RouterLink>
             </div>
           </li>
