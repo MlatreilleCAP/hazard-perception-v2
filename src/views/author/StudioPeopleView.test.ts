@@ -26,6 +26,12 @@ vi.mock('@/services/demoAccounts', () => ({
   deactivateDemoAccount: vi.fn(),
 }))
 
+function tab(wrapper: ReturnType<typeof mount>, label: string) {
+  const button = wrapper.findAll('button').find((item) => item.text() === label)
+  if (!button) throw new Error(`Missing tab ${label}`)
+  return button
+}
+
 const people = [
   { id: 'author-1', email: 'author@example.com', displayName: 'Author', role: 'author' as const, canEditOthers: false },
   { id: 'studio-off-1', email: 'player@example.com', displayName: null, role: 'demo' as const, canEditOthers: false },
@@ -61,13 +67,23 @@ describe('Studio people and demo accounts', () => {
     const wrapper = mount(StudioPeopleView)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('author@example.com')
-    expect(wrapper.text()).toContain('player@example.com')
-    expect(wrapper.text()).toContain('Own drafts only')
-    expect(wrapper.text()).toContain('Demo Accounts')
+    expect(wrapper.get('h1').text()).toBe('Users')
+    expect(tab(wrapper, 'Demo Accounts').attributes('aria-pressed')).toBe('true')
+    expect(tab(wrapper, 'System Users').attributes('aria-pressed')).toBe('false')
+    expect(wrapper.get('.demo-accounts').text()).toContain('Demo Accounts')
 
-    const lifecycle = wrapper.findAll('li').find((row) => row.text().includes('lifecycle@example.com'))
-    const studioOff = wrapper.findAll('li').find((row) => row.text().includes('player@example.com'))
+    await tab(wrapper, 'System Users').trigger('click')
+
+    expect(tab(wrapper, 'System Users').attributes('aria-pressed')).toBe('true')
+    expect(tab(wrapper, 'Demo Accounts').attributes('aria-pressed')).toBe('false')
+    expect(wrapper.get('.demo-accounts').attributes('style')).toContain('display: none')
+    const systemUsers = wrapper.get('.system-users')
+    expect(systemUsers.text()).toContain('author@example.com')
+    expect(systemUsers.text()).toContain('player@example.com')
+    expect(systemUsers.text()).toContain('Own drafts only')
+
+    const lifecycle = systemUsers.findAll('li').find((row) => row.text().includes('lifecycle@example.com'))
+    const studioOff = systemUsers.findAll('li').find((row) => row.text().includes('player@example.com'))
     const lifecycleButton = lifecycle?.findAll('button').find((button) => button.text() === 'Studio off')
     const studioOffButton = studioOff?.findAll('button').find((button) => button.text() === 'Studio off')
 
@@ -89,8 +105,9 @@ describe('Studio people and demo accounts', () => {
     vi.mocked(setStudioVisible).mockResolvedValue()
     const wrapper = mount(StudioPeopleView)
     await flushPromises()
+    await tab(wrapper, 'System Users').trigger('click')
 
-    const grant = wrapper.findAll('button').find((button) => button.text() === 'Grant Studio')
+    const grant = wrapper.get('.system-users').findAll('button').find((button) => button.text() === 'Grant Studio')
     expect(grant).toBeDefined()
     await grant?.trigger('click')
     await flushPromises()
@@ -104,7 +121,8 @@ describe('Studio people and demo accounts', () => {
     ))
     const wrapper = mount(StudioPeopleView)
     await flushPromises()
-    const studioOff = wrapper.findAll('li').find((row) => row.text().includes('player@example.com'))
+    await tab(wrapper, 'System Users').trigger('click')
+    const studioOff = wrapper.get('.system-users').findAll('li').find((row) => row.text().includes('player@example.com'))
     await studioOff?.findAll('button').find((button) => button.text() === 'Studio off')?.trigger('click')
     await flushPromises()
 
@@ -173,7 +191,8 @@ describe('Studio people and demo accounts', () => {
     await flushPromises()
 
     expect(listStudioPeople).toHaveBeenCalledTimes(2)
-    const row = wrapper.findAll('li').find((item) => item.text().includes('new.person@example.com'))
+    await tab(wrapper, 'System Users').trigger('click')
+    const row = wrapper.get('.system-users').findAll('li').find((item) => item.text().includes('new.person@example.com'))
     expect(row?.text()).toContain('Studio access for this person is managed in Demo Accounts.')
     expect(row?.findAll('button').find((button) => button.text() === 'Studio off')?.attributes('disabled')).toBeDefined()
     expect(wrapper.text()).toContain('Own drafts only')
@@ -198,9 +217,11 @@ describe('Studio people and demo accounts', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
     expect(listStudioPeople).toHaveBeenCalledTimes(3)
-    expect(wrapper.text()).toContain('author@example.com')
-    expect(wrapper.text()).toContain('Own drafts only')
-    const lifecycle = wrapper.findAll('li').find((row) => row.text().includes('lifecycle@example.com'))
+    await tab(wrapper, 'System Users').trigger('click')
+    const systemUsers = wrapper.get('.system-users')
+    expect(systemUsers.text()).toContain('author@example.com')
+    expect(systemUsers.text()).toContain('Own drafts only')
+    const lifecycle = systemUsers.findAll('li').find((row) => row.text().includes('lifecycle@example.com'))
     expect(lifecycle?.findAll('button').find((button) => button.text() === 'Studio off')?.attributes('disabled')).toBeDefined()
   })
 })

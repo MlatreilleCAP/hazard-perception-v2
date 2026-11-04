@@ -303,7 +303,7 @@ export const router = createRouter({
           component: StudioPeopleView,
           meta: {
             layout: 'author',
-            title: 'People',
+            title: 'Users',
             requiresAuth: true,
             requiresStudio: true,
             requiresAdmin: true,

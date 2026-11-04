@@ -26,7 +26,7 @@ const scoringOpen = computed(
 const queueOpen = computed(
   () => route.path === '/studio/queue' || route.path.startsWith('/studio/queue/'),
 )
-const peopleOpen = computed(
+const usersOpen = computed(
   () => route.path === '/studio/people' || route.path.startsWith('/studio/people/'),
 )
 const emailOpen = computed(
@@ -91,9 +91,9 @@ const emailOpen = computed(
         v-if="auth.isAdmin"
         to="/studio/people"
         class="author-nav-link"
-        :class="{ active: peopleOpen }"
+        :class="{ active: usersOpen }"
       >
-        People
+        Users
       </RouterLink>
       <RouterLink
         v-if="auth.isAdmin"
