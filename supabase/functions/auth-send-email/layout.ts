@@ -51,15 +51,19 @@ function assertHttpUrl(value: string): void {
   }
 }
 
-function productLink(value: string | undefined): { href: string; domain: string } {
+function productLink(value: string | undefined): { href: string; domain: string; logo: string } {
   const candidate = value?.trim() || DEFAULT_PRODUCT_URL
   try {
     const url = new URL(candidate)
     if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('invalid')
     if (url.username || url.password) throw new Error('invalid')
-    return { href: candidate, domain: url.host }
+    return { href: candidate, domain: url.host, logo: new URL('/AD_Logo.png', url).toString() }
   } catch {
-    return { href: DEFAULT_PRODUCT_URL, domain: 'inroads.alertdriving.com' }
+    return {
+      href: DEFAULT_PRODUCT_URL,
+      domain: 'inroads.alertdriving.com',
+      logo: 'https://inroads.alertdriving.com/AD_Logo.png',
+    }
   }
 }
 
@@ -179,6 +183,11 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
         <table role="presentation" class="email-card" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:560px;background:#ffffff;border:1px solid ${LINE};border-radius:16px;">
           <tr>
             <td class="email-inner" style="padding:40px 36px;font-family:${FONT};">
+              <p style="margin:0 0 28px;text-align:center;">
+                <a href="${escapeHtml(product.href)}" style="text-decoration:none;">
+                  <img src="${escapeHtml(product.logo)}" width="160" height="32" alt="AlertDriving" border="0" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;height:32px;width:160px;">
+                </a>
+              </p>
               <h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;font-weight:700;color:${INK};">${escapeHtml(heading)}</h1>
               ${paragraphHtml(paragraphs)}
               ${button}

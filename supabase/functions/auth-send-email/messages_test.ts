@@ -261,6 +261,8 @@ test('transactional auth mail uses the Inroads layout and its own verify link', 
     assert.match(rendered.html, /#707591/)
     assert.match(rendered.html, /#222b3f/)
     assert.match(rendered.html, /or copy this link/)
+    assert.match(rendered.html, /alt="AlertDriving"/)
+    assert.match(rendered.html, /AD_Logo\.png/)
     assert.match(rendered.html, /color:#000000;text-decoration:none/)
     assert.match(rendered.html, /max-width:560px/)
     assert.match(rendered.html, /@media only screen and \(max-width: 600px\)/)
