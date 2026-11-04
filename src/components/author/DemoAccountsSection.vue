@@ -398,7 +398,7 @@ function retryHold(account: DemoAccountRecord): void {
 <template>
   <section class="demo-accounts" aria-label="Demo Accounts">
     <p class="users-intro">
-      Create a new email address, then share the password yourself. Welcome email is turned off. Access starts immediately.
+      Create a new demo user. Access starts immediately.
     </p>
     <AuthorPillButton
       v-if="showNewDemo && !toolbarReady"
