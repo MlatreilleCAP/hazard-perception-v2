@@ -234,9 +234,21 @@ Deno.test('auth send email runtime', async (t) => {
           assertStringIncludes(rendered.html, '>AlertDriving</a>')
           assertEquals(rendered.html.includes('undefined'), false)
           assertEquals(rendered.text.includes('undefined'), false)
-          if (message.tokenHash) {
+          if (message.action === 'recovery') {
+            assertEquals(rendered.subject, 'Reset your Inroads password')
+            assertStringIncludes(rendered.html, 'Reset your password')
+            assertStringIncludes(rendered.html, 'We received a request to reset your Inroads password.')
+            assertStringIncludes(rendered.html, 'Reset Password')
+            assertStringIncludes(rendered.html, 'If you didn&#39;t request this change, you can safely ignore this email.')
+            assertStringIncludes(rendered.text, "If you didn't request this change, you can safely ignore this email.")
+            assertStringIncludes(rendered.html, 'AlertDriving · Inroads')
+            assertEquals(rendered.html.includes('expires in 1 hour'), false)
+            assertEquals(rendered.text.includes('expires in 1 hour'), false)
+          } else if (message.tokenHash) {
             assertStringIncludes(rendered.html, 'expires in 1 hour')
             assertStringIncludes(rendered.text, 'expires in 1 hour')
+          }
+          if (message.tokenHash) {
             assertEquals(verifyLink(rendered.html).searchParams.get('token'), message.tokenHash)
           }
         }
