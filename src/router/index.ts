@@ -1,11 +1,18 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { safeNextPath } from '@/app/safeNextPath'
+import {
+  sessionPredatesSetup,
+  setupPathAllowed,
+  setupRequired,
+} from '@/lib/auth/setupAccess'
+import { getSupabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import ArchitectureView from '@/views/ArchitectureView.vue'
 import AuthCallbackView from '@/views/AuthCallbackView.vue'
 import HomeView from '@/views/HomeView.vue'
 import LoginView from '@/views/LoginView.vue'
 import ResetPasswordView from '@/views/ResetPasswordView.vue'
+import SetupAccountView from '@/views/SetupAccountView.vue'
 import PlayerView from '@/views/PlayerView.vue'
 import AnticipateEditorView from '@/views/author/AnticipateEditorView.vue'
 import AnticipateListView from '@/views/author/AnticipateListView.vue'
@@ -57,6 +64,12 @@ export const router = createRouter({
       name: 'reset-password',
       component: ResetPasswordView,
       meta: { layout: 'auth', title: 'Create a new password · AlertDriving' },
+    },
+    {
+      path: '/setup-account',
+      name: 'setup-account',
+      component: SetupAccountView,
+      meta: { layout: 'auth', title: 'Set up your account · AlertDriving' },
     },
     {
       path: '/',
@@ -364,6 +377,37 @@ export const router = createRouter({
   ],
 })
 
+async function setupNavigation(path: string) {
+  const auth = useAuthStore()
+  const session = auth.session
+  if (!session?.user) return null
+  const claimed = session.user.app_metadata ?? {}
+  if (claimed.setup_required !== true && claimed.sessions_valid_after == null) return null
+
+  let metadata: Record<string, unknown> = claimed
+  const client = getSupabase()
+  if (client) {
+    const { data, error } = await client.auth.getUser()
+    if (error || !data.user) {
+      if (path === '/login' || path === '/auth/callback') return null
+      await auth.signOut()
+      return { path: '/login' }
+    }
+    metadata = data.user.app_metadata ?? {}
+  }
+
+  if (setupRequired(metadata) && !setupPathAllowed(path)) {
+    return { path: '/setup-account' }
+  }
+  if (!setupRequired(metadata) && sessionPredatesSetup(metadata, session.access_token)) {
+    if (path === '/auth/callback') return null
+    await auth.signOut()
+    if (path === '/login') return null
+    return { path: '/login', query: { session: 'refreshed' } }
+  }
+  return null
+}
+
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   await auth.initialize()
@@ -375,6 +419,11 @@ router.beforeEach(async (to) => {
     }
   }
 
+  if (auth.isSignedIn) {
+    const gate = await setupNavigation(to.path)
+    if (gate) return gate
+  }
+
   if (to.matched.some((record) => record.meta.requiresStudio) && !auth.canAccessStudio) {
     return { path: '/' }
   }
@@ -384,6 +433,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.name === 'login' && auth.isSignedIn) {
+    if (setupRequired(auth.user?.app_metadata)) return { path: '/setup-account' }
     const next = safeNextPath(String(to.query.next ?? '')) ?? '/'
     if (next.startsWith('/studio') && !auth.canAccessStudio) {
       return '/'

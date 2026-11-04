@@ -39,6 +39,8 @@ import { isLessonActivity } from '@/types/lesson'
 import { isProcessActivity } from '@/types/process'
 import { isSeeActivity } from '@/types/see'
 import { loadInroadsScoring } from '@/services/inroadsScoring'
+import { playerMayLoadContent, setupRequired } from '@/lib/auth/setupAccess'
+import { useAuthStore } from '@/stores/authStore'
 import {
   describePlayerAccess,
   isAccessBlockedError,
@@ -49,6 +51,7 @@ import { publishedAccessBlocked, readOwnDemoAccount } from '@/services/demoAcces
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 const activities = useActivityStore()
 const runtime = useRuntimeStore()
 const definition = ref<ActivityDefinition | null>(null)
@@ -405,6 +408,12 @@ async function loadActivity(id: string): Promise<void> {
 }
 
 onMounted(async () => {
+  if (!isPreview.value && !playerMayLoadContent(auth.user?.app_metadata, auth.session?.access_token)) {
+    await router.replace(
+      setupRequired(auth.user?.app_metadata) ? '/setup-account' : '/login',
+    )
+    return
+  }
   await loadInroadsScoring()
   await activities.refreshList('catalog')
   await refreshAccess()

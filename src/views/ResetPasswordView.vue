@@ -2,8 +2,11 @@
 import { ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { MIN_PASSWORD_LENGTH, passwordError } from '@/lib/auth/credentials'
+import { setupRequired } from '@/lib/auth/setupAccess'
+import { completeAccountSetup } from '@/services/accountSetup'
 import { RECOVERY_LINK_ERROR, RECOVERY_NETWORK_ERROR } from '@/lib/auth/recoveryCallback'
 import { clearPasswordRecovery, establishPasswordRecovery } from '@/services/auth'
+import { getSupabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/authStore'
 
 const route = useRoute()
@@ -20,12 +23,16 @@ const showConfirmation = ref(false)
 const error = ref<string | null>(null)
 const loading = ref(false)
 const returning = ref(false)
+const finishingSetup = ref(false)
 
 void auth.initialize().then(async () => {
   try {
     const result = await establishPasswordRecovery()
     if (state.value === 'success') return
     if (result.status === 'ready') {
+      const client = getSupabase()
+      const current = client ? (await client.auth.getUser()).data.user : auth.user
+      finishingSetup.value = setupRequired(current?.app_metadata)
       state.value = 'form'
     } else {
       failureTitle.value = result.title
@@ -63,6 +70,23 @@ async function handleUpdate(): Promise<void> {
 
   loading.value = true
   try {
+    if (finishingSetup.value) {
+      const result = await completeAccountSetup(password.value)
+      password.value = ''
+      confirmation.value = ''
+      if (result.status === 'retry') {
+        error.value = 'The password update could not be finished. Submit it again. Training stays locked until this finishes.'
+        return
+      }
+      if (result.status === 'error') {
+        error.value = result.message
+        return
+      }
+      clearPasswordRecovery()
+      await auth.signOut()
+      state.value = 'success'
+      return
+    }
     const updateError = await auth.updatePassword(password.value)
     if (updateError) {
       error.value = updateError

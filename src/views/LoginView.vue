@@ -19,7 +19,9 @@ const error = ref<string | null>(initialError())
 const info = ref<string | null>(
   route.query.reset === 'success'
     ? 'Password updated. Sign in with your new password.'
-    : null,
+    : route.query.session === 'refreshed'
+      ? 'Sign in again to continue.'
+      : null,
 )
 const loading = ref(false)
 

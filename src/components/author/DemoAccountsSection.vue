@@ -40,6 +40,8 @@ const dialogError = ref<string | null>(null)
 const createDialog = ref<HTMLElement | null>(null)
 
 const revealedPassword = ref<string | null>(null)
+const emailSetup = ref(false)
+const deliveryNotice = ref<'accepted' | 'failed' | 'uncertain' | null>(null)
 const passwordOpen = ref(false)
 const passwordCopied = ref(false)
 const copyBlocked = ref(false)
@@ -150,6 +152,7 @@ async function openCreate(prefill?: { email: string; displayName: string; expire
   email.value = prefill?.email ?? ''
   displayName.value = prefill?.displayName ?? ''
   expiresAtLocal.value = prefill?.expiresAtLocal ?? defaultExpiry()
+  emailSetup.value = false
   dialogError.value = null
   createOpen.value = true
   await nextTick()
@@ -172,6 +175,7 @@ function closeDialogs(): void {
 
 function clearPassword(): void {
   revealedPassword.value = null
+  deliveryNotice.value = null
   passwordOpen.value = false
   passwordCopied.value = false
   copyBlocked.value = false
@@ -204,11 +208,13 @@ async function submitCreate(): Promise<void> {
       displayName: requestedName || null,
       organizationId: organizationId.value,
       expiresAt,
+      emailSetup: emailSetup.value,
     })
     createOpen.value = false
     incomplete.value = null
     await refreshAfterChange()
     revealedPassword.value = result.initialPassword
+    deliveryNotice.value = result.setupDelivery ?? null
     passwordCopied.value = false
     passwordOpen.value = true
     await nextTick()
@@ -466,7 +472,12 @@ function retryHold(account: DemoAccountRecord): void {
       >
         <h3 id="demo-create-title">New demo</h3>
         <p class="author-list-sub">
-          Access starts immediately. Welcome email is turned off, so you will deliver the password yourself.
+          <template v-if="emailSetup">
+            The demo account will be created immediately. We'll email the user a secure link to create their password before accessing Inroads.
+          </template>
+          <template v-else>
+            The demo account will be active immediately. You'll receive a temporary password to share securely with the user.
+          </template>
         </p>
         <form class="demo-form" novalidate @submit.prevent="submitCreate">
           <label class="demo-field">
@@ -482,6 +493,12 @@ function retryHold(account: DemoAccountRecord): void {
             <input v-model="expiresAtLocal" type="datetime-local" required />
           </label>
           <p class="author-list-sub">Start is immediate. A future start cannot be chosen.</p>
+          <label class="demo-field">
+            <span>
+              <input v-model="emailSetup" type="checkbox" />
+              Email account setup link (recommended)
+            </span>
+          </label>
           <p v-if="dialogError" class="auth-error" role="alert">{{ dialogError }}</p>
           <div class="demo-account-actions">
             <AuthorPillButton variant="white" :disabled="busy" @click="closeDialogs">Cancel</AuthorPillButton>
@@ -505,7 +522,7 @@ function retryHold(account: DemoAccountRecord): void {
         <h3 id="demo-password-title">{{ revealedPassword ? 'Initial password' : 'Demo account ready' }}</h3>
         <template v-if="revealedPassword">
           <p>
-            Welcome email is turned off. Copy this password now and give it to the person securely.
+            Copy this password now and give it to the person securely.
             It will not be shown again.
           </p>
           <label class="demo-field">
@@ -517,6 +534,18 @@ function retryHold(account: DemoAccountRecord): void {
             Copying is blocked in this browser. Select the password and copy it yourself.
           </p>
         </template>
+        <p v-else-if="deliveryNotice === 'accepted'">
+          The email provider accepted the account setup message. No password is shown.
+          Acceptance does not confirm the mailbox received it.
+        </p>
+        <p v-else-if="deliveryNotice === 'uncertain'">
+          Delivery could not be confirmed. The setup link was not sent again and no password is shown.
+          Ask the person to use Forgot password on the sign-in page.
+        </p>
+        <p v-else-if="deliveryNotice === 'failed'">
+          The email provider rejected the account setup message. It was not sent again and no password is shown.
+          Ask the person to use Forgot password on the sign-in page.
+        </p>
         <p v-else>
           The account is ready. A password from an earlier attempt cannot be shown.
           Use password reset if it was not saved.

@@ -47,6 +47,33 @@ describe('demo account administration', () => {
     expect(body).not.toHaveProperty('password')
     expect(body).not.toHaveProperty('actorId')
     expect(result.initialPassword).toBe('one-time-secret')
+    expect(result.setupDelivery).toBeNull()
+    expect(body).not.toHaveProperty('emailSetup')
+  })
+
+  it('drops a password that arrives with an accepted or uncertain setup email', async () => {
+    for (const setupDelivery of ['accepted', 'uncertain'] as const) {
+      const result = await provisionDemoAccount({
+        email: 'person@example.com',
+        displayName: null,
+        organizationId: 'org-1',
+        expiresAt: '2030-01-01T00:00:00Z',
+        emailSetup: true,
+      }, gateway({
+        invoke: async () => ({
+          data: {
+            profileId: 'profile-1',
+            status: 'active',
+            expiresAt: '2030-01-01T00:00:00Z',
+            setupDelivery,
+            initialPassword: 'must-not-surface',
+          },
+          error: null,
+        }),
+      }))
+      expect(result.setupDelivery).toBe(setupDelivery)
+      expect(result.initialPassword).toBeNull()
+    }
   })
 
   it('does not return a password when the function omits one', async () => {

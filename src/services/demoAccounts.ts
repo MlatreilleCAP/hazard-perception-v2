@@ -35,11 +35,14 @@ export type DemoAccountEventRecord = {
   createdAt: string
 }
 
+export type SetupDelivery = 'accepted' | 'failed' | 'uncertain'
+
 export type ProvisionResult = {
   profileId: string
   status: string
   expiresAt: string
   initialPassword: string | null
+  setupDelivery?: SetupDelivery | null
 }
 
 type QueryError = { message: string; context?: { json?: () => Promise<unknown> } }
@@ -176,6 +179,7 @@ export type ProvisionInput = {
   displayName: string | null
   organizationId: string
   expiresAt: string
+  emailSetup?: boolean
 }
 
 export async function provisionDemoAccount(
@@ -189,19 +193,26 @@ export async function provisionDemoAccount(
     expiresAt: input.expiresAt,
   }
   if (input.displayName) body.displayName = input.displayName
+  if (input.emailSetup) body.emailSetup = true
   assertNoSecretFields(body)
   const { data, error } = await gateway.invoke(body)
   if (error) throw new Error(await invokeError(error))
   if (!data || typeof data !== 'object') throw new Error('The demo account could not be created.')
   const record = data as Record<string, unknown>
-  const password = typeof record.initialPassword === 'string' && record.initialPassword.length > 0
+  const delivery = record.setupDelivery
+  const setupDelivery = delivery === 'accepted' || delivery === 'failed' || delivery === 'uncertain'
+    ? delivery
+    : null
+  const revealed = typeof record.initialPassword === 'string' && record.initialPassword.length > 0
     ? record.initialPassword
     : null
+  const password = setupDelivery ? null : revealed
   return {
     profileId: String(record.profileId ?? ''),
     status: String(record.status ?? ''),
     expiresAt: String(record.expiresAt ?? input.expiresAt),
     initialPassword: password,
+    setupDelivery,
   }
 }
 
