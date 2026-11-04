@@ -84,7 +84,7 @@ async function onFile(event: Event): Promise<void> {
       </div>
 
       <p class="author-muted">
-        Upload a lesson spreadsheet. Its title, country, and copy become the new lesson.
+        Upload a lesson spreadsheet. Its English lesson title, country, and copy become the new lesson. Add the project title in the editor.
       </p>
 
       <div class="author-actions inroads-import-panel">

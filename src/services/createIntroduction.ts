@@ -42,7 +42,7 @@ export async function duplicateIntroductionVersion(
     language: language.trim()
       ? canonicalizeLessonLanguage(language)
       : '',
-    reviewStatus: undefined,
+    reviewStatus: 'available',
     assigneeId: '',
     assigneeName: '',
     reviewNotes: '',

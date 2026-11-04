@@ -11,7 +11,13 @@ import { readProcessDefinition, writeProcessDefinition } from '@/activities/proc
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
 import { mergeResultsChrome } from '@/lib/lesson/resultsChrome'
-import { INROADS_MVP_CHILD_TAG, createDefaultInroadsMvpDefinition, type InroadsMvpDefinition } from '@/types/inroadsMvp'
+import { lessonVersionKey, sharedLessonTitle } from '@/lib/inroadsMvp/lessonVersions'
+import {
+  INROADS_MVP_CHILD_TAG,
+  createDefaultInroadsMvpDefinition,
+  isInroadsMvpActivity,
+  type InroadsMvpDefinition,
+} from '@/types/inroadsMvp'
 import {
   AUDIO_SLOT_IDS,
   IMAGE_SLOT_IDS,
@@ -19,6 +25,7 @@ import {
   SLOT_FOLDER_LABELS,
   TEMPLATE_FOLDER_SLOT_IDS,
   WORKBOOK_REPLACE_ID,
+  canonicalizeLessonLanguage,
   fileMatchesSlot,
   isVttName,
   mediaKindForSlot,
@@ -961,6 +968,31 @@ function applySegmentSlotCaptions<
   return { ...current, segments }
 }
 
+async function syncSiblingLessonTitles(
+  previousTitle: string,
+  nextTitle: string,
+  currentId: string,
+): Promise<void> {
+  const next = nextTitle.trim()
+  const key = lessonVersionKey(previousTitle)
+  if (!next || !key || lessonVersionKey(next) === key) return
+  const summaries = await services.persistence.list('authoring')
+  for (const item of summaries) {
+    if (item.id === currentId || !isInroadsMvpActivity(item.tags)) continue
+    if (lessonVersionKey(item.title) !== key || item.title.trim() === next) continue
+    const definition = await services.persistence.getById(item.id)
+    if (!definition) continue
+    await services.persistence.save({
+      ...definition,
+      metadata: {
+        ...definition.metadata,
+        title: next,
+        updatedAt: new Date().toISOString(),
+      },
+    })
+  }
+}
+
 export async function importInroadsMvpPackage(
   parentId: string,
   payload: ParsedImportPackage,
@@ -974,6 +1006,13 @@ export async function importInroadsMvpPackage(
   const seeActivity = await loadActivityOrThrow(mvp.seeActivityId)
   const processActivity = await loadActivityOrThrow(mvp.processActivityId)
   const anticipateActivity = await loadActivityOrThrow(mvp.anticipateActivityId)
+
+  const previousLessonTitle = parent.metadata.title
+  const lessonTitle = sharedLessonTitle(
+    payload.lesson.language.trim() || mvp.language,
+    payload.lesson.title,
+    previousLessonTitle,
+  )
 
   const uploaded: Partial<Record<VideoSlotId, { media: MediaRef; durationMs: number }>> = {}
   const uploadedCaptions: Partial<Record<VideoSlotId, MediaRef>> = {}
@@ -1043,8 +1082,8 @@ export async function importInroadsMvpPackage(
     seeActivity,
     patchSee(readSeeDefinition(seeActivity), payload, uploaded, uploadedCaptions),
   )
-  if (payload.lesson.title.trim()) {
-    nextSee.metadata.title = `${payload.lesson.title.trim()} · Observe`
+  if (lessonTitle) {
+    nextSee.metadata.title = `${lessonTitle} · Observe`
   }
   if (!nextSee.metadata.tags.includes(INROADS_MVP_CHILD_TAG)) {
     nextSee.metadata.tags = [...nextSee.metadata.tags, INROADS_MVP_CHILD_TAG]
@@ -1056,8 +1095,8 @@ export async function importInroadsMvpPackage(
     processActivity,
     patchProcess(readProcessDefinition(processActivity), payload, uploaded, uploadedCaptions),
   )
-  if (payload.lesson.title.trim()) {
-    nextProcess.metadata.title = `${payload.lesson.title.trim()} · Process`
+  if (lessonTitle) {
+    nextProcess.metadata.title = `${lessonTitle} · Process`
   }
   if (!nextProcess.metadata.tags.includes(INROADS_MVP_CHILD_TAG)) {
     nextProcess.metadata.tags = [...nextProcess.metadata.tags, INROADS_MVP_CHILD_TAG]
@@ -1074,8 +1113,8 @@ export async function importInroadsMvpPackage(
       uploadedCaptions,
     ),
   )
-  if (payload.lesson.title.trim()) {
-    nextAnticipate.metadata.title = `${payload.lesson.title.trim()} · Anticipate`
+  if (lessonTitle) {
+    nextAnticipate.metadata.title = `${lessonTitle} · Anticipate`
   }
   if (!nextAnticipate.metadata.tags.includes(INROADS_MVP_CHILD_TAG)) {
     nextAnticipate.metadata.tags = [...nextAnticipate.metadata.tags, INROADS_MVP_CHILD_TAG]
@@ -1133,13 +1172,16 @@ export async function importInroadsMvpPackage(
       payload.lesson.anticipation != null ? payload.lesson.anticipation : mvp.anticipateLabel,
     resultsChrome: mergeResultsChrome(mvp.resultsChrome, payload.lesson.resultsChrome),
   })
-  if (payload.lesson.title.trim()) {
-    nextParent.metadata.title = payload.lesson.title.trim()
+  if (lessonTitle) {
+    nextParent.metadata.title = lessonTitle
   }
   if (payload.lesson.description) {
     nextParent.metadata.description = payload.lesson.description
   }
   await services.persistence.save(nextParent)
+  if (canonicalizeLessonLanguage(payload.lesson.language.trim() || mvp.language) === 'English') {
+    await syncSiblingLessonTitles(previousLessonTitle, lessonTitle, parentId)
+  }
 
   if (uploaded.intro?.media || uploadedCaptions.intro) {
     onProgress?.('Updating Stand Alone Video…')

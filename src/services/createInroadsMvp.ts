@@ -60,6 +60,7 @@ export async function duplicateInroadsMvpVersion(
 
   const titleOverride = options?.title?.trim() ?? ''
   const base = titleOverride || parent.metadata.title.trim() || 'Inroads MVP'
+  const creatingLanguage = Boolean(language.trim())
   const seeSource = readSeeDefinition(await loadActivityOrThrow(mvp.seeActivityId))
   const processSource = readProcessDefinition(await loadActivityOrThrow(mvp.processActivityId))
   const anticipateSource = readAnticipateDefinition(
@@ -86,7 +87,7 @@ export async function duplicateInroadsMvpVersion(
   copy.metadata.description = parent.metadata.description
   const next = writeInroadsMvpDefinition(copy, {
     ...mvp,
-    language: language.trim()
+    language: creatingLanguage
       ? canonicalizeLessonLanguage(language)
       : titleOverride
         ? mvp.language
@@ -96,6 +97,9 @@ export async function duplicateInroadsMvpVersion(
     anticipateActivityId: savedAnticipate.id,
     reviewNotes: '',
     queueOrder: null,
+    ...(creatingLanguage
+      ? { reviewStatus: 'available' as const, assigneeId: '', assigneeName: '' }
+      : {}),
   })
   const saved = await services.persistence.save(next)
   const reference = readInroadsMvpEnglishTextReference(parent)

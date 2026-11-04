@@ -80,6 +80,8 @@ export type InroadsMvpDefinition = {
   assigneeName: string
   /** Manual position in a queue column. Unset cards sort by the date they were added. */
   queueOrder: number | null
+  /** Name on the project management board. Independent of the English lesson title. */
+  projectTitle: string
   /** Section 1 — intro clip before Observe / Process / Anticipate. */
   introMedia: MediaRef | null
   introShowOnFirstVisitOnly: boolean
@@ -165,6 +167,7 @@ export function createDefaultInroadsMvpDefinition(
     assigneeId: '',
     assigneeName: '',
     queueOrder: null,
+    projectTitle: '',
     introMedia: null,
     introShowOnFirstVisitOnly: true,
     introductionActivityId: '',
@@ -211,6 +214,7 @@ export function cloneInroadsMvpDefinition(
     assigneeId: definition.assigneeId.trim(),
     assigneeName: definition.assigneeName.trim(),
     queueOrder: readQueueOrder(definition.queueOrder),
+    projectTitle: definition.projectTitle.trim(),
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
@@ -288,6 +292,7 @@ export function normalizeInroadsMvpDefinition(
     assigneeId: typeof raw.assigneeId === 'string' ? raw.assigneeId.trim() : '',
     assigneeName: typeof raw.assigneeName === 'string' ? raw.assigneeName.trim() : '',
     queueOrder: readQueueOrder(raw.queueOrder),
+    projectTitle: typeof raw.projectTitle === 'string' ? raw.projectTitle.trim() : '',
     introMedia,
     introShowOnFirstVisitOnly: raw.introShowOnFirstVisitOnly !== false,
     introductionActivityId:

@@ -9,6 +9,7 @@ import reviewIcon from '@/assets/queue/review.svg'
 import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { downloadBlob } from '@/lib/inroadsMvp/buildImportTemplate'
+import { projectActivityTitle } from '@/lib/inroadsMvp/lessonVersions'
 import {
   APPROVER_NAME,
   MANAGING_EDITOR_NAME,
@@ -440,7 +441,7 @@ onMounted(async () => {
         return {
           id: item.id,
           kind: 'lesson',
-          title: definition?.metadata.title.trim() || item.title,
+          title: projectActivityTitle(mvp?.projectTitle),
           country: mvp?.country.trim() ?? '',
           language: mvp?.language.trim() ?? '',
           status,

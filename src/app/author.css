@@ -1357,11 +1357,28 @@ fieldset.author-stack {
   color: #000;
 }
 
-.author-header-title-input {
-  min-width: 8ch;
+.author-header-title-sizer {
+  display: inline-grid;
   max-width: 100%;
+  align-items: baseline;
+}
+
+.author-header-title-sizer > * {
+  grid-area: 1 / 1;
+}
+
+.author-header-title-measure {
+  visibility: hidden;
+  white-space: pre;
+  pointer-events: none;
+}
+
+.author-header-title-input {
+  width: 0;
+  min-width: 100%;
   margin: 0;
   padding: 0;
+  padding-right: 0;
   border: 0;
   background: transparent;
   font: inherit;
