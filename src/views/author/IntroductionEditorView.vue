@@ -22,6 +22,7 @@ import { useActivityStore } from '@/stores/activityStore'
 import {
   canonicalizeLessonCountry,
   canonicalizeLessonLanguage,
+  LESSON_COUNTRY_KEYWORDS,
   LESSON_COUNTRY_OPTIONS,
   LESSON_LANGUAGE_OPTIONS,
 } from '@/lib/inroadsMvp/packageSpec'
@@ -680,6 +681,8 @@ async function remove(): Promise<void> {
           label="Country"
           placeholder="Select country"
           :options="selectOptions(LESSON_COUNTRY_OPTIONS, country)"
+          :option-keywords="LESSON_COUNTRY_KEYWORDS"
+          searchable
           :disabled="!editable"
         />
         <AuthorField

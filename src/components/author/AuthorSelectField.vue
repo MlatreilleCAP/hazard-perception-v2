@@ -5,6 +5,7 @@ export type AuthorSelectOption = {
   value: string
   label: string
   subtext?: string
+  keywords?: string
 }
 
 const props = defineProps<{
@@ -36,7 +37,9 @@ const visibleOptions = computed(() => {
   return props.options.filter((option) => {
     const label = option.label.toLowerCase()
     const subtext = option.subtext?.toLowerCase() ?? ''
-    return label.includes(term) || subtext.includes(term)
+    if (label.includes(term) || subtext.includes(term)) return true
+    const keywords = option.keywords?.toLowerCase().split(/\s+/).filter(Boolean) ?? []
+    return keywords.some((word) => word.startsWith(term))
   })
 })
 

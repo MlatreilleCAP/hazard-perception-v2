@@ -1,6 +1,11 @@
 import { LANGUAGE_ALIASES } from '@/lib/inroadsMvp/lessonLanguages'
 
 export { LESSON_LANGUAGE_OPTIONS } from '@/lib/inroadsMvp/lessonLanguages'
+export {
+  LESSON_COUNTRY_KEYWORDS,
+  LESSON_COUNTRY_OPTIONS,
+  canonicalizeLessonCountry,
+} from '@/lib/inroadsMvp/lessonCountries'
 
 export const WORKBOOK_EXTENSIONS = ['.xls', '.xlsx'] as const
 
@@ -122,94 +127,6 @@ export const LESSON_KEYS = [
   'process',
   'anticipation',
 ] as const
-
-export const LESSON_COUNTRY_OPTIONS = [
-  'Canada',
-  'USA',
-  'Mexico',
-  'Germany',
-  'France',
-  'United Kingdom',
-  'Italy',
-  'Spain',
-  'Belgium',
-  'Netherlands',
-  'Poland',
-  'Austria',
-  'Brazil',
-  'Chile',
-  'Czech Republic',
-  'Finland',
-  'Greece',
-  'Hungary',
-  'Luxembourg',
-  'Portugal',
-  'Romania',
-  'Slovakia',
-  'Sweden',
-  'Switzerland',
-  'Colombia',
-  'Denmark',
-  'Morocco',
-  'Norway',
-  'Peru',
-  'Turkey',
-  'Ireland',
-] as const
-
-const COUNTRY_ALIASES: Record<string, string> = {
-  'united states': 'USA',
-  'united states of america': 'USA',
-  usa: 'USA',
-  us: 'USA',
-  'u.s.': 'USA',
-  'u.s.a.': 'USA',
-  deutschland: 'Germany',
-  france: 'France',
-  fr: 'France',
-  fra: 'France',
-  'great britain': 'United Kingdom',
-  uk: 'United Kingdom',
-  gb: 'United Kingdom',
-  'u.k.': 'United Kingdom',
-  italy: 'Italy',
-  spain: 'Spain',
-  belgium: 'Belgium',
-  netherlands: 'Netherlands',
-  holland: 'Netherlands',
-  'the netherlands': 'Netherlands',
-  poland: 'Poland',
-  austria: 'Austria',
-  brazil: 'Brazil',
-  brasil: 'Brazil',
-  chile: 'Chile',
-  'czech republic': 'Czech Republic',
-  czechia: 'Czech Republic',
-  finland: 'Finland',
-  greece: 'Greece',
-  hungary: 'Hungary',
-  luxembourg: 'Luxembourg',
-  portugal: 'Portugal',
-  romania: 'Romania',
-  slovakia: 'Slovakia',
-  sweden: 'Sweden',
-  switzerland: 'Switzerland',
-  colombia: 'Colombia',
-  denmark: 'Denmark',
-  morocco: 'Morocco',
-  norway: 'Norway',
-  peru: 'Peru',
-  turkey: 'Turkey',
-  turkiye: 'Turkey',
-  türkiye: 'Turkey',
-  ireland: 'Ireland',
-}
-
-export function canonicalizeLessonCountry(value: string): string {
-  const trimmed = value.trim()
-  if (!trimmed) return ''
-  return COUNTRY_ALIASES[trimmed.toLowerCase()] ?? trimmed
-}
 
 export function canonicalizeLessonLanguage(value: string): string {
   const trimmed = value.trim()

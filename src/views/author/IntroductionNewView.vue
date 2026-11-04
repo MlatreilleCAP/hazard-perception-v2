@@ -4,7 +4,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
-import { LESSON_COUNTRY_OPTIONS } from '@/lib/inroadsMvp/packageSpec'
+import { LESSON_COUNTRY_KEYWORDS, LESSON_COUNTRY_OPTIONS } from '@/lib/inroadsMvp/packageSpec'
 import { createBlankIntroduction } from '@/services/createIntroduction'
 import { useActivityStore } from '@/stores/activityStore'
 
@@ -67,6 +67,8 @@ async function create(): Promise<void> {
           label="Country"
           placeholder="Select country"
           :options="LESSON_COUNTRY_OPTIONS"
+          :option-keywords="LESSON_COUNTRY_KEYWORDS"
+          searchable
         />
       </section>
 

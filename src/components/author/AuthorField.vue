@@ -10,6 +10,7 @@ const props = defineProps<{
   rows?: number
   type?: 'text' | 'number'
   options?: readonly string[]
+  optionKeywords?: Readonly<Record<string, string>>
   placeholder?: string
   disabled?: boolean
   searchable?: boolean
@@ -21,7 +22,11 @@ const selectOptions = computed(() => {
   if (!props.options) return []
   return [
     { value: '', label: props.placeholder ?? 'Select' },
-    ...props.options.map((option) => ({ value: option, label: option })),
+    ...props.options.map((option) => ({
+      value: option,
+      label: option,
+      keywords: props.optionKeywords?.[option],
+    })),
   ]
 })
 </script>
