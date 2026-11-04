@@ -119,7 +119,7 @@ export async function handleAuthEmailRequest(request: Request): Promise<Response
       optionalEnv('AUTH_EMAIL_SUPPORT_ADDRESS'),
       'Support email address is invalid.',
     )
-    const templateOptions = { productUrl: productUrl(), supportAddress }
+    const templateOptions = { productUrl: productUrl(), supportAddress, verifyBase }
     const endpoint = resendEndpoint(optionalEnv('RESEND_API_URL'))
 
     for (const message of planAuthEmails(hook)) {

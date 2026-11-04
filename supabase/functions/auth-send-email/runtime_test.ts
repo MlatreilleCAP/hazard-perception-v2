@@ -227,7 +227,9 @@ Deno.test('auth send email runtime', async (t) => {
           const link = message.tokenHash
             ? authVerificationUrl('https://projectref.supabase.co/auth/v1', message.tokenHash, message.action, message.redirectTo)
             : null
-          const rendered = renderAuthEmail(message, link)
+          const rendered = renderAuthEmail(message, link, {
+            verifyBase: 'https://projectref.supabase.co/auth/v1',
+          })
           assert(rendered.html.startsWith('<!DOCTYPE html>'))
           assertStringIncludes(rendered.html, 'name="viewport"')
           assertStringIncludes(rendered.html, 'max-width:560px')

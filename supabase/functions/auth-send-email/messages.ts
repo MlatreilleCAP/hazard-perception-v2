@@ -72,6 +72,11 @@ const LINK_ACTIONS = new Set<AuthEmailAction>([
   'email',
 ])
 
+/** Actions whose message must carry the Auth verify link built for that recipient. */
+export function authActionExpectsLink(action: AuthEmailAction): boolean {
+  return action === 'email_change' || LINK_ACTIONS.has(action)
+}
+
 const NOTIFICATION_ACTIONS = new Set<AuthEmailAction>([
   'password_changed_notification',
   'email_changed_notification',

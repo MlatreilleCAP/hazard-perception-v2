@@ -1,10 +1,18 @@
-import type { AuthEmailAction, PlannedEmail } from './messages.ts'
+import { HookError } from './errors.ts'
+import { renderEmailLayout } from './layout.ts'
+import { authActionExpectsLink, type AuthEmailAction, type PlannedEmail } from './messages.ts'
+
+/**
+ * Auth mail is rendered here. Database rows with source `auth_hook` are a
+ * catalog only: they are not sendable, and this function does not read them.
+ * Application email keeps its own template versions.
+ */
 
 /** Matches auth.email.otp_expiry in supabase/config.toml. */
 const CODE_LIFETIME = '1 hour'
 
-const PRODUCT_NAME = 'AlertDriving'
 const DEFAULT_PRODUCT_URL = 'https://inroads.alertdriving.com'
+const LINK_EXPIRY = `This link expires in ${CODE_LIFETIME} and can only be used once.`
 
 export interface RenderedEmail {
   subject: string
@@ -15,6 +23,8 @@ export interface RenderedEmail {
 export interface TemplateOptions {
   productUrl?: string
   supportAddress?: string
+  /** Auth API root, for example https://project.supabase.co/auth/v1. */
+  verifyBase?: string
 }
 
 interface EmailCopy {
@@ -25,15 +35,6 @@ interface EmailCopy {
   showCode: boolean
   codeLead?: string
   security: string
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
 }
 
 function displayText(value: string, max = 120): string {
@@ -59,7 +60,7 @@ function isDisplayCode(otp: string | null): otp is string {
 }
 
 function linkSecurity(): string {
-  return `This link expires in ${CODE_LIFETIME} and can only be used once. If you did not request it, you can ignore this email.`
+  return `${LINK_EXPIRY} If you did not request it, you can ignore this email.`
 }
 
 function codeSecurity(): string {
@@ -113,46 +114,51 @@ function copyFor(message: PlannedEmail): EmailCopy {
   switch (action) {
     case 'signup':
       return {
-        subject: 'Confirm your AlertDriving email address',
-        heading: 'Confirm your email',
-        paragraphs: ['Confirm this email address to finish creating your AlertDriving account.'],
-        actionLabel: 'Confirm email address',
+        subject: 'Confirm your Inroads email',
+        heading: 'Confirm your email.',
+        paragraphs: [
+          'Thanks for joining Inroads. Please confirm your email address to finish setting up your account.',
+        ],
+        actionLabel: 'Confirm email',
         showCode: true,
         codeLead: 'Or enter this code if the button does not open:',
-        security: linkSecurity(),
+        security: "If you didn't create this account, you can safely ignore this email.",
       }
     case 'recovery':
       return {
-        subject: 'Reset your AlertDriving password',
+        subject: 'Reset your Inroads password',
         heading: 'Reset your password',
         paragraphs: [
-          'A password reset was requested for your AlertDriving account. Choose a new password with the button below.',
+          'We received a request to reset the password for your Inroads account. Click the button below to create a new password.',
         ],
         actionLabel: 'Reset password',
         showCode: true,
         codeLead: 'Or enter this code if the button does not open:',
-        security: linkSecurity(),
+        security: "If you didn't request a password reset, you can safely ignore this email.",
       }
     case 'invite':
       return {
-        subject: "You've been invited to AlertDriving",
-        heading: "You've been invited",
-        paragraphs: ['You have been invited to join AlertDriving. Accept the invitation to create your account.'],
+        subject: "You're invited to Inroads",
+        heading: "You're invited.",
+        paragraphs: [
+          "You've been invited to join Inroads, the driver safety learning platform from AlertDriving. Accept your invitation to get started.",
+        ],
         actionLabel: 'Accept invitation',
         showCode: true,
         codeLead: 'Or enter this code if the button does not open:',
-        security: linkSecurity(),
+        security: "If you weren't expecting this invitation, you can safely ignore this email.",
       }
     case 'magiclink':
     case 'email':
+      // `email` is Auth's email sign-in action. It keeps type=email on its own verify link.
       return {
-        subject: 'Your AlertDriving sign-in link',
-        heading: 'Sign in to AlertDriving',
-        paragraphs: ['Use the button below to sign in to your AlertDriving account.'],
-        actionLabel: 'Sign in',
+        subject: 'Sign in to Inroads',
+        heading: 'Your sign-in link.',
+        paragraphs: ['Use the secure link below to sign in to your Inroads account.'],
+        actionLabel: 'Sign in to Inroads',
         showCode: true,
         codeLead: 'Or enter this code if the button does not open:',
-        security: linkSecurity(),
+        security: "If you didn't request this link, you can safely ignore this email.",
       }
     case 'reauthentication':
       return {
@@ -246,19 +252,63 @@ function copyFor(message: PlannedEmail): EmailCopy {
   }
 }
 
-function supportLine(supportAddress: string | undefined): { html: string; text: string } {
-  const address = supportAddress?.trim()
-  if (address) {
-    const safe = escapeHtml(address)
-    return {
-      html: `Need help? Contact <a href="mailto:${safe}" style="color:#60a1a7;text-decoration:underline;">${safe}</a>.`,
-      text: `Need help? Contact ${address}.`,
-    }
+/**
+ * Accepts only the verify link for this message. The token is checked and then
+ * dropped: errors never include the URL, the hash, or the one-time code.
+ */
+export function trustedAuthActionUrl(
+  actionUrl: string | null,
+  message: PlannedEmail,
+  verifyBase: string | undefined,
+): string | null {
+  const expectsLink = authActionExpectsLink(message.action)
+  const raw = actionUrl?.trim() ?? ''
+
+  if (!expectsLink) {
+    if (raw) throw new HookError(400, 'payload', 'Auth action URL is invalid.')
+    return null
   }
-  return {
-    html: 'Need help? Contact your AlertDriving administrator.',
-    text: 'Need help? Contact your AlertDriving administrator.',
+
+  const base = verifyBase?.trim() ?? ''
+  if (!base) throw new HookError(500, 'config', 'Auth verify URL is not configured.')
+  if (!raw) throw new HookError(400, 'payload', 'Auth action URL is missing.')
+
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    throw new HookError(400, 'payload', 'Auth action URL is invalid.')
   }
+
+  let expected: URL
+  try {
+    expected = new URL(base)
+  } catch {
+    throw new HookError(500, 'config', 'Auth verify URL is invalid.')
+  }
+
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password) {
+    throw new HookError(400, 'payload', 'Auth action URL is invalid.')
+  }
+  if ((expected.protocol !== 'https:' && expected.protocol !== 'http:') || expected.username || expected.password) {
+    throw new HookError(500, 'config', 'Auth verify URL is invalid.')
+  }
+
+  const path = url.pathname.replace(/\/$/, '')
+  const expectedPath = expected.pathname.replace(/\/$/, '')
+  const token = url.searchParams.get('token') ?? ''
+  const tokenHash = message.tokenHash ?? ''
+  if (
+    url.origin !== expected.origin ||
+    path !== `${expectedPath}/verify` ||
+    !token ||
+    token !== tokenHash ||
+    url.searchParams.get('type') !== message.action
+  ) {
+    throw new HookError(400, 'payload', 'Auth action URL is invalid.')
+  }
+
+  return raw
 }
 
 export function renderAuthEmail(
@@ -267,97 +317,22 @@ export function renderAuthEmail(
   options: TemplateOptions = {},
 ): RenderedEmail {
   const copy = copyFor(message)
-  const productUrl = options.productUrl?.trim() || DEFAULT_PRODUCT_URL
-  const support = supportLine(options.supportAddress)
+  const trustedUrl = trustedAuthActionUrl(actionUrl, message, options.verifyBase)
   const code = copy.showCode && isDisplayCode(message.otp) ? message.otp : null
-  const action =
-    copy.actionLabel && actionUrl
-      ? { label: copy.actionLabel, url: actionUrl }
-      : null
+  const expiryNote = trustedUrl && !copy.security.includes('expires in') ? LINK_EXPIRY : ''
+  const rendered = renderEmailLayout({
+    heading: copy.heading,
+    body: copy.paragraphs[0] ?? '',
+    extraParagraphs: copy.paragraphs.slice(1),
+    buttonLabel: copy.actionLabel ?? '',
+    actionUrl: trustedUrl ?? '',
+    footerMessage: copy.security,
+    productUrl: options.productUrl?.trim() || DEFAULT_PRODUCT_URL,
+    supportAddress: options.supportAddress,
+    code,
+    codeLead: copy.codeLead,
+    expiryNote,
+  })
 
-  const text = [
-    PRODUCT_NAME,
-    '',
-    copy.heading,
-    '',
-    ...copy.paragraphs,
-    ...(action ? ['', action.label, action.url] : []),
-    ...(code ? ['', copy.codeLead ?? 'Code', code] : []),
-    '',
-    copy.security,
-    '',
-    support.text,
-    productUrl,
-  ].join('\n')
-
-  const paragraphHtml = copy.paragraphs
-    .map(
-      (paragraph) =>
-        `<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#373f51;">${escapeHtml(paragraph)}</p>`,
-    )
-    .join('')
-
-  const buttonHtml = action
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 20px;">
-        <tr>
-          <td bgcolor="#222b3f" style="border-radius:999px;">
-            <a href="${escapeHtml(action.url)}" style="display:inline-block;padding:12px 22px;font-size:15px;line-height:1.2;font-weight:600;color:#ffffff;text-decoration:none;">${escapeHtml(action.label)}</a>
-          </td>
-        </tr>
-      </table>
-      <p style="margin:0 0 20px;font-size:13px;line-height:1.5;color:#7b7b7b;word-break:break-all;">Or copy this link:<br>${escapeHtml(action.url)}</p>`
-    : ''
-
-  const codeHtml = code
-    ? `<p style="margin:0 0 8px;font-size:13px;line-height:1.4;color:#7b7b7b;">${escapeHtml(copy.codeLead ?? 'Code')}</p>
-      <p style="margin:0 0 20px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:28px;line-height:1.2;letter-spacing:0.18em;font-weight:700;color:#222b3f;">${escapeHtml(code)}</p>`
-    : ''
-
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(copy.subject)}</title>
-  <style>
-    @media only screen and (max-width: 600px) {
-      .email-outer { padding: 16px 8px !important; }
-      .email-inner { padding: 20px 16px !important; }
-    }
-  </style>
-</head>
-<body style="margin:0;padding:0;background:#f8f9fb;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(copy.heading)}</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8f9fb;margin:0;padding:0;">
-    <tr>
-      <td class="email-outer" align="center" style="padding:32px 16px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #e6e8ee;border-radius:16px;">
-          <tr>
-            <td class="email-inner" style="padding:22px 32px;background:#403b3b;">
-              <a href="${escapeHtml(productUrl)}" style="font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:18px;line-height:1.2;font-weight:700;letter-spacing:0.01em;color:#ffffff;text-decoration:none;">AlertDriving</a>
-            </td>
-          </tr>
-          <tr>
-            <td class="email-inner" style="padding:32px;font-family:Segoe UI,Helvetica,Arial,sans-serif;">
-              <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;font-weight:700;color:#222b3f;">${escapeHtml(copy.heading)}</h1>
-              ${paragraphHtml}
-              ${buttonHtml}
-              ${codeHtml}
-              <p style="margin:0;font-size:13px;line-height:1.5;color:#7b7b7b;">${escapeHtml(copy.security)}</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:20px 32px 28px;border-top:1px solid #eef0f4;font-family:Segoe UI,Helvetica,Arial,sans-serif;">
-              <p style="margin:0 0 8px;font-size:13px;line-height:1.5;color:#7b7b7b;">${support.html}</p>
-              <p style="margin:0;font-size:13px;line-height:1.5;"><a href="${escapeHtml(productUrl)}" style="color:#60a1a7;text-decoration:underline;">${escapeHtml(productUrl)}</a></p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`
-
-  return { subject: copy.subject, html, text }
+  return { subject: copy.subject, html: rendered.html, text: rendered.text }
 }
