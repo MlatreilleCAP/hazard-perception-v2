@@ -1,7 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { isStudioRole } from '@/lib/auth/roles'
+import { isStudioRole, profileRole } from '@/lib/auth/roles'
 import { getSupabase } from '@/services/supabase'
 import {
   markPasswordRecovery,
@@ -65,24 +65,18 @@ export const useAuthStore = defineStore('auth', () => {
         .maybeSingle()
       if (token !== profileLoadToken) return
       if (fallback.error || !fallback.data) {
-        role.value = 'demo'
+        role.value = 'unprovisioned'
         displayName.value = ''
         canEditOthers.value = false
         return
       }
-      const fallbackRole = fallback.data.role
-      role.value =
-        fallbackRole === 'admin' || fallbackRole === 'author' || fallbackRole === 'demo'
-          ? fallbackRole
-          : 'demo'
+      role.value = profileRole(fallback.data.role)
       displayName.value = ''
       canEditOthers.value = false
       return
     }
 
-    const nextRole = data.role
-    role.value =
-      nextRole === 'admin' || nextRole === 'author' || nextRole === 'demo' ? nextRole : 'demo'
+    role.value = profileRole(data.role)
     displayName.value = data.display_name?.trim() ?? ''
     canEditOthers.value = data.can_edit_others === true
   }

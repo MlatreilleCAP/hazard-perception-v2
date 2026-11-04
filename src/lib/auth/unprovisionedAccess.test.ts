@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { canEditLessonContent, isStudioRole } from '@/lib/auth/roles'
+import { canEditLessonContent, isStudioRole, profileRole } from '@/lib/auth/roles'
 import type { ProfileRole } from '@/types/database'
 import { router } from '@/router'
 
@@ -21,6 +21,15 @@ describe('unprovisioned Studio and player routes', () => {
     expect(canEditLessonContent('demo', 'owner', 'other', false, true)).toBe(false)
     expect(canEditLessonContent('author', 'owner', 'author', false, false)).toBe(false)
     expect(canEditLessonContent('admin', 'owner', 'admin', true, false)).toBe(true)
+  })
+
+  it('keeps known roles and treats an unknown role as unprovisioned', () => {
+    expect(profileRole('admin')).toBe('admin')
+    expect(profileRole('author')).toBe('author')
+    expect(profileRole('demo')).toBe('demo')
+    expect(profileRole('unprovisioned')).toBe('unprovisioned')
+    expect(profileRole('owner')).toBe('unprovisioned')
+    expect(profileRole(null)).toBe('unprovisioned')
   })
 
   it('requires Studio on authoring routes and leaves the player as an authenticated content route', () => {

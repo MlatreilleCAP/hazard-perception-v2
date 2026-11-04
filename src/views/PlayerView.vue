@@ -408,6 +408,10 @@ async function loadActivity(id: string): Promise<void> {
 }
 
 onMounted(async () => {
+  if (auth.role === 'unprovisioned') {
+    await router.replace({ name: 'access-pending' })
+    return
+  }
   if (!isPreview.value && !playerMayLoadContent(auth.user?.app_metadata, auth.session?.access_token)) {
     await router.replace(
       setupRequired(auth.user?.app_metadata) ? '/setup-account' : '/login',

@@ -7,6 +7,7 @@ import {
 } from '@/lib/auth/setupAccess'
 import { getSupabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/authStore'
+import AccessPendingView from '@/views/AccessPendingView.vue'
 import ArchitectureView from '@/views/ArchitectureView.vue'
 import AuthCallbackView from '@/views/AuthCallbackView.vue'
 import HomeView from '@/views/HomeView.vue'
@@ -78,6 +79,12 @@ export const router = createRouter({
       name: 'setup-account',
       component: SetupAccountView,
       meta: { layout: 'auth', title: 'Set up your account · AlertDriving' },
+    },
+    {
+      path: '/access-pending',
+      name: 'access-pending',
+      component: AccessPendingView,
+      meta: { layout: 'auth', title: 'Access pending · AlertDriving', requiresAuth: true },
     },
     {
       path: '/',
@@ -432,6 +439,18 @@ router.beforeEach(async (to) => {
     if (gate) return gate
   }
 
+  if (
+    auth.isSignedIn &&
+    auth.role === 'unprovisioned' &&
+    (to.name === 'player' || to.matched.some((record) => record.meta.requiresStudio))
+  ) {
+    return { name: 'access-pending' }
+  }
+
+  if (to.name === 'access-pending' && auth.isSignedIn && auth.role !== 'unprovisioned') {
+    return { path: '/' }
+  }
+
   if (to.matched.some((record) => record.meta.requiresStudio) && !auth.canAccessStudio) {
     return { path: '/' }
   }
@@ -443,6 +462,12 @@ router.beforeEach(async (to) => {
   if (to.name === 'login' && auth.isSignedIn) {
     if (setupRequired(auth.user?.app_metadata)) return { path: '/setup-account' }
     const next = safeNextPath(String(to.query.next ?? '')) ?? '/'
+    if (
+      auth.role === 'unprovisioned' &&
+      (next.startsWith('/studio') || next.startsWith('/player'))
+    ) {
+      return { name: 'access-pending' }
+    }
     if (next.startsWith('/studio') && !auth.canAccessStudio) {
       return '/'
     }

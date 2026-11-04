@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, useRouter } from 'vue-router'
 import { LANDING_FEATURES, LANDING_NAV_LINKS } from '@/app/landingFeatures'
+import { ACCESS_PENDING_MESSAGE } from '@/lib/auth/accessPending'
 import DemoCatalog from '@/components/landing/DemoCatalog.vue'
 import FeatureVisual from '@/components/landing/FeatureVisual.vue'
 import { useAuthStore } from '@/stores/authStore'
@@ -93,7 +94,10 @@ async function signOut(): Promise<void> {
             browse the catalog and start training instantly.
           </p>
         </div>
-        <DemoCatalog />
+        <p v-if="auth.role === 'unprovisioned'" class="landing-lede" role="status">
+          {{ ACCESS_PENDING_MESSAGE }}
+        </p>
+        <DemoCatalog v-else />
       </section>
 
       <section id="features" class="landing-features">

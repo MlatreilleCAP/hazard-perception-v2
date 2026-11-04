@@ -1,5 +1,11 @@
 import type { ProfileRole } from '@/types/database'
 
+const PROFILE_ROLES: readonly ProfileRole[] = ['admin', 'author', 'demo', 'unprovisioned']
+
+export function profileRole(value: unknown): ProfileRole {
+  return PROFILE_ROLES.includes(value as ProfileRole) ? (value as ProfileRole) : 'unprovisioned'
+}
+
 export function isStudioRole(role: ProfileRole | null | undefined): boolean {
   return role === 'admin' || role === 'author'
 }

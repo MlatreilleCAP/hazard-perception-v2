@@ -56,9 +56,15 @@ async function onDemoAccountsChanged(): Promise<void> {
   await reloadPeople(false)
 }
 
+function studioLabel(person: StudioPerson): string {
+  if (person.role === 'unprovisioned') return 'Grant Studio'
+  if (person.role === 'demo') return 'Studio off'
+  return 'Studio on'
+}
+
 async function toggleStudio(person: StudioPerson): Promise<void> {
   if (toggleReason(person) || person.role === 'admin' || person.id === auth.userId || savingId.value) return
-  const visible = person.role === 'demo'
+  const visible = person.role === 'demo' || person.role === 'unprovisioned'
   savingId.value = person.id
   error.value = null
   try {
@@ -146,7 +152,7 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
               :aria-describedby="toggleReason(person) ? `studio-lock-${person.id}` : undefined"
               @click="toggleStudio(person)"
             >
-              {{ person.role === 'demo' ? 'Studio off' : 'Studio on' }}
+              {{ studioLabel(person) }}
             </AuthorPillButton>
           </div>
         </li>

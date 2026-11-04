@@ -1,3 +1,4 @@
+import { profileRole } from '@/lib/auth/roles'
 import { getSupabase } from '@/services/supabase'
 import type { ProfileRole } from '@/types/database'
 
@@ -28,10 +29,7 @@ export async function listStudioPeople(): Promise<StudioPerson[]> {
       role?: string
       can_edit_others?: boolean
     }
-    const role: ProfileRole =
-      record.role === 'admin' || record.role === 'author' || record.role === 'demo'
-        ? record.role
-        : 'demo'
+    const role = profileRole(record.role)
     return {
       id: String(record.id ?? ''),
       email: record.email?.trim() || 'Unknown email',

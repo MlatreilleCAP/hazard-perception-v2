@@ -76,6 +76,28 @@ describe('Studio people and demo accounts', () => {
     expect(studioOffButton?.attributes('disabled')).toBeUndefined()
   })
 
+  it('lets an administrator grant Studio to an unprovisioned account', async () => {
+    vi.mocked(listStudioPeople).mockResolvedValue([
+      {
+        id: 'pending-1',
+        email: 'pending@example.com',
+        displayName: null,
+        role: 'unprovisioned',
+        canEditOthers: false,
+      },
+    ])
+    vi.mocked(setStudioVisible).mockResolvedValue()
+    const wrapper = mount(StudioPeopleView)
+    await flushPromises()
+
+    const grant = wrapper.findAll('button').find((button) => button.text() === 'Grant Studio')
+    expect(grant).toBeDefined()
+    await grant?.trigger('click')
+    await flushPromises()
+
+    expect(setStudioVisible).toHaveBeenCalledWith('pending-1', true)
+  })
+
   it('explains a role-guard rejection and does not leave Studio turned on', async () => {
     vi.mocked(setStudioVisible).mockRejectedValue(new Error(
       'Lifecycle-managed profiles cannot be given Studio access',
