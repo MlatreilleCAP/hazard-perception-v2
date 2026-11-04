@@ -1,4 +1,5 @@
 import { createLessonActivity } from '@/activities/createLessonActivity'
+import { previewCardTitle } from '@/lib/inroadsMvp/lessonVersions'
 import { writeLessonDefinition } from '@/activities/lessonDefinition'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { readIntroductionDefinition } from '@/activities/introductionDefinition'
@@ -97,5 +98,10 @@ export async function expandInroadsMvpForPlayback(
       lesson.observeExampleMedia = readIntroductionDefinition(exampleActivity).introMedia
     }
   }
-  return lessonShellFrom(mvpActivity, lesson)
+  const shell = lessonShellFrom(mvpActivity, lesson)
+  shell.metadata = {
+    ...shell.metadata,
+    title: previewCardTitle(mvp.lessonTitle, mvpActivity.metadata.title),
+  }
+  return shell
 }

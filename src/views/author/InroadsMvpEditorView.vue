@@ -47,7 +47,6 @@ import {
   canonicalizeLessonLanguage,
   LESSON_COUNTRY_OPTIONS,
   LESSON_LANGUAGE_OPTIONS,
-  canonicalizeLessonCountry,
 } from '@/lib/inroadsMvp/packageSpec'
 import type { InroadsMvpEnglishTextReference } from '@/types/inroadsMvpEnglishReference'
 import type { AnticipateDefinition } from '@/types/anticipate'
@@ -77,7 +76,7 @@ const submitMenuOpen = ref(false)
 const submitMenu = ref<HTMLElement | null>(null)
 const saveMessage = ref<string | null>(null)
 const title = ref('')
-const projectTitle = ref('')
+const lessonTitle = ref('')
 const description = ref('')
 const titleError = ref<string | null>(null)
 const mvp = ref<InroadsMvpDefinition | null>(null)
@@ -614,7 +613,7 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
       return
     }
     title.value = current.metadata.title
-    projectTitle.value = parsed.projectTitle
+    lessonTitle.value = parsed.lessonTitle.trim() || current.metadata.title
     description.value = current.metadata.description
     mvp.value = parsed
     const storedReference = readInroadsMvpEnglishTextReference(current)
@@ -626,7 +625,7 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
     if (canonicalizeLessonLanguage(parsed.language) !== 'English') {
       const sharedTitle = await englishSiblingLessonTitle(nextVersions)
       if (generation !== loadGeneration) return
-      if (sharedTitle) title.value = sharedTitle
+      if (sharedTitle) lessonTitle.value = sharedTitle
     }
     const nextIntroductionVersions = await loadIntroductionVersions([
       parsed.introductionActivityId,
@@ -657,11 +656,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onNewLanguageMenuPointerDown)
-})
-
-watch(projectTitle, (value) => {
-  if (!mvp.value || mvp.value.projectTitle === value) return
-  mvp.value = { ...mvp.value, projectTitle: value }
 })
 
 watch(activityId, () => {
@@ -781,7 +775,8 @@ async function englishSiblingLessonTitle(
   if (!sibling) return ''
   try {
     const definition = await services.persistence.getById(sibling.id)
-    return definition?.metadata.title.trim() ?? ''
+    const parsed = definition ? readInroadsMvpDefinition(definition) : null
+    return parsed?.lessonTitle.trim() || definition?.metadata.title.trim() || ''
   } catch {
     return ''
   }
@@ -789,9 +784,7 @@ async function englishSiblingLessonTitle(
 
 async function syncSharedFieldsToSiblingVersions(): Promise<void> {
   if (!mvp.value) return
-  const lessonTitle = title.value.trim()
-  const sharedProjectTitle = projectTitle.value.trim()
-  const sharedCountry = canonicalizeLessonCountry(mvp.value.country)
+  const sharedCardTitle = lessonTitle.value.trim()
   const sharedPreview = mvp.value.previewImage
     ? { media_asset_id: mvp.value.previewImage.media_asset_id }
     : null
@@ -803,20 +796,14 @@ async function syncSharedFieldsToSiblingVersions(): Promise<void> {
       const definition = await services.persistence.getById(version.id)
       const parsed = definition ? readInroadsMvpDefinition(definition) : null
       if (!definition || !parsed) continue
-      const titleChanged = Boolean(lessonTitle) && definition.metadata.title.trim() !== lessonTitle
-      const projectChanged = parsed.projectTitle.trim() !== sharedProjectTitle
-      const countryChanged = canonicalizeLessonCountry(parsed.country) !== sharedCountry
+      const cardChanged = Boolean(sharedCardTitle) && parsed.lessonTitle.trim() !== sharedCardTitle
       const previewChanged = (parsed.previewImage?.media_asset_id ?? '') !== previewId
-      if (!titleChanged && !projectChanged && !countryChanged && !previewChanged) continue
+      if (!cardChanged && !previewChanged) continue
       const next = writeInroadsMvpDefinition(definition, {
         ...parsed,
-        projectTitle: sharedProjectTitle,
-        country: sharedCountry,
+        lessonTitle: sharedCardTitle || parsed.lessonTitle,
         previewImage: sharedPreview,
       })
-      if (titleChanged) {
-        next.metadata = { ...next.metadata, title: lessonTitle }
-      }
       await services.persistence.save(next)
     } catch {
       // Keep saving the current version even if a sibling update fails.
@@ -826,7 +813,7 @@ async function syncSharedFieldsToSiblingVersions(): Promise<void> {
 
 async function saveLesson(): Promise<boolean> {
   if (!editable.value || !mvp.value) return false
-  titleError.value = title.value.trim() ? null : 'Lesson title is required'
+  titleError.value = title.value.trim() ? null : 'Activity name is required'
   if (titleError.value) return false
 
   saving.value = true
@@ -836,7 +823,7 @@ async function saveLesson(): Promise<boolean> {
     if (!activities.current || !mvp.value) return false
     const next = writeInroadsMvpDefinition(activities.current, {
       ...mvpForSave(mvp.value),
-      projectTitle: projectTitle.value.trim(),
+      lessonTitle: lessonTitle.value.trim(),
     })
     next.metadata = {
       ...next.metadata,
@@ -1023,20 +1010,21 @@ async function deleteVersion(id: string): Promise<void> {
           <h1 class="author-header-title">
             <span v-if="editable" class="author-header-title-sizer">
               <span class="author-header-title-measure" aria-hidden="true">{{
-                projectTitle || 'Project title'
+                title || 'Activity name'
               }}</span>
               <input
-                v-model="projectTitle"
+                v-model="title"
                 class="author-header-title-input"
                 type="text"
-                aria-label="Project title"
-                placeholder="Project title"
+                aria-label="Activity name"
+                placeholder="Activity name"
+                :aria-invalid="titleError ? true : undefined"
               />
             </span>
-            <span v-else>{{ projectTitle.trim() || 'Project title' }}</span>
-            <span v-if="country.trim()">{{ ` - ${country.trim()}` }}</span>
+            <span v-else>{{ title.trim() || 'Activity name' }}</span>
           </h1>
           <AuthorStatusChip :label="statusLabel" />
+          <p v-if="titleError" class="author-error">{{ titleError }}</p>
         </div>
         <div class="mvp-header-actions">
           <AuthorPillButton
@@ -1186,18 +1174,18 @@ async function deleteVersion(id: string): Promise<void> {
 
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Details" />
-          <FieldPair :enabled="false" label="Lesson title">
+          <FieldPair :enabled="false" label="Title">
             <AuthorField
-              :id="`${activityId}-title`"
-              v-model="title"
-              label="Lesson title"
-              :error="titleError ?? undefined"
-              placeholder="Lesson title"
+              :id="`${activityId}-card-title`"
+              v-model="lessonTitle"
+              label="Title"
+              placeholder="Title"
               :disabled="!editable || lessonTitleLocked"
             />
           </FieldPair>
+          <p class="author-muted">Demo preview cards use this title and the country.</p>
           <p v-if="lessonTitleLocked" class="author-muted">
-            The lesson title stays in English and is the same for every language.
+            The title stays in English and is the same for every language.
           </p>
           <FieldPair
             :enabled="showEnglishReference"

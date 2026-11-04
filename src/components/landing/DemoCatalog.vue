@@ -6,7 +6,7 @@ import { catalogCoverAt } from '@/app/catalogCovers'
 import { services } from '@/app/container'
 import { canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
 import { DEFAULT_LESSON_BUTTON_LABEL } from '@/lib/lesson/buttonLabel'
-import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
+import { lessonVersionKey, previewCardTitle } from '@/lib/inroadsMvp/lessonVersions'
 import { useActivityStore } from '@/stores/activityStore'
 import { useAuthStore } from '@/stores/authStore'
 import type { ActivitySummary } from '@/types/activity'
@@ -23,6 +23,7 @@ const localeById = ref(
     {
       language: string
       country: string
+      lessonTitle: string
       button: string
       description: string
       previewImageId: string
@@ -95,6 +96,7 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
     {
       language: string
       country: string
+      lessonTitle: string
       button: string
       description: string
       previewImageId: string
@@ -106,6 +108,7 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
         next.set(item.id, {
           language: '',
           country: '',
+          lessonTitle: '',
           button: '',
           description: '',
           previewImageId: '',
@@ -118,6 +121,7 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
         next.set(item.id, {
           language: parsed?.language ?? '',
           country: parsed?.country ?? '',
+          lessonTitle: parsed?.lessonTitle ?? '',
           button: parsed?.buttonLabel ?? '',
           description: definition?.metadata.description.trim() ?? '',
           previewImageId: parsed?.previewImage?.media_asset_id ?? '',
@@ -126,6 +130,7 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
         next.set(item.id, {
           language: '',
           country: '',
+          lessonTitle: '',
           button: '',
           description: '',
           previewImageId: '',
@@ -157,6 +162,10 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
 
 function countryFor(id: string): string {
   return localeById.value.get(id)?.country.trim() ?? ''
+}
+
+function cardTitle(id: string, activityName: string): string {
+  return previewCardTitle(localeById.value.get(id)?.lessonTitle, activityName)
 }
 
 function buttonLabelFor(id: string): string {
@@ -289,14 +298,14 @@ function setSelected(groupKey: string, id: string): void {
           <article class="activity-card">
             <div class="activity-card-cover">
               <img :src="coverFor(group, index)" alt="" />
-              <div class="activity-glyph" aria-hidden="true">{{ glyph(group.title) }}</div>
+              <div class="activity-glyph" aria-hidden="true">{{ glyph(cardTitle(selectedId(group.key), group.title)) }}</div>
             </div>
             <div class="activity-card-body">
               <div v-if="countryFor(selectedId(group.key))" class="activity-card-meta">
                 <span class="activity-type">{{ countryFor(selectedId(group.key)) }}</span>
               </div>
               <div class="activity-card-copy">
-                <h3>{{ group.title }}</h3>
+                <h3>{{ cardTitle(selectedId(group.key), group.title) }}</h3>
                 <p v-if="descriptionFor(selectedId(group.key))">
                   {{ descriptionFor(selectedId(group.key)) }}
                 </p>

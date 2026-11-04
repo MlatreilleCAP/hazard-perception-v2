@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
-import { services } from '@/app/container'
 import { useStudioAccess } from '@/composables/useStudioAccess'
-import { mainTitleWithCountry, lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
+import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
 import { duplicateInroadsMvpVersion } from '@/services/createInroadsMvp'
 import { removeInroadsMvpLessonGroup } from '@/services/removeInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
@@ -19,8 +17,6 @@ const { canCreate, canEditLesson, canRemoveLesson } = useStudioAccess()
 const menuOpenId = ref<string | null>(null)
 const searchQuery = ref('')
 const duplicatingId = ref<string | null>(null)
-const localeById = ref(new Map<string, { projectTitle: string; country: string }>())
-let localeGeneration = 0
 
 const items = computed(() =>
   activities.summaries.filter((item) => isInroadsMvpActivity(item.tags)),
@@ -66,31 +62,6 @@ function groupLessonRows(summaries: ActivitySummary[]): LessonListRow[] {
 
 const lessonRows = computed(() => groupLessonRows(items.value))
 
-function rowLabel(row: LessonListRow): string {
-  const locale = localeById.value.get(row.id)
-  return mainTitleWithCountry(locale?.projectTitle, locale?.country)
-}
-
-async function loadLocales(rows: LessonListRow[]): Promise<void> {
-  const generation = ++localeGeneration
-  const entries = await Promise.all(
-    rows.map(async (row) => {
-      try {
-        const definition = await services.persistence.getById(row.id)
-        const mvp = definition ? readInroadsMvpDefinition(definition) : null
-        return [
-          row.id,
-          { projectTitle: mvp?.projectTitle ?? '', country: mvp?.country ?? '' },
-        ] as const
-      } catch {
-        return [row.id, { projectTitle: '', country: '' }] as const
-      }
-    }),
-  )
-  if (generation !== localeGeneration) return
-  localeById.value = new Map(entries)
-}
-
 function languagesLabel(count: number): string {
   return count === 1 ? '1 language' : `${count} languages`
 }
@@ -100,17 +71,9 @@ const filtered = computed(() => {
   if (!query) return lessonRows.value
   return lessonRows.value.filter((item) => {
     const status = item.published ? 'published' : 'draft'
-    return rowLabel(item).toLowerCase().includes(query) || status.includes(query)
+    return item.title.toLowerCase().includes(query) || status.includes(query)
   })
 })
-
-watch(
-  lessonRows,
-  (rows) => {
-    void loadLocales(rows)
-  },
-  { immediate: true },
-)
 
 onMounted(async () => {
   await activities.refreshList()
@@ -214,7 +177,7 @@ async function remove(row: LessonListRow): Promise<void> {
           <li v-for="item in filtered" :key="item.key" class="author-list-row">
             <div style="min-width: 0; flex: 1">
               <RouterLink :to="`/studio/inroads-mvp/${item.id}`" class="author-list-title">
-                {{ rowLabel(item) }}
+                {{ item.title }}
               </RouterLink>
               <p class="author-list-sub">
                 {{ item.published ? 'Published' : 'Draft'

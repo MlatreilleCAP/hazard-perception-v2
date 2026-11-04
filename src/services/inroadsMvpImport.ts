@@ -969,27 +969,23 @@ function applySegmentSlotCaptions<
 }
 
 async function syncSiblingLessonTitles(
-  previousTitle: string,
+  activityName: string,
   nextTitle: string,
   currentId: string,
 ): Promise<void> {
   const next = nextTitle.trim()
-  const key = lessonVersionKey(previousTitle)
-  if (!next || !key || lessonVersionKey(next) === key) return
+  const key = lessonVersionKey(activityName)
+  if (!next || !key) return
   const summaries = await services.persistence.list('authoring')
   for (const item of summaries) {
     if (item.id === currentId || !isInroadsMvpActivity(item.tags)) continue
-    if (lessonVersionKey(item.title) !== key || item.title.trim() === next) continue
+    if (lessonVersionKey(item.title) !== key) continue
     const definition = await services.persistence.getById(item.id)
-    if (!definition) continue
-    await services.persistence.save({
-      ...definition,
-      metadata: {
-        ...definition.metadata,
-        title: next,
-        updatedAt: new Date().toISOString(),
-      },
-    })
+    const parsed = definition ? readInroadsMvpDefinition(definition) : null
+    if (!definition || !parsed || parsed.lessonTitle.trim() === next) continue
+    await services.persistence.save(
+      writeInroadsMvpDefinition(definition, { ...parsed, lessonTitle: next }),
+    )
   }
 }
 
@@ -1007,7 +1003,7 @@ export async function importInroadsMvpPackage(
   const processActivity = await loadActivityOrThrow(mvp.processActivityId)
   const anticipateActivity = await loadActivityOrThrow(mvp.anticipateActivityId)
 
-  const previousLessonTitle = parent.metadata.title
+  const previousLessonTitle = mvp.lessonTitle.trim() || parent.metadata.title
   const lessonTitle = sharedLessonTitle(
     payload.lesson.language.trim() || mvp.language,
     payload.lesson.title,
@@ -1170,17 +1166,15 @@ export async function importInroadsMvpPackage(
       payload.lesson.processSection != null ? payload.lesson.processSection : mvp.processLabel,
     anticipateLabel:
       payload.lesson.anticipation != null ? payload.lesson.anticipation : mvp.anticipateLabel,
+    lessonTitle: lessonTitle || mvp.lessonTitle,
     resultsChrome: mergeResultsChrome(mvp.resultsChrome, payload.lesson.resultsChrome),
   })
-  if (lessonTitle) {
-    nextParent.metadata.title = lessonTitle
-  }
   if (payload.lesson.description) {
     nextParent.metadata.description = payload.lesson.description
   }
   await services.persistence.save(nextParent)
   if (canonicalizeLessonLanguage(payload.lesson.language.trim() || mvp.language) === 'English') {
-    await syncSiblingLessonTitles(previousLessonTitle, lessonTitle, parentId)
+    await syncSiblingLessonTitles(parent.metadata.title, lessonTitle, parentId)
   }
 
   if (uploaded.intro?.media || uploadedCaptions.intro) {

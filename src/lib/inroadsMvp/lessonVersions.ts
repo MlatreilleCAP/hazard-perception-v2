@@ -19,19 +19,12 @@ export function sharedLessonTitle(
   return existing || imported
 }
 
-/** Project management card title. Does not fall back to the lesson title. */
-export function projectActivityTitle(projectTitle: string | null | undefined): string {
-  return projectTitle?.trim() || 'Untitled project'
-}
-
-/** Editor header and lesson list: project title, then the country. Never the lesson title. */
-export function mainTitleWithCountry(
-  projectTitle: string | null | undefined,
-  country: string | null | undefined,
+/** Demo preview card title. The activity name is not the card title once a title is set. */
+export function previewCardTitle(
+  lessonTitle: string | null | undefined,
+  activityName: string | null | undefined,
 ): string {
-  const name = projectTitle?.trim() || 'Project title'
-  const place = country?.trim() ?? ''
-  return place ? `${name} - ${place}` : name
+  return lessonTitle?.trim() || activityName?.trim() || 'Activity'
 }
 
 export function lessonVersionLabel(
