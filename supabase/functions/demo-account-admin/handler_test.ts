@@ -86,6 +86,7 @@ function deps(overrides: Partial<DemoAdminDeps> = {}): DemoAdminDeps & {
     lockProvision: () => Promise.resolve(PROFILE),
     releaseProvision: () => Promise.resolve(),
     abandonProvision: () => Promise.resolve(),
+    prepareCreatedUserDelete: () => Promise.resolve(),
   }
   return { ...base, ...overrides, actors, authCalls, records }
 }
@@ -117,12 +118,56 @@ Deno.test('missing credentials and non-admins are rejected', async () => {
   )
 })
 
+Deno.test('delete removes the Auth user after the demo record is approved', async () => {
+  const deleted: string[] = []
+  const prepared: string[] = []
+  const admin = deps({
+    prepareCreatedUserDelete: (_actorId, profileId) => {
+      prepared.push(profileId)
+      return Promise.resolve()
+    },
+    deleteAuthUser: (profileId) => {
+      deleted.push(profileId)
+      return Promise.resolve()
+    },
+  })
+  const response = await handleDemoAdmin(post({ operation: 'delete', profileId: PROFILE }), admin)
+  assertEquals(response.status, 200)
+  assertEquals(await response.json(), { profileId: PROFILE, deleted: true })
+  assertEquals(prepared, [PROFILE])
+  assertEquals(deleted, [PROFILE])
+})
+
+Deno.test('delete does not remove the signed-in administrator', async () => {
+  let deleted = false
+  const admin = deps({
+    deleteAuthUser: () => {
+      deleted = true
+      return Promise.resolve()
+    },
+  })
+  const response = await handleDemoAdmin(post({ operation: 'delete', profileId: ADMIN }), admin)
+  assertEquals(response.status, 403)
+  assertEquals(await response.json(), { error: 'You cannot delete your own account.' })
+  assertEquals(deleted, false)
+})
+
+Deno.test('an Auth delete failure does not claim the user was removed', async () => {
+  const admin = deps({
+    deleteAuthUser: () => Promise.reject(new DemoAdminError(500, 'The demo account could not be created.')),
+  })
+  const response = await handleDemoAdmin(post({ operation: 'delete', profileId: PROFILE }), admin)
+  assertEquals(response.status, 500)
+  assertEquals(await response.json(), { error: 'The user could not be deleted.' })
+})
+
 Deno.test('a browser actor id is rejected for start, extend, and deactivate', async () => {
   for (const body of [
     { operation: 'start', profileId: PROFILE, organizationId: ORG, expiresAt: '2027-06-15T00:00:00Z', actorId: OTHER },
     { operation: 'extend', profileId: PROFILE, expiresAt: '2027-06-15T00:00:00Z', actor_id: OTHER },
     { operation: 'deactivate', profileId: PROFILE, actorId: OTHER },
     { operation: 'provision', email: 'new.demo@example.com', organizationId: ORG, expiresAt: '2027-06-15T00:00:00Z', actorId: OTHER },
+    { operation: 'delete', profileId: PROFILE, actorId: OTHER },
   ]) {
     const response = await handleDemoAdmin(post(body), deps())
     assertEquals(response.status, 400)
@@ -569,7 +614,7 @@ Deno.test('validation and server errors from the production origin include CORS 
   }), deps())
   assertEquals(invalid.status, 400)
   assertCors(invalid, PRODUCTION_ORIGIN)
-  assertEquals(await invalid.json(), { error: 'Choose start, extend, deactivate, or provision.' })
+  assertEquals(await invalid.json(), { error: 'Choose start, extend, deactivate, provision, or delete.' })
 
   const failed = await handleDemoAdmin(browserRequest('POST', PRODUCTION_ORIGIN, {
     operation: 'extend',

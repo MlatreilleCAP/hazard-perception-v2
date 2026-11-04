@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import DemoAccountsSection from '@/components/author/DemoAccountsSection.vue'
 import { GUARD_TOGGLE_REASON, isLifecycleRoleGuard, studioToggleReason } from '@/lib/demo/studioToggle'
 import {
@@ -59,10 +58,8 @@ async function onDemoAccountsChanged(): Promise<void> {
   await reloadPeople(false)
 }
 
-function studioLabel(person: StudioPerson): string {
-  if (person.role === 'unprovisioned') return 'Grant Studio'
-  if (person.role === 'demo') return 'Studio off'
-  return 'Studio on'
+function switchLocked(person: StudioPerson): boolean {
+  return Boolean(toggleReason(person)) || person.role === 'admin' || person.id === auth.userId || savingId.value === person.id
 }
 
 async function toggleStudio(person: StudioPerson): Promise<void> {
@@ -108,7 +105,7 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
 </script>
 
 <template>
-  <div class="author-page">
+  <div class="author-page users-page">
     <div class="author-page-inner author-stack-sm">
       <div class="author-page-header">
         <div>
@@ -116,38 +113,42 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
         </div>
       </div>
 
-      <nav class="mvp-section-nav" aria-label="Users">
-        <button
-          type="button"
-          class="mvp-section-tab"
-          :class="{ active: activeTab === 'demo' }"
-          :aria-pressed="activeTab === 'demo'"
-          @click="activeTab = 'demo'"
-        >
-          Demo Accounts
-        </button>
-        <button
-          type="button"
-          class="mvp-section-tab"
-          :class="{ active: activeTab === 'system' }"
-          :aria-pressed="activeTab === 'system'"
-          @click="activeTab = 'system'"
-        >
-          System Users
-        </button>
-      </nav>
+      <div class="users-toolbar">
+        <nav class="mvp-section-nav" aria-label="Users">
+          <button
+            type="button"
+            class="mvp-section-tab"
+            :class="{ active: activeTab === 'demo' }"
+            :aria-pressed="activeTab === 'demo'"
+            @click="activeTab = 'demo'"
+          >
+            Demo Accounts
+          </button>
+          <button
+            type="button"
+            class="mvp-section-tab"
+            :class="{ active: activeTab === 'system' }"
+            :aria-pressed="activeTab === 'system'"
+            @click="activeTab = 'system'"
+          >
+            System Users
+          </button>
+        </nav>
+        <div id="users-new-demo" class="users-toolbar-action"></div>
+      </div>
 
       <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
 
       <DemoAccountsSection
         v-show="activeTab === 'demo'"
         :reload-token="demoReload"
+        :show-new-demo="activeTab === 'demo'"
         @lifecycle-profiles="onLifecycleProfiles"
         @changed="onDemoAccountsChanged"
       />
 
-      <div v-show="activeTab === 'system'" class="author-stack-sm system-users">
-        <p>
+      <div v-show="activeTab === 'system'" class="system-users">
+        <p class="users-intro">
           Turn Studio off for people who should sign in and play, but not see Studio.
           Editors can be allowed to edit unpublished activities and stand alone videos created
           by other people. Published activities and stand alone videos stay locked, except for
@@ -156,11 +157,10 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
         <p v-if="loading" class="author-muted">Loading people…</p>
         <p v-else-if="people.length === 0" class="author-muted">No accounts yet.</p>
 
-        <ul v-else class="author-list">
-          <li v-for="person in people" :key="person.id" class="author-list-row">
-            <div style="min-width: 0; flex: 1">
-              <p class="author-list-title">{{ person.email }}</p>
-              <p v-if="person.displayName" class="author-list-sub">{{ person.displayName }}</p>
+        <ul v-else class="users-list">
+          <li v-for="person in people" :key="person.id" class="users-row">
+            <div class="users-row-main">
+              <p class="users-email">{{ person.email }}</p>
               <p
                 v-if="toggleReason(person)"
                 :id="`studio-lock-${person.id}`"
@@ -169,24 +169,47 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
                 {{ toggleReason(person) }}
               </p>
             </div>
-            <p v-if="person.role === 'admin'" class="author-muted">Admin</p>
-            <div v-else class="author-section-actions">
-              <AuthorPillButton
-                v-if="person.role === 'author'"
-                variant="white"
-                :disabled="savingId === person.id"
-                @click="toggleEditOthers(person)"
-              >
-                {{ person.canEditOthers ? 'Can edit drafts' : 'Own drafts only' }}
-              </AuthorPillButton>
-              <AuthorPillButton
-                variant="white"
-                :disabled="Boolean(toggleReason(person)) || person.id === auth.userId || savingId === person.id"
-                :aria-describedby="toggleReason(person) ? `studio-lock-${person.id}` : undefined"
+            <div class="users-switches">
+              <button
+                type="button"
+                class="users-switch"
+                role="switch"
+                :aria-checked="person.role === 'demo'"
+                :disabled="switchLocked(person) || person.role === 'unprovisioned'"
                 @click="toggleStudio(person)"
               >
-                {{ studioLabel(person) }}
-              </AuthorPillButton>
+                <span>Demo</span>
+                <span class="author-switch" :class="{ on: person.role === 'demo' }" aria-hidden="true">
+                  <span class="author-switch-knob" />
+                </span>
+              </button>
+              <button
+                type="button"
+                class="users-switch"
+                role="switch"
+                :aria-checked="person.canEditOthers"
+                :disabled="person.role !== 'author' || savingId === person.id"
+                @click="toggleEditOthers(person)"
+              >
+                <span>Edit</span>
+                <span class="author-switch" :class="{ on: person.canEditOthers && person.role === 'author' }" aria-hidden="true">
+                  <span class="author-switch-knob" />
+                </span>
+              </button>
+              <button
+                type="button"
+                class="users-switch"
+                role="switch"
+                :aria-checked="person.role === 'author' || person.role === 'admin'"
+                :aria-describedby="toggleReason(person) ? `studio-lock-${person.id}` : undefined"
+                :disabled="switchLocked(person)"
+                @click="toggleStudio(person)"
+              >
+                <span>Studio</span>
+                <span class="author-switch" :class="{ on: person.role === 'author' || person.role === 'admin' }" aria-hidden="true">
+                  <span class="author-switch-knob" />
+                </span>
+              </button>
             </div>
           </li>
         </ul>

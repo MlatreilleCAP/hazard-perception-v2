@@ -285,7 +285,38 @@ export function createDemoAdminDeps(authorization: string | null): DemoAdminDeps
 
     async deleteAuthUser(profileId) {
       const { error } = await service.auth.admin.deleteUser(profileId)
-      if (error) throw new DemoAdminError(500, 'The demo account could not be created.')
+      if (!error) return
+      const text = error.message.toLowerCase()
+      if (text.includes('not found') || text.includes('user_not_found')) return
+      throw new DemoAdminError(500, 'The demo account could not be created.')
+    },
+
+    async prepareCreatedUserDelete(actorId, profileId) {
+      const { error } = await service.rpc('delete_created_demo_user', {
+        p_actor_id: actorId,
+        p_profile_id: profileId,
+      })
+      if (!error) return
+      const text = error.message.toLowerCase()
+      if (text.includes('your own account')) {
+        throw new DemoAdminError(403, 'You cannot delete your own account.')
+      }
+      if (text.includes('administrators cannot be deleted')) {
+        throw new DemoAdminError(403, 'Administrators cannot be deleted.')
+      }
+      if (text.includes('cannot be deleted here')) {
+        throw new DemoAdminError(403, 'This account cannot be deleted here.')
+      }
+      if (text.includes('not a member')) {
+        throw new DemoAdminError(403, 'Administrator is not a member of this organization')
+      }
+      if (text.includes('only administrators')) {
+        throw new DemoAdminError(403, 'Administrator access is required.')
+      }
+      if (text.includes('account_access_blocked')) {
+        throw new DemoAdminError(403, 'account_access_blocked')
+      }
+      throw new DemoAdminError(500, 'The user could not be deleted.')
     },
 
     async lockProvision(email, displayName) {

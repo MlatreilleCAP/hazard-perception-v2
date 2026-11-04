@@ -6,6 +6,7 @@ import { demoFormError, displayDemoStatus, eventLabel, expiryIsoFromLocal } from
 import { isSetupIncomplete } from '@/lib/demo/provisionState'
 import {
   deactivateDemoAccount,
+  deleteCreatedDemoUser,
   extendDemoAccount,
   listAdminOrganizations,
   listDemoAccountEvents,
@@ -16,9 +17,14 @@ import {
   type DemoOrganization,
 } from '@/services/demoAccounts'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   reloadToken?: number
-}>()
+  showNewDemo?: boolean
+}>(), {
+  showNewDemo: true,
+})
+
+const toolbarReady = ref(false)
 
 const emit = defineEmits<{
   lifecycleProfiles: [ids: string[]]
@@ -58,17 +64,16 @@ const deactivateReason = ref('')
 const deactivateError = ref<string | null>(null)
 const deactivateDialog = ref<HTMLElement | null>(null)
 
+const deleteTarget = ref<DemoAccountRecord | null>(null)
+const deleteError = ref<string | null>(null)
+const deleteDialog = ref<HTMLElement | null>(null)
+
 const historyProfileId = ref<string | null>(null)
 const history = ref<DemoAccountEventRecord[]>([])
 const historyLoading = ref(false)
 const historyError = ref<string | null>(null)
 
 let returnFocus: HTMLElement | null = null
-
-const organizationName = computed(() => {
-  return organizations.value.find((organization) => organization.id === organizationId.value)?.name
-    ?? 'Organization'
-})
 
 const blockingEmails = computed(() =>
   accounts.value
@@ -85,6 +90,7 @@ watch(() => props.reloadToken, () => {
 })
 
 onMounted(() => {
+  toolbarReady.value = document.getElementById('users-new-demo') != null
   void load()
 })
 
@@ -167,6 +173,7 @@ function closeDialogs(): void {
   createOpen.value = false
   extendTarget.value = null
   deactivateTarget.value = null
+  deleteTarget.value = null
   clearPassword()
   restoreFocus()
 }
@@ -314,6 +321,33 @@ async function submitDeactivate(): Promise<void> {
   }
 }
 
+function openDelete(account: DemoAccountRecord): void {
+  rememberFocus()
+  deleteTarget.value = account
+  deleteError.value = null
+}
+
+async function submitDelete(): Promise<void> {
+  const account = deleteTarget.value
+  if (!account) return
+  busy.value = true
+  deleteError.value = null
+  try {
+    await deleteCreatedDemoUser(account.profileId)
+    if (historyProfileId.value === account.profileId) {
+      historyProfileId.value = null
+      history.value = []
+    }
+    deleteTarget.value = null
+    restoreFocus()
+    await refreshAfterChange()
+  } catch (cause) {
+    deleteError.value = cause instanceof Error ? cause.message : 'The user could not be deleted.'
+  } finally {
+    busy.value = false
+  }
+}
+
 async function openHistory(account: DemoAccountRecord): Promise<void> {
   historyProfileId.value = account.profileId
   historyLoading.value = true
@@ -332,6 +366,26 @@ function statusOf(account: DemoAccountRecord): string {
   return displayDemoStatus(account.status, account.expiresAt)
 }
 
+function formatDemoDate(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date)
+}
+
+function accountSummary(account: DemoAccountRecord): string {
+  const status = statusOf(account)
+  if (status === 'Setup incomplete') return status
+  const start = formatDemoDate(account.startsAt)
+  const end = formatDemoDate(account.expiresAt)
+  if (!start || !end) return status
+  return `${status} · ${start} - ${end}`
+}
+
 function retryHold(account: DemoAccountRecord): void {
   void openCreate({
     email: account.email,
@@ -342,23 +396,29 @@ function retryHold(account: DemoAccountRecord): void {
 </script>
 
 <template>
-  <section class="demo-accounts" aria-labelledby="demo-accounts-title">
-    <div class="author-page-header">
-      <div>
-        <h2 id="demo-accounts-title">Demo Accounts</h2>
-        <p>
-          Create a demo account and email the user a secure link to set their password.
-          Access starts immediately.
-        </p>
-      </div>
+  <section class="demo-accounts" aria-label="Demo Accounts">
+    <p class="users-intro">
+      Create a new email address, then share the password yourself. Welcome email is turned off. Access starts immediately.
+    </p>
+    <AuthorPillButton
+      v-if="showNewDemo && !toolbarReady"
+      class="users-new-demo"
+      variant="primary"
+      :disabled="loading || busy || !organizationId"
+      @click="openCreate()"
+    >
+      New Demo
+    </AuthorPillButton>
+    <Teleport v-if="showNewDemo && toolbarReady" to="#users-new-demo">
       <AuthorPillButton
+        class="users-new-demo"
         variant="primary"
         :disabled="loading || busy || !organizationId"
         @click="openCreate()"
       >
-        New demo
+        New Demo
       </AuthorPillButton>
-    </div>
+    </Teleport>
 
     <label v-if="organizations.length > 1" class="demo-field">
       <span>Organization</span>
@@ -389,51 +449,47 @@ function retryHold(account: DemoAccountRecord): void {
       No demo accounts yet.
     </p>
 
-    <ul v-if="!loading && accounts.length > 0" class="author-list">
-      <li v-for="account in accounts" :key="account.email" class="author-list-row demo-account-row">
-        <div class="demo-account-main">
-          <p class="author-list-title">{{ account.email }}</p>
-          <p v-if="account.displayName" class="author-list-sub">{{ account.displayName }}</p>
-          <p v-if="statusOf(account) === 'Setup incomplete'" class="author-list-sub">
-            {{ organizationName }}
-            · Setup incomplete
-            <template v-if="account.createdAt"> · Since {{ formatDemoTimestamp(account.createdAt) }}</template>
-          </p>
-          <p v-else class="author-list-sub">
-            {{ organizationName }}
-            · {{ statusOf(account) }}
-            · Started {{ formatDemoTimestamp(account.startsAt) }}
-            · Expires {{ formatDemoTimestamp(account.expiresAt) }}
-          </p>
-          <p v-if="statusOf(account) === 'Setup incomplete'" class="author-list-sub">
-            Retry does not show a password from the earlier attempt.
-          </p>
+    <ul v-if="!loading && accounts.length > 0" class="users-list">
+      <li v-for="account in accounts" :key="account.email" class="users-row demo-account-row">
+        <div class="users-row-main">
+          <p class="users-email">{{ account.email }}</p>
+          <p class="author-list-sub">{{ accountSummary(account) }}</p>
         </div>
         <div class="demo-account-actions">
-          <template v-if="statusOf(account) === 'Setup incomplete'">
-            <AuthorPillButton variant="white" :disabled="busy" @click="retryHold(account)">
-              Retry
-            </AuthorPillButton>
-          </template>
-          <template v-else>
-            <AuthorPillButton variant="white" @click="openHistory(account)">History</AuthorPillButton>
-            <AuthorPillButton
-              v-if="statusOf(account) !== 'Deactivated'"
-              variant="white"
-              :disabled="busy"
-              @click="openExtend(account)"
-            >
-              Extend
-            </AuthorPillButton>
-            <AuthorPillButton
-              v-if="statusOf(account) !== 'Deactivated'"
-              variant="white"
-              :disabled="busy"
-              @click="openDeactivate(account)"
-            >
-              Deactivate
-            </AuthorPillButton>
-          </template>
+          <AuthorPillButton
+            v-if="statusOf(account) === 'Setup incomplete'"
+            variant="white"
+            :disabled="busy"
+            @click="retryHold(account)"
+          >
+            Retry
+          </AuthorPillButton>
+          <AuthorPillButton
+            v-else
+            variant="white"
+            :disabled="busy || statusOf(account) === 'Deactivated'"
+            @click="openDeactivate(account)"
+          >
+            Deactivate
+          </AuthorPillButton>
+          <AuthorPillButton
+            v-if="statusOf(account) !== 'Setup incomplete' && statusOf(account) !== 'Deactivated'"
+            variant="white"
+            :disabled="busy"
+            @click="openExtend(account)"
+          >
+            Extend
+          </AuthorPillButton>
+          <AuthorPillButton
+            v-if="statusOf(account) !== 'Setup incomplete'"
+            variant="white"
+            @click="openHistory(account)"
+          >
+            History
+          </AuthorPillButton>
+          <AuthorPillButton variant="white" :disabled="busy" @click="openDelete(account)">
+            Delete
+          </AuthorPillButton>
         </div>
       </li>
     </ul>
@@ -597,6 +653,30 @@ function retryHold(account: DemoAccountRecord): void {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div v-if="deleteTarget" class="demo-dialog-backdrop">
+      <div
+        ref="deleteDialog"
+        class="demo-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="demo-delete-title"
+        @keydown="onDialogKeydown($event, deleteDialog)"
+      >
+        <h3 id="demo-delete-title">Delete {{ deleteTarget.email }}</h3>
+        <p>
+          This permanently removes the sign-in and the demo record.
+          The email can be used again. This cannot be undone.
+        </p>
+        <p v-if="deleteError" class="auth-error" role="alert">{{ deleteError }}</p>
+        <div class="demo-account-actions">
+          <AuthorPillButton variant="white" :disabled="busy" @click="closeDialogs">Cancel</AuthorPillButton>
+          <button type="button" class="author-pill author-pill-primary" :disabled="busy" @click="submitDelete">
+            {{ busy ? 'Deleting…' : 'Delete user' }}
+          </button>
+        </div>
       </div>
     </div>
   </section>

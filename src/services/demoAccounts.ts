@@ -226,6 +226,16 @@ export async function extendDemoAccount(
   if (error) throw new Error(await invokeError(error))
 }
 
+export async function deleteCreatedDemoUser(
+  profileId: string,
+  gateway = browserDemoGateway(),
+): Promise<void> {
+  const body = { operation: 'delete', profileId }
+  assertNoSecretFields(body)
+  const { error } = await gateway.invoke(body)
+  if (error) throw new Error(await invokeError(error))
+}
+
 export async function deactivateDemoAccount(
   profileId: string,
   reason: string | null,

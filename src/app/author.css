@@ -1134,6 +1134,119 @@ fieldset.author-stack {
   color: var(--editor-muted);
 }
 
+.users-page .users-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.users-page .users-toolbar-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.users-page .users-intro {
+  margin: 0;
+  max-width: 46rem;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--editor-body);
+}
+
+.users-page .users-new-demo {
+  height: 36px;
+  padding: 0 18px;
+  font-size: 14px;
+}
+
+.users-page .users-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.users-page .users-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 0;
+  border-bottom: 1px solid #ececf0;
+}
+
+.users-page .users-row-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.users-page .users-email {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--editor-ink);
+}
+
+.users-page .users-switches {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 28px;
+}
+
+.users-page .users-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--editor-ink);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.users-page .users-switch:disabled {
+  cursor: default;
+}
+
+.users-page .mvp-section-tab {
+  border-color: #e4e4e8;
+  color: #6d6d6d;
+}
+
+.users-page .mvp-section-tab.active {
+  border-color: #2a2a2a;
+  color: #2a2a2a;
+}
+
+.users-page .demo-account-actions .author-pill {
+  height: 34px;
+  border: 1px solid #d8d8dc;
+  background: #fff;
+  box-shadow: none;
+  color: var(--editor-ink);
+  font-size: 14px;
+}
+
+.users-page .demo-account-actions .author-pill:disabled {
+  opacity: 1;
+  color: #8a8a8a;
+}
+
+.users-page .demo-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .demo-accounts {
   display: flex;
   flex-direction: column;

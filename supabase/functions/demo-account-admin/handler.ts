@@ -71,6 +71,7 @@ export interface DemoAdminDeps {
   lockProvision(email: string, displayName: string | null): Promise<string>
   releaseProvision(email: string): Promise<void>
   abandonProvision(email: string): Promise<void>
+  prepareCreatedUserDelete(actorId: string, profileId: string): Promise<void>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -364,6 +365,28 @@ async function deliverAccountSetup(
   })
 }
 
+/**
+ * Removes a created demo user. Lifecycle rows cascade from the Auth user.
+ * Provision holds are cleared first so the email can be created again.
+ */
+async function deleteCreatedUser(
+  deps: DemoAdminDeps,
+  caller: AdminCaller,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const profileId = uuid(body.profileId, 'A profile')
+  if (profileId === caller.userId) {
+    throw new DemoAdminError(403, 'You cannot delete your own account.')
+  }
+  await deps.prepareCreatedUserDelete(caller.userId, profileId)
+  try {
+    await deps.deleteAuthUser(profileId)
+  } catch {
+    throw new DemoAdminError(500, 'The user could not be deleted.')
+  }
+  return Response.json({ profileId, deleted: true })
+}
+
 async function applyReturnedAction(
   deps: DemoAdminDeps,
   result: LifecycleResult,
@@ -426,6 +449,9 @@ export async function handleDemoAdmin(
     if (body.operation === 'provision') {
       return finish(await provisionDemoAccount(deps, caller, body))
     }
+    if (body.operation === 'delete') {
+      return finish(await deleteCreatedUser(deps, caller, body))
+    }
     const profileId = uuid(body.profileId, 'A profile')
 
     let result: LifecycleResult
@@ -445,7 +471,7 @@ export async function handleDemoAdmin(
       }
       result = await deps.deactivate(caller.userId, profileId, reason?.trim() ?? null)
     } else {
-      throw new DemoAdminError(400, 'Choose start, extend, deactivate, or provision.')
+      throw new DemoAdminError(400, 'Choose start, extend, deactivate, provision, or delete.')
     }
 
     const auth = await applyReturnedAction(deps, result)

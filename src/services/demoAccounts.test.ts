@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { presentDemoError } from '@/lib/demo/provisionState'
 import {
+  deleteCreatedDemoUser,
   extendDemoAccount,
   listDemoAccounts,
   provisionDemoAccount,
@@ -136,5 +137,11 @@ describe('demo account administration', () => {
       profileId: 'profile-1',
       expiresAt: '2030-02-01T00:00:00Z',
     })
+  })
+
+  it('deletes a created user through the authenticated function', async () => {
+    const invoke = vi.fn(async () => ({ data: { profileId: 'profile-1', deleted: true }, error: null }))
+    await deleteCreatedDemoUser('profile-1', gateway({ invoke }))
+    expect(invoke).toHaveBeenCalledWith({ operation: 'delete', profileId: 'profile-1' })
   })
 })

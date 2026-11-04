@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import DemoAccountsSection from '@/components/author/DemoAccountsSection.vue'
 import {
   deactivateDemoAccount,
+  deleteCreatedDemoUser,
   extendDemoAccount,
   listAdminOrganizations,
   listDemoAccountEvents,
@@ -17,6 +18,7 @@ vi.mock('@/services/demoAccounts', () => ({
   provisionDemoAccount: vi.fn(),
   extendDemoAccount: vi.fn(),
   deactivateDemoAccount: vi.fn(),
+  deleteCreatedDemoUser: vi.fn(),
 }))
 
 const organization = { id: 'org-1', name: 'AlertDriving', slug: 'alertdriving' }
@@ -67,10 +69,7 @@ describe('DemoAccountsSection', () => {
   it('shows the account, organization, status, dates, and history', async () => {
     const wrapper = await mountSection()
     expect(wrapper.text()).toContain('existing.demo@example.com')
-    expect(wrapper.text()).toContain('AlertDriving')
-    expect(wrapper.text()).toContain('Active')
-    expect(wrapper.text()).toContain('Started')
-    expect(wrapper.text()).toContain('Expires')
+    expect(wrapper.text()).toContain('Active · Nov 1, 2026 - Jan 1, 2030')
 
     const history = wrapper.findAll('button').find((button) => button.text() === 'History')
     await history?.trigger('click')
@@ -113,7 +112,7 @@ describe('DemoAccountsSection', () => {
       initialPassword: password,
     })
     const wrapper = await mountSection()
-    await wrapper.findAll('button').find((button) => button.text() === 'New demo')?.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'New Demo')?.trigger('click')
     await wrapper.get('input[type="email"]').setValue('new.person@example.com')
     await wrapper.get('input[type="text"]').setValue('New Person')
     await wrapper.get('input[type="datetime-local"]').setValue('2030-06-01T09:30')
@@ -150,7 +149,7 @@ describe('DemoAccountsSection', () => {
       initialPassword: password,
     })
     const wrapper = await mountSection()
-    await wrapper.findAll('button').find((button) => button.text() === 'New demo')?.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'New Demo')?.trigger('click')
     await wrapper.get('input[type="email"]').setValue('copy.person@example.com')
     await wrapper.get('input[type="datetime-local"]').setValue('2030-06-01T09:30')
     await wrapper.get('form').trigger('submit')
@@ -177,7 +176,7 @@ describe('DemoAccountsSection', () => {
       initialPassword: password,
     })
     const wrapper = await mountSection()
-    await wrapper.findAll('button').find((button) => button.text() === 'New demo')?.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'New Demo')?.trigger('click')
     await wrapper.get('input[type="email"]').setValue('blocked.person@example.com')
     await wrapper.get('input[type="datetime-local"]').setValue('2030-06-01T09:30')
     await wrapper.get('form').trigger('submit')
@@ -203,7 +202,7 @@ describe('DemoAccountsSection', () => {
         initialPassword: null,
       })
     const wrapper = await mountSection()
-    await wrapper.findAll('button').find((button) => button.text() === 'New demo')?.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'New Demo')?.trigger('click')
     await wrapper.get('input[type="email"]').setValue('held.person@example.com')
     await wrapper.get('input[type="datetime-local"]').setValue('2030-06-01T09:30')
     await wrapper.get('form').trigger('submit')
@@ -235,6 +234,17 @@ describe('DemoAccountsSection', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
     expect(deactivateDemoAccount).toHaveBeenCalledWith('profile-1', 'Contract ended')
+  })
+
+  it('permanently deletes a created demo user after confirmation', async () => {
+    vi.mocked(deleteCreatedDemoUser).mockResolvedValue()
+    const wrapper = await mountSection()
+    await wrapper.findAll('button').find((button) => button.text() === 'Delete')?.trigger('click')
+    expect(wrapper.text()).toContain('This permanently removes the sign-in')
+    expect(deleteCreatedDemoUser).not.toHaveBeenCalled()
+    await wrapper.findAll('button').find((button) => button.text() === 'Delete user')?.trigger('click')
+    await flushPromises()
+    expect(deleteCreatedDemoUser).toHaveBeenCalledWith('profile-1')
   })
 
   it('keeps a setup-incomplete hold after reload and retries without a password', async () => {
@@ -324,7 +334,7 @@ describe('DemoAccountsSection', () => {
       setupDelivery: 'accepted',
     })
     const wrapper = await mountSection()
-    await wrapper.findAll('button').find((button) => button.text() === 'New demo')?.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'New Demo')?.trigger('click')
     expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('Email account setup link')
     expect(wrapper.text()).toContain("We'll email the user a secure link")
@@ -340,7 +350,7 @@ describe('DemoAccountsSection', () => {
 
   it('closes the create dialog from the keyboard', async () => {
     const wrapper = await mountSection()
-    await wrapper.findAll('button').find((button) => button.text() === 'New demo')?.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'New Demo')?.trigger('click')
     expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
     await wrapper.get('[role="dialog"]').trigger('keydown', { key: 'Escape' })
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)

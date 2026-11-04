@@ -18,6 +18,10 @@ const SAFE_MESSAGES = new Set([
   'The demo account could not be extended.',
   'The demo account could not be deactivated.',
   'The deactivation reason must be 500 characters or fewer.',
+  'You cannot delete your own account.',
+  'Administrators cannot be deleted.',
+  'This account cannot be deleted here.',
+  'The user could not be deleted.',
   'The caller is taken from the signed-in session.',
 ])
 
