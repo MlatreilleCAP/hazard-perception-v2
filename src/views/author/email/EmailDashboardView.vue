@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import EmailSectionNav from '@/components/author/email/EmailSectionNav.vue'
+import { useEmailAccess } from '@/composables/useEmailAccess'
 import { loadEmailDashboard } from '@/services/emailManagement'
 import type { EmailDashboard } from '@/types/email'
 
 const loading = ref(true)
 const error = ref<string | null>(null)
 const dashboard = ref<EmailDashboard | null>(null)
+const { stillAllowed, reportEmailFailure } = useEmailAccess(() => {
+  dashboard.value = null
+})
 
 const stats = [
   { key: 'totalTemplates', label: 'Total templates' },
@@ -20,9 +24,11 @@ onMounted(async () => {
   loading.value = true
   error.value = null
   try {
-    dashboard.value = await loadEmailDashboard()
+    const loaded = await loadEmailDashboard()
+    if (!stillAllowed()) return
+    dashboard.value = loaded
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to load email'
+    error.value = await reportEmailFailure(cause)
   } finally {
     loading.value = false
   }

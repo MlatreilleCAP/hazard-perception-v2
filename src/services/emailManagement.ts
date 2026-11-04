@@ -1,5 +1,5 @@
-import { getSupabase } from '@/services/supabase'
 import { isEmailLocale, isTemplateKey, isVariableKey } from '@/lib/email/templateDocument'
+import { emailAdminClient, explainEmailDatabaseError } from '@/services/emailAccess'
 import type {
   EmailActivityItem,
   EmailAutomationRule,
@@ -30,14 +30,15 @@ const MESSAGE_STATUSES = new Set<EmailMessageStatus>([
   'suppressed',
 ])
 
-function requireClient() {
-  const client = getSupabase()
-  if (!client) throw new Error('Supabase is not configured')
-  return client
+async function stopOnEmailError(
+  client: Awaited<ReturnType<typeof emailAdminClient>>,
+  error: { message: string; code?: string | null } | null,
+): Promise<void> {
+  if (error) throw await explainEmailDatabaseError(client, error)
 }
 
-function asCount(count: number | null, error: { message: string } | null, label: string): number {
-  if (error) throw new Error(error.message || `Failed to load ${label}`)
+function asCount(count: number | null, error: { message: string } | null): number {
+  if (error) throw new Error(error.message)
   return count ?? 0
 }
 
@@ -47,7 +48,7 @@ function isMessageStatus(value: string): value is EmailMessageStatus {
 
 /** Dashboard figures from the email catalog. Empty tables stay at zero. */
 export async function loadEmailDashboard(): Promise<EmailDashboard> {
-  const client = requireClient()
+  const client = await emailAdminClient()
 
   const [templates, versions, automations, sent, recent] = await Promise.all([
     client.from('email_templates').select('id', { count: 'exact', head: true }),
@@ -67,8 +68,11 @@ export async function loadEmailDashboard(): Promise<EmailDashboard> {
       .limit(8),
   ])
 
-  if (versions.error) throw new Error(versions.error.message)
-  if (recent.error) throw new Error(recent.error.message)
+  await stopOnEmailError(client, versions.error)
+  await stopOnEmailError(client, recent.error)
+  await stopOnEmailError(client, templates.error)
+  await stopOnEmailError(client, automations.error)
+  await stopOnEmailError(client, sent.error)
 
   const published = new Set<string>()
   const drafts = new Set<string>()
@@ -94,11 +98,11 @@ export async function loadEmailDashboard(): Promise<EmailDashboard> {
   }
 
   return {
-    totalTemplates: asCount(templates.count, templates.error, 'templates'),
+    totalTemplates: asCount(templates.count, templates.error),
     publishedTemplates: published.size,
     draftTemplates: drafts.size,
-    enabledAutomations: asCount(automations.count, automations.error, 'automations'),
-    emailsSent: asCount(sent.count, sent.error, 'sent email'),
+    enabledAutomations: asCount(automations.count, automations.error),
+    emailsSent: asCount(sent.count, sent.error),
     recent: activity,
   }
 }
@@ -146,7 +150,7 @@ function assertVariables(variables: EmailVariable[]): EmailVariable[] {
 }
 
 export async function listEmailTemplates(): Promise<EmailTemplateSummary[]> {
-  const client = requireClient()
+  const client = await emailAdminClient()
   const [templates, versions] = await Promise.all([
     client
       .from('email_templates')
@@ -154,8 +158,8 @@ export async function listEmailTemplates(): Promise<EmailTemplateSummary[]> {
       .order('name'),
     client.from('email_template_versions').select('template_id, locale, status, updated_at'),
   ])
-  if (templates.error) throw new Error(templates.error.message)
-  if (versions.error) throw new Error(versions.error.message)
+  if (templates.error) throw await explainEmailDatabaseError(client, templates.error)
+  if (versions.error) throw await explainEmailDatabaseError(client, versions.error)
 
   const byTemplate = new Map<string, { locales: Set<string>; updatedAt: string; flags: EmailTemplateSummary }>()
   const summaries: EmailTemplateSummary[] = (templates.data ?? []).map((row) => {
@@ -203,13 +207,13 @@ export async function listEmailTemplates(): Promise<EmailTemplateSummary[]> {
 }
 
 export async function loadEmailTemplate(key: string): Promise<EmailTemplateDetail | null> {
-  const client = requireClient()
+  const client = await emailAdminClient()
   const { data, error } = await client
     .from('email_templates')
     .select('id, organization_id, key, name, description, source, sendable, updated_at')
     .eq('key', key)
     .maybeSingle()
-  if (error) throw new Error(error.message)
+  if (error) throw await explainEmailDatabaseError(client, error)
   if (!data) return null
 
   const versions = await client
@@ -218,7 +222,7 @@ export async function loadEmailTemplate(key: string): Promise<EmailTemplateDetai
     .eq('template_id', data.id)
     .order('locale')
     .order('version', { ascending: false, nullsFirst: false })
-  if (versions.error) throw new Error(versions.error.message)
+  if (versions.error) throw await explainEmailDatabaseError(client, versions.error)
 
   const mapped: EmailTemplateVersion[] = []
   for (const row of versions.data ?? []) {
@@ -263,13 +267,13 @@ export async function createApplicationTemplate(input: {
   if (!isTemplateKey(key)) {
     throw new Error('Keys start with a letter and use lowercase letters, numbers, and underscores.')
   }
-  const client = requireClient()
+  const client = await emailAdminClient()
   const organization = await client
     .from('organizations')
     .select('id')
     .eq('slug', 'alertdriving')
     .maybeSingle()
-  if (organization.error) throw new Error(organization.error.message)
+  if (organization.error) throw await explainEmailDatabaseError(client, organization.error)
   if (!organization.data?.id) throw new Error('AlertDriving organization was not found.')
 
   const created = await client
@@ -284,7 +288,7 @@ export async function createApplicationTemplate(input: {
     })
     .select('id')
     .single()
-  if (created.error) throw new Error(created.error.message)
+  if (created.error) throw await explainEmailDatabaseError(client, created.error)
 
   const draft = await client.from('email_template_versions').insert({
     template_id: created.data.id,
@@ -305,7 +309,7 @@ export async function createApplicationTemplate(input: {
     published_at: null,
     created_by: input.createdBy,
   })
-  if (draft.error) throw new Error(draft.error.message)
+  if (draft.error) throw await explainEmailDatabaseError(client, draft.error)
   return key
 }
 
@@ -316,19 +320,19 @@ export async function saveTemplateDetails(
 ): Promise<void> {
   const trimmed = name.trim()
   if (!trimmed) throw new Error('Enter a template name.')
-  const client = requireClient()
+  const client = await emailAdminClient()
   const { error } = await client
     .from('email_templates')
     .update({ name: trimmed, description: description.trim() })
     .eq('id', templateId)
     .eq('source', 'application')
-  if (error) throw new Error(error.message)
+  if (error) throw await explainEmailDatabaseError(client, error)
 }
 
 export async function saveEmailDraft(input: EmailDraftInput, draftId: string | null): Promise<void> {
   if (!isEmailLocale(input.locale)) throw new Error('Use a locale such as en or fr-CA.')
   const variables = assertVariables(input.variables)
-  const client = requireClient()
+  const client = await emailAdminClient()
   if (draftId) {
     const { error } = await client
       .from('email_template_versions')
@@ -340,7 +344,7 @@ export async function saveEmailDraft(input: EmailDraftInput, draftId: string | n
       })
       .eq('id', draftId)
       .eq('status', 'draft')
-    if (error) throw new Error(error.message)
+    if (error) throw await explainEmailDatabaseError(client, error)
     return
   }
 
@@ -356,7 +360,7 @@ export async function saveEmailDraft(input: EmailDraftInput, draftId: string | n
     published_at: null,
     created_by: input.createdBy,
   })
-  if (error) throw new Error(error.message)
+  if (error) throw await explainEmailDatabaseError(client, error)
 }
 
 export async function publishEmailLocale(input: EmailDraftInput, draftId: string | null): Promise<void> {
@@ -364,13 +368,13 @@ export async function publishEmailLocale(input: EmailDraftInput, draftId: string
     throw new Error('A published version needs a subject, HTML body, and plain-text body.')
   }
   await saveEmailDraft(input, draftId)
-  const client = requireClient()
+  const client = await emailAdminClient()
   const existing = await client
     .from('email_template_versions')
     .select('id, version, status')
     .eq('template_id', input.templateId)
     .eq('locale', input.locale)
-  if (existing.error) throw new Error(existing.error.message)
+  if (existing.error) throw await explainEmailDatabaseError(client, existing.error)
   const rows = existing.data ?? []
   const current = rows.find((row) => row.status === 'published')
   if (current) {
@@ -379,7 +383,7 @@ export async function publishEmailLocale(input: EmailDraftInput, draftId: string
       .update({ status: 'archived' })
       .eq('id', current.id)
       .eq('status', 'published')
-    if (archived.error) throw new Error(archived.error.message)
+    if (archived.error) throw await explainEmailDatabaseError(client, archived.error)
   }
   const nextVersion = rows.reduce((highest, row) => {
     return typeof row.version === 'number' ? Math.max(highest, row.version) : highest
@@ -396,35 +400,35 @@ export async function publishEmailLocale(input: EmailDraftInput, draftId: string
     published_at: new Date().toISOString(),
     created_by: input.createdBy,
   })
-  if (published.error) throw new Error(published.error.message)
+  if (published.error) throw await explainEmailDatabaseError(client, published.error)
 }
 
 export async function archivePublishedVersion(versionId: string): Promise<void> {
-  const client = requireClient()
+  const client = await emailAdminClient()
   const { error } = await client
     .from('email_template_versions')
     .update({ status: 'archived' })
     .eq('id', versionId)
     .eq('status', 'published')
-  if (error) throw new Error(error.message)
+  if (error) throw await explainEmailDatabaseError(client, error)
 }
 
 export async function deleteApplicationTemplate(templateId: string): Promise<void> {
-  const client = requireClient()
+  const client = await emailAdminClient()
   const drafts = await client
     .from('email_template_versions')
     .delete()
     .eq('template_id', templateId)
     .eq('status', 'draft')
-  if (drafts.error) throw new Error(drafts.error.message)
+  if (drafts.error) throw await explainEmailDatabaseError(client, drafts.error)
   const { error } = await client.from('email_templates').delete().eq('id', templateId).eq('source', 'application')
-  if (error) throw new Error(error.message)
+  if (error) throw await explainEmailDatabaseError(client, error)
 }
 
 const MESSAGE_LIMIT = 200
 
 export async function listEmailAutomations(): Promise<EmailAutomationRule[]> {
-  const client = requireClient()
+  const client = await emailAdminClient()
   const [rules, organizations, templates] = await Promise.all([
     client
       .from('email_automation_rules')
@@ -433,9 +437,9 @@ export async function listEmailAutomations(): Promise<EmailAutomationRule[]> {
     client.from('organizations').select('id, name'),
     client.from('email_templates').select('organization_id, key, name'),
   ])
-  if (rules.error) throw new Error(rules.error.message)
-  if (organizations.error) throw new Error(organizations.error.message)
-  if (templates.error) throw new Error(templates.error.message)
+  if (rules.error) throw await explainEmailDatabaseError(client, rules.error)
+  if (organizations.error) throw await explainEmailDatabaseError(client, organizations.error)
+  if (templates.error) throw await explainEmailDatabaseError(client, templates.error)
 
   const organizationNames = new Map(
     (organizations.data ?? []).map((row) => [String(row.id), String(row.name ?? '')]),
@@ -462,19 +466,19 @@ export async function listEmailAutomations(): Promise<EmailAutomationRule[]> {
 
 /** Changes only the enabled flag. Does not create jobs or send mail. */
 export async function setEmailAutomationEnabled(ruleId: string, enabled: boolean): Promise<void> {
-  const client = requireClient()
+  const client = await emailAdminClient()
   const { error } = await client.from('email_automation_rules').update({ enabled }).eq('id', ruleId)
-  if (error) throw new Error(error.message)
+  if (error) throw await explainEmailDatabaseError(client, error)
 }
 
 export async function listEmailMessages(): Promise<{ messages: EmailMessageRecord[]; truncated: boolean }> {
-  const client = requireClient()
+  const client = await emailAdminClient()
   const { data, error } = await client
     .from('email_messages')
     .select('id, to_email, template_key, locale, subject, status, created_at, sent_at')
     .order('created_at', { ascending: false })
     .limit(MESSAGE_LIMIT)
-  if (error) throw new Error(error.message)
+  if (error) throw await explainEmailDatabaseError(client, error)
 
   const messages: EmailMessageRecord[] = []
   for (const row of data ?? []) {
@@ -502,7 +506,7 @@ function optionalEmail(value: string, label: string): string | null {
 }
 
 export async function loadEmailSettings(): Promise<EmailSettingsDetail | null> {
-  const client = requireClient()
+  const client = await emailAdminClient()
   const [settings, organizations] = await Promise.all([
     client
       .from('email_settings')
@@ -511,8 +515,8 @@ export async function loadEmailSettings(): Promise<EmailSettingsDetail | null> {
       .maybeSingle(),
     client.from('organizations').select('id, name'),
   ])
-  if (settings.error) throw new Error(settings.error.message)
-  if (organizations.error) throw new Error(organizations.error.message)
+  if (settings.error) throw await explainEmailDatabaseError(client, settings.error)
+  if (organizations.error) throw await explainEmailDatabaseError(client, organizations.error)
   if (!settings.data) return null
   const organizationId = String(settings.data.organization_id)
   const organization = (organizations.data ?? []).find((row) => String(row.id) === organizationId)
@@ -545,7 +549,7 @@ export async function saveEmailSettings(
   const replyTo = optionalEmail(settings.replyTo, 'Reply-to')
   const supportAddress = optionalEmail(settings.supportAddress, 'Support address')
 
-  const client = requireClient()
+  const client = await emailAdminClient()
   const { error } = await client
     .from('email_settings')
     .update({
@@ -558,7 +562,7 @@ export async function saveEmailSettings(
       updated_by: updatedBy,
     })
     .eq('organization_id', settings.organizationId)
-  if (error) throw new Error(error.message)
+  if (error) throw await explainEmailDatabaseError(client, error)
 }
 
 /** Asks the application email function to send a test to the signed-in administrator. */
@@ -567,7 +571,7 @@ export async function sendTestTemplateEmail(input: {
   locale: string
   source: 'draft' | 'published'
 }): Promise<EmailTestSendResult> {
-  const client = requireClient()
+  const client = await emailAdminClient()
   const { data, error } = await client.functions.invoke('send-application-email', {
     body: {
       operation: 'test',

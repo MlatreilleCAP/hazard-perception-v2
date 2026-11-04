@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import EmailSectionNav from '@/components/author/email/EmailSectionNav.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
+import { useEmailAccess } from '@/composables/useEmailAccess'
 import { loadEmailSettings, saveEmailSettings } from '@/services/emailManagement'
 import { useAuthStore } from '@/stores/authStore'
 import type { EmailSettingsDetail } from '@/types/email'
@@ -12,6 +13,9 @@ const loading = ref(true)
 const saving = ref(false)
 const error = ref<string | null>(null)
 const notice = ref<string | null>(null)
+const { stillAllowed, reportEmailFailure } = useEmailAccess(() => {
+  settings.value = null
+})
 
 onMounted(() => {
   void load()
@@ -21,9 +25,11 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    settings.value = await loadEmailSettings()
+    const loaded = await loadEmailSettings()
+    if (!stillAllowed()) return
+    settings.value = loaded
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to load email settings'
+    error.value = await reportEmailFailure(cause)
   } finally {
     loading.value = false
   }
@@ -36,10 +42,13 @@ async function save(): Promise<void> {
   notice.value = null
   try {
     await saveEmailSettings(settings.value, auth.userId)
+    if (!stillAllowed()) return
     notice.value = 'Email settings saved.'
-    settings.value = await loadEmailSettings()
+    const loaded = await loadEmailSettings()
+    if (!stillAllowed()) return
+    settings.value = loaded
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to save email settings'
+    error.value = await reportEmailFailure(cause)
   } finally {
     saving.value = false
   }

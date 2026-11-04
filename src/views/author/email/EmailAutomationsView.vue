@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import EmailSectionNav from '@/components/author/email/EmailSectionNav.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
+import { useEmailAccess } from '@/composables/useEmailAccess'
 import { listEmailAutomations, setEmailAutomationEnabled } from '@/services/emailManagement'
 import type { EmailAutomationRule } from '@/types/email'
 
@@ -9,6 +10,9 @@ const rules = ref<EmailAutomationRule[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const pendingId = ref<string | null>(null)
+const { stillAllowed, reportEmailFailure } = useEmailAccess(() => {
+  rules.value = []
+})
 
 onMounted(() => {
   void load()
@@ -18,9 +22,11 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    rules.value = await listEmailAutomations()
+    const loaded = await listEmailAutomations()
+    if (!stillAllowed()) return
+    rules.value = loaded
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to load automations'
+    error.value = await reportEmailFailure(cause)
   } finally {
     loading.value = false
   }
@@ -34,7 +40,7 @@ async function toggle(rule: EmailAutomationRule): Promise<void> {
     await setEmailAutomationEnabled(rule.id, next)
     rule.enabled = next
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to update the rule'
+    error.value = await reportEmailFailure(cause)
   } finally {
     pendingId.value = null
   }

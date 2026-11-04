@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useEmailAccess } from '@/composables/useEmailAccess'
 import EmailPreviewFrame from '@/components/author/email/EmailPreviewFrame.vue'
 import EmailSectionNav from '@/components/author/email/EmailSectionNav.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
@@ -51,6 +52,14 @@ const variableKey = ref('')
 const variableSample = ref('')
 const variableDescription = ref('')
 const variableRequired = ref(true)
+const { stillAllowed, reportEmailFailure } = useEmailAccess(() => {
+  template.value = null
+  subject.value = ''
+  htmlBody.value = ''
+  textBody.value = ''
+  variables.value = []
+  blocks.value = []
+})
 
 const templateKey = computed(() => String(route.params.key ?? ''))
 const authManaged = computed(() => template.value?.source === 'auth_hook')
@@ -91,6 +100,7 @@ async function load(): Promise<void> {
   viewingVersionId.value = null
   try {
     const detail = await loadEmailTemplate(templateKey.value)
+    if (!stillAllowed()) return
     template.value = detail
     if (!detail || detail.source === 'auth_hook') return
     name.value = detail.name
@@ -100,7 +110,7 @@ async function load(): Promise<void> {
       ?? 'en'
     selectLocale(preferred, detail)
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to load the template'
+    error.value = await reportEmailFailure(cause)
   } finally {
     loading.value = false
   }
@@ -254,11 +264,12 @@ async function saveDetails(): Promise<void> {
   notice.value = null
   try {
     await saveTemplateDetails(template.value.id, name.value, description.value)
+    if (!stillAllowed()) return
     template.value.name = name.value.trim()
     template.value.description = description.value.trim()
     notice.value = 'Name and description saved.'
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to save the template'
+    error.value = await reportEmailFailure(cause)
   } finally {
     saving.value = false
   }
@@ -275,7 +286,7 @@ async function saveDraft(): Promise<void> {
     notice.value = 'Draft saved.'
     await load()
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to save the draft'
+    error.value = await reportEmailFailure(cause)
   } finally {
     saving.value = false
   }
@@ -294,7 +305,7 @@ async function publish(): Promise<void> {
       : 'Published this version. Published content cannot be edited.'
     await load()
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to publish'
+    error.value = await reportEmailFailure(cause)
   } finally {
     saving.value = false
   }
@@ -321,7 +332,7 @@ async function sendTest(source: 'draft' | 'published'): Promise<void> {
       : 'Published template test sent to your email address. The subject starts with [Test].'
     if (source === 'draft') await load()
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'The test email could not be sent.'
+    error.value = await reportEmailFailure(cause)
   } finally {
     testing.value = null
   }
@@ -337,7 +348,7 @@ async function archivePublished(): Promise<void> {
     notice.value = 'Archived the published version. It stays on record and cannot be edited.'
     await load()
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to archive'
+    error.value = await reportEmailFailure(cause)
   } finally {
     saving.value = false
   }

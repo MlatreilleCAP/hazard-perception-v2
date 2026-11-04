@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import EmailSectionNav from '@/components/author/email/EmailSectionNav.vue'
+import { useEmailAccess } from '@/composables/useEmailAccess'
 import { listEmailMessages } from '@/services/emailManagement'
 import type { EmailMessageRecord, EmailMessageStatus } from '@/types/email'
 
@@ -24,6 +25,10 @@ const status = ref<EmailMessageStatus | 'all'>('all')
 const templateKey = ref('all')
 const fromDate = ref('')
 const toDate = ref('')
+const { stillAllowed, reportEmailFailure } = useEmailAccess(() => {
+  messages.value = []
+  truncated.value = false
+})
 
 onMounted(() => {
   void load()
@@ -34,10 +39,11 @@ async function load(): Promise<void> {
   error.value = null
   try {
     const result = await listEmailMessages()
+    if (!stillAllowed()) return
     messages.value = result.messages
     truncated.value = result.truncated
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to load activity'
+    error.value = await reportEmailFailure(cause)
   } finally {
     loading.value = false
   }

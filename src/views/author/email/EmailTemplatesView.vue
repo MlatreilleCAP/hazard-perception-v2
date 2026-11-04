@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import EmailSectionNav from '@/components/author/email/EmailSectionNav.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
+import { useEmailAccess } from '@/composables/useEmailAccess'
 import { isTemplateKey } from '@/lib/email/templateDocument'
 import { createApplicationTemplate, deleteApplicationTemplate, listEmailTemplates } from '@/services/emailManagement'
 import { useAuthStore } from '@/stores/authStore'
@@ -23,6 +24,9 @@ const name = ref('')
 const key = ref('')
 const description = ref('')
 const deletingId = ref<string | null>(null)
+const { stillAllowed, reportEmailFailure } = useEmailAccess(() => {
+  templates.value = []
+})
 
 onMounted(() => {
   void load()
@@ -32,9 +36,11 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    templates.value = await listEmailTemplates()
+    const loaded = await listEmailTemplates()
+    if (!stillAllowed()) return
+    templates.value = loaded
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to load templates'
+    error.value = await reportEmailFailure(cause)
   } finally {
     loading.value = false
   }
@@ -102,7 +108,7 @@ async function createTemplate(): Promise<void> {
     })
     await router.push(`/studio/email/templates/${createdKey}`)
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to create the template'
+    error.value = await reportEmailFailure(cause)
   } finally {
     saving.value = false
   }
@@ -120,7 +126,7 @@ async function removeTemplate(template: EmailTemplateSummary): Promise<void> {
     await deleteApplicationTemplate(template.id)
     templates.value = templates.value.filter((item) => item.id !== template.id)
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to delete the template'
+    error.value = await reportEmailFailure(cause)
   } finally {
     deletingId.value = null
   }
