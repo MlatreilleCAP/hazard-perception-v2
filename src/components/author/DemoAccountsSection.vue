@@ -556,7 +556,7 @@ function retryHold(account: DemoAccountRecord): void {
     <div v-if="passwordOpen" class="demo-dialog-backdrop">
       <div
         ref="passwordDialog"
-        class="demo-dialog"
+        class="demo-dialog demo-notice"
         role="dialog"
         aria-modal="true"
         aria-labelledby="demo-password-title"
@@ -597,7 +597,7 @@ function retryHold(account: DemoAccountRecord): void {
           <AuthorPillButton v-if="revealedPassword" variant="white" @click="copyPassword">
             Copy password
           </AuthorPillButton>
-          <AuthorPillButton variant="primary" @click="closeDialogs">Close</AuthorPillButton>
+          <AuthorPillButton variant="white" @click="closeDialogs">Close</AuthorPillButton>
         </div>
       </div>
     </div>
