@@ -1,6 +1,6 @@
 import type { ProfileRole } from '@/types/database'
 
-const PROFILE_ROLES: readonly ProfileRole[] = ['admin', 'author', 'demo', 'unprovisioned']
+const PROFILE_ROLES: readonly ProfileRole[] = ['admin', 'author', 'demo', 'sales', 'unprovisioned']
 
 export function profileRole(value: unknown): ProfileRole {
   return PROFILE_ROLES.includes(value as ProfileRole) ? (value as ProfileRole) : 'unprovisioned'
@@ -8,6 +8,21 @@ export function profileRole(value: unknown): ProfileRole {
 
 export function isStudioRole(role: ProfileRole | null | undefined): boolean {
   return role === 'admin' || role === 'author'
+}
+
+/** Administrators and sales can open Demo Accounts. Sales cannot open the rest of Studio. */
+export function canManageDemoAccounts(role: ProfileRole | null | undefined): boolean {
+  return role === 'admin' || role === 'sales'
+}
+
+export function salesOnlyPathAllowed(path: string): boolean {
+  return (
+    path === '/studio/people' ||
+    path.startsWith('/studio/people/') ||
+    path === '/auth/callback' ||
+    path === '/login' ||
+    path === '/setup-account'
+  )
 }
 
 export function canEditOwnedContent(

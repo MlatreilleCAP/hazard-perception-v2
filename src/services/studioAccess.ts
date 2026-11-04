@@ -40,14 +40,22 @@ export async function listStudioPeople(): Promise<StudioPerson[]> {
   })
 }
 
-/** Authors see Studio. Demo accounts can sign in and play, without Studio. */
-export async function setStudioVisible(userId: string, visible: boolean): Promise<void> {
+/** Authors see Studio. Demo accounts can sign in and play, without Studio. Sales can open Demo Accounts only. */
+export async function setProfileRole(
+  userId: string,
+  role: 'author' | 'demo' | 'sales',
+): Promise<void> {
   const client = requireClient()
   const { error } = await client
     .from('profiles')
-    .update(visible ? { role: 'author' } : { role: 'demo', can_edit_others: false })
+    .update(role === 'author' ? { role } : { role, can_edit_others: false })
     .eq('id', userId)
   if (error) throw new Error(error.message)
+}
+
+/** Authors see Studio. Demo accounts can sign in and play, without Studio. */
+export async function setStudioVisible(userId: string, visible: boolean): Promise<void> {
+  await setProfileRole(userId, visible ? 'author' : 'demo')
 }
 
 /** Authors with this flag can edit unpublished activities and stand alone videos created by other people. */

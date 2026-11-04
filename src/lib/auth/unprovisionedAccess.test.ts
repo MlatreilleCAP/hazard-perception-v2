@@ -14,6 +14,7 @@ describe('unprovisioned Studio and player routes', () => {
     expect(isStudioRole('admin')).toBe(true)
     expect(isStudioRole('author')).toBe(true)
     expect(isStudioRole('demo')).toBe(false)
+    expect(isStudioRole('sales')).toBe(false)
     expect(isStudioRole(unprovisioned)).toBe(false)
     expect(isStudioRole(null)).toBe(false)
 
@@ -38,7 +39,12 @@ describe('unprovisioned Studio and player routes', () => {
     expect(authoring.length).toBeGreaterThan(0)
     for (const route of authoring) {
       expect(route.meta.requiresAuth).toBe(true)
-      expect(route.meta.requiresStudio).toBe(true)
+      if (route.name === 'studio-people') {
+        expect(route.meta.requiresDemoAccounts).toBe(true)
+        expect(route.meta.requiresStudio).toBeUndefined()
+      } else if (route.path !== '/studio') {
+        expect(route.meta.requiresStudio).toBe(true)
+      }
     }
 
     const player = routes.find((route) => route.name === 'player')

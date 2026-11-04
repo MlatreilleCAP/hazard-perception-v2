@@ -64,7 +64,7 @@ export function createDemoAdminDeps(authorization: string | null): DemoAdminDeps
           return { id: data.user.id }
         },
         async isAdmin() {
-          const { data, error } = await callerClient.rpc('is_admin')
+          const { data, error } = await callerClient.rpc('can_manage_demo_accounts')
           return !error && data === true
         },
       })
@@ -215,6 +215,39 @@ export function createDemoAdminDeps(authorization: string | null): DemoAdminDeps
         throw new DemoAdminError(403, 'Administrator access is required.')
       }
       throw new DemoAdminError(500, 'The demo account could not be created.')
+    },
+
+    async callerIsAdmin(caller) {
+      const { data, error } = await service
+        .from('profiles')
+        .select('role')
+        .eq('id', caller.userId)
+        .maybeSingle()
+      if (error) throw new DemoAdminError(500, 'The system user could not be created.')
+      return data?.role === 'admin'
+    },
+
+    async assignSystemUser(profileId, organizationId, role, displayName) {
+      const profile = await service
+        .from('profiles')
+        .update({
+          role,
+          display_name: displayName,
+          can_edit_others: false,
+        })
+        .eq('id', profileId)
+        .select('id')
+        .maybeSingle()
+      if (profile.error || !profile.data) {
+        throw new DemoAdminError(500, 'The system user could not be created.')
+      }
+      const membership = await service
+        .from('organization_members')
+        .upsert(
+          { organization_id: organizationId, profile_id: profileId },
+          { onConflict: 'organization_id,profile_id' },
+        )
+      if (membership.error) throw new DemoAdminError(500, 'The system user could not be created.')
     },
 
     async createAuthUser(email, password, displayName, setupRequired) {

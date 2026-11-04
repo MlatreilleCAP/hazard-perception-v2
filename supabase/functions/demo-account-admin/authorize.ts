@@ -17,8 +17,9 @@ export function bearerToken(authorization: string | null): string {
 }
 
 /**
- * Confirms the caller with Auth and public.is_admin().
- * The actor id is the verified user id. Role text inside a JWT is never read.
+ * Confirms the caller with Auth and public.can_manage_demo_accounts().
+ * Administrators and sales pass. The actor id is the verified user id.
+ * Role text inside a JWT is never read.
  */
 export async function authorizeCaller(
   authorization: string | null,

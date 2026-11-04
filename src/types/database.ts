@@ -1,4 +1,4 @@
-export type ProfileRole = 'admin' | 'author' | 'demo' | 'unprovisioned'
+export type ProfileRole = 'admin' | 'author' | 'demo' | 'sales' | 'unprovisioned'
 export type ActivityVersionStatus = 'draft' | 'published' | 'archived'
 export type AttemptStatus = 'idle' | 'running' | 'paused' | 'completed' | 'stopped'
 export type AttemptAdapter = 'web' | 'unity' | 'unreal'

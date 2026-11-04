@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import StudioPeopleView from '@/views/author/StudioPeopleView.vue'
-import { listStudioPeople, setCanEditOthers, setStudioVisible } from '@/services/studioAccess'
+import { useAuthStore } from '@/stores/authStore'
+import { listStudioPeople, setCanEditOthers, setProfileRole, setStudioVisible } from '@/services/studioAccess'
 import {
   deactivateDemoAccount,
   deleteCreatedDemoUser,
@@ -16,6 +17,7 @@ vi.mock('@/services/studioAccess', () => ({
   listStudioPeople: vi.fn(),
   setStudioVisible: vi.fn(),
   setCanEditOthers: vi.fn(),
+  setProfileRole: vi.fn(),
 }))
 
 vi.mock('@/services/demoAccounts', () => ({
@@ -250,5 +252,31 @@ describe('Studio people and demo accounts', () => {
     await flushPromises()
     expect(deleteCreatedDemoUser).toHaveBeenCalledWith('author-1')
     expect(listStudioPeople).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows a sales user only the Demo Accounts section', async () => {
+    vi.mocked(listStudioPeople).mockClear()
+    const auth = useAuthStore()
+    auth.role = 'sales'
+    const wrapper = mount(StudioPeopleView)
+    await flushPromises()
+
+    expect(wrapper.get('h1').text()).toBe('Demo Accounts')
+    expect(wrapper.text()).not.toContain('System Users')
+    expect(listStudioPeople).not.toHaveBeenCalled()
+    expect(wrapper.get('.demo-accounts').text()).toContain('Access starts immediately.')
+  })
+
+  it('gives a system user the Sales role', async () => {
+    vi.mocked(setProfileRole).mockResolvedValue()
+    const wrapper = mount(StudioPeopleView)
+    await flushPromises()
+    await tab(wrapper, 'System Users').trigger('click')
+    const author = wrapper.get('.system-users').findAll('li').find((row) => row.text().includes('author@example.com'))
+    await author?.findAll('button').find((button) => button.text() === 'Sales')?.trigger('click')
+    await flushPromises()
+
+    expect(setProfileRole).toHaveBeenCalledWith('author-1', 'sales')
+    expect(author?.findAll('button').find((button) => button.text() === 'Sales')?.attributes('aria-checked')).toBe('true')
   })
 })

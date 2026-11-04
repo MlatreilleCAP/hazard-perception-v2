@@ -182,6 +182,36 @@ export type ProvisionInput = {
   emailSetup?: boolean
 }
 
+export async function createSystemUser(
+  input: {
+    email: string
+    displayName: string | null
+    organizationId: string
+    role: 'author' | 'sales'
+  },
+  gateway = browserDemoGateway(),
+): Promise<{ profileId: string; setupDelivery: SetupDelivery | null }> {
+  const body: Record<string, unknown> = {
+    operation: 'create-system-user',
+    email: input.email.trim().toLowerCase(),
+    organizationId: input.organizationId,
+    role: input.role,
+  }
+  if (input.displayName) body.displayName = input.displayName
+  assertNoSecretFields(body)
+  const { data, error } = await gateway.invoke(body)
+  if (error) throw new Error(await invokeError(error))
+  if (!data || typeof data !== 'object') throw new Error('The system user could not be created.')
+  const record = data as Record<string, unknown>
+  const delivery = record.setupDelivery
+  return {
+    profileId: String(record.profileId ?? ''),
+    setupDelivery: delivery === 'accepted' || delivery === 'failed' || delivery === 'uncertain'
+      ? delivery
+      : null,
+  }
+}
+
 export async function provisionDemoAccount(
   input: ProvisionInput,
   gateway = browserDemoGateway(),

@@ -1,7 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { isStudioRole, profileRole } from '@/lib/auth/roles'
+import { canManageDemoAccounts, isStudioRole, profileRole } from '@/lib/auth/roles'
 import { getSupabase } from '@/services/supabase'
 import {
   markPasswordRecovery,
@@ -29,7 +29,9 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(() => role.value === 'admin')
   const isAuthor = computed(() => role.value === 'author')
   const isDemo = computed(() => role.value === 'demo')
+  const isSales = computed(() => role.value === 'sales')
   const canAccessStudio = computed(() => isStudioRole(role.value))
+  const canManageDemoAccountsFlag = computed(() => canManageDemoAccounts(role.value))
 
   async function loadProfile(nextUserId: string | null): Promise<void> {
     const token = ++profileLoadToken
@@ -147,8 +149,10 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     isAuthor,
     isDemo,
+    isSales,
     canEditOthers,
     canAccessStudio,
+    canManageDemoAccounts: canManageDemoAccountsFlag,
     ready,
     initialize,
     signIn,

@@ -3,8 +3,12 @@ import { onMounted } from 'vue'
 import AuthorSidebar from '@/components/author/AuthorSidebar.vue'
 import { loadInroadsScoring } from '@/services/inroadsScoring'
 
+import { useAuthStore } from '@/stores/authStore'
+
+const auth = useAuthStore()
+
 onMounted(() => {
-  void loadInroadsScoring()
+  if (!auth.isSales) void loadInroadsScoring()
 })
 </script>
 

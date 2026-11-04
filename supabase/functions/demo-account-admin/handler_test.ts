@@ -87,6 +87,8 @@ function deps(overrides: Partial<DemoAdminDeps> = {}): DemoAdminDeps & {
     releaseProvision: () => Promise.resolve(),
     abandonProvision: () => Promise.resolve(),
     prepareCreatedUserDelete: () => Promise.resolve(),
+    callerIsAdmin: () => Promise.resolve(true),
+    assignSystemUser: () => Promise.resolve(),
   }
   return { ...base, ...overrides, actors, authCalls, records }
 }
@@ -614,7 +616,7 @@ Deno.test('validation and server errors from the production origin include CORS 
   }), deps())
   assertEquals(invalid.status, 400)
   assertCors(invalid, PRODUCTION_ORIGIN)
-  assertEquals(await invalid.json(), { error: 'Choose start, extend, deactivate, provision, or delete.' })
+  assertEquals(await invalid.json(), { error: 'Choose start, extend, deactivate, provision, delete, or create-system-user.' })
 
   const failed = await handleDemoAdmin(browserRequest('POST', PRODUCTION_ORIGIN, {
     operation: 'extend',
@@ -799,4 +801,74 @@ Deno.test('a failed setup audit does not send the link again', async () => {
   assertEquals(sends, 1)
   assertEquals(body.setupDelivery, 'accepted')
   assertEquals('initialPassword' in body, false)
+})
+
+Deno.test('an administrator can create a system user and email a setup link', async () => {
+  const assigned: Array<{ profileId: string; role: string; name: string | null }> = []
+  const deleted: string[] = []
+  const admin = deps({
+    createAuthUser: () => Promise.resolve({ profileId: PROFILE, email: 'person@example.com' }),
+    assignSystemUser: (_profileId, _organizationId, role, name) => {
+      assigned.push({ profileId: PROFILE, role, name })
+      return Promise.resolve()
+    },
+    deliverSetup: () => Promise.resolve({ outcome: 'accepted', resendId: 're_system' }),
+    deleteAuthUser: (profileId) => {
+      deleted.push(profileId)
+      return Promise.resolve()
+    },
+  })
+  const response = await handleDemoAdmin(post({
+    operation: 'create-system-user',
+    email: 'Person@Example.com',
+    displayName: 'Pat',
+    organizationId: ORG,
+    role: 'sales',
+  }), admin)
+  const body = await response.json()
+  assertEquals(response.status, 200)
+  assertEquals(body, { profileId: PROFILE, role: 'sales', setupDelivery: 'accepted' })
+  assertEquals(assigned, [{ profileId: PROFILE, role: 'sales', name: 'Pat' }])
+  assertEquals(deleted, [])
+  assertEquals('initialPassword' in body, false)
+})
+
+Deno.test('a system user is removed when the role cannot be saved', async () => {
+  const deleted: string[] = []
+  const admin = deps({
+    createAuthUser: () => Promise.resolve({ profileId: PROFILE, email: 'person@example.com' }),
+    assignSystemUser: () => Promise.reject(new Error('constraint')),
+    deleteAuthUser: (profileId) => {
+      deleted.push(profileId)
+      return Promise.resolve()
+    },
+  })
+  const response = await handleDemoAdmin(post({
+    operation: 'create-system-user',
+    email: 'person@example.com',
+    organizationId: ORG,
+    role: 'author',
+  }), admin)
+  assertEquals(response.status, 500)
+  assertEquals(await response.json(), { error: 'The system user could not be created.' })
+  assertEquals(deleted, [PROFILE])
+})
+
+Deno.test('sales cannot create a system user', async () => {
+  let created = false
+  const admin = deps({
+    callerIsAdmin: () => Promise.resolve(false),
+    createAuthUser: () => {
+      created = true
+      return Promise.resolve({ profileId: PROFILE, email: 'person@example.com' })
+    },
+  })
+  const response = await handleDemoAdmin(post({
+    operation: 'create-system-user',
+    email: 'person@example.com',
+    organizationId: ORG,
+    role: 'author',
+  }), admin)
+  assertEquals(response.status, 403)
+  assertEquals(created, false)
 })

@@ -5,6 +5,7 @@ import {
   setupPathAllowed,
   setupRequired,
 } from '@/lib/auth/setupAccess'
+import { salesOnlyPathAllowed } from '@/lib/auth/roles'
 import { getSupabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import AccessPendingView from '@/views/AccessPendingView.vue'
@@ -101,7 +102,7 @@ export const router = createRouter({
     {
       path: '/studio',
       component: AuthorStudioShell,
-      meta: { layout: 'author', title: 'Authoring Studio', requiresAuth: true, requiresStudio: true },
+      meta: { layout: 'author', title: 'Authoring Studio', requiresAuth: true },
       children: [
         { path: '', redirect: { name: 'inroads-mvp-list' } },
         {
@@ -305,8 +306,7 @@ export const router = createRouter({
             layout: 'author',
             title: 'Users',
             requiresAuth: true,
-            requiresStudio: true,
-            requiresAdmin: true,
+            requiresDemoAccounts: true,
           },
         },
         {
@@ -448,11 +448,19 @@ router.beforeEach(async (to) => {
   }
 
   if (to.name === 'access-pending' && auth.isSignedIn && auth.role !== 'unprovisioned') {
-    return { path: '/' }
+    return auth.role === 'sales' ? { path: '/studio/people' } : { path: '/' }
+  }
+
+  if (auth.isSignedIn && auth.role === 'sales' && !salesOnlyPathAllowed(to.path)) {
+    return { path: '/studio/people' }
   }
 
   if (to.matched.some((record) => record.meta.requiresStudio) && !auth.canAccessStudio) {
     return { path: '/' }
+  }
+
+  if (to.matched.some((record) => record.meta.requiresDemoAccounts) && !auth.canManageDemoAccounts) {
+    return auth.canAccessStudio ? { path: '/studio' } : { path: '/' }
   }
 
   if (to.matched.some((record) => record.meta.requiresAdmin) && !auth.isAdmin) {
@@ -461,6 +469,7 @@ router.beforeEach(async (to) => {
 
   if (to.name === 'login' && auth.isSignedIn) {
     if (setupRequired(auth.user?.app_metadata)) return { path: '/setup-account' }
+    if (auth.role === 'sales') return { path: '/studio/people' }
     const next = safeNextPath(String(to.query.next ?? '')) ?? '/'
     if (
       auth.role === 'unprovisioned' &&

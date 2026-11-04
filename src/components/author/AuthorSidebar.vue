@@ -37,7 +37,7 @@ const emailOpen = computed(
 <template>
   <aside class="author-sidebar">
     <div class="author-sidebar-top">
-      <RouterLink to="/" class="author-home" aria-label="Back to home">
+      <RouterLink :to="auth.isSales ? '/studio/people' : '/'" class="author-home" aria-label="Back to home">
         <svg viewBox="0 0 24 24" width="23" height="23" fill="none" aria-hidden="true">
           <path
             d="M15.5 5.5 9 12l6.5 6.5"
@@ -48,10 +48,20 @@ const emailOpen = computed(
           />
         </svg>
       </RouterLink>
-      <p class="author-suite-title">Admin suite</p>
+      <p class="author-suite-title">{{ auth.isSales ? 'Demo accounts' : 'Admin suite' }}</p>
     </div>
 
     <nav class="author-nav" aria-label="Authoring">
+      <template v-if="auth.isSales">
+        <RouterLink
+          to="/studio/people"
+          class="author-nav-link"
+          :class="{ active: usersOpen }"
+        >
+          Demo Accounts
+        </RouterLink>
+      </template>
+      <template v-else>
       <RouterLink
         to="/studio/inroads-mvp"
         class="author-nav-link"
@@ -103,6 +113,7 @@ const emailOpen = computed(
       >
         Email
       </RouterLink>
+      </template>
     </nav>
   </aside>
 </template>

@@ -72,6 +72,13 @@ export interface DemoAdminDeps {
   releaseProvision(email: string): Promise<void>
   abandonProvision(email: string): Promise<void>
   prepareCreatedUserDelete(actorId: string, profileId: string): Promise<void>
+  callerIsAdmin(caller: AdminCaller): Promise<boolean>
+  assignSystemUser(
+    profileId: string,
+    organizationId: string,
+    role: 'author' | 'sales',
+    displayName: string | null,
+  ): Promise<void>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -186,6 +193,60 @@ async function failProvision(
   }
 
   throw new DemoAdminError(500, RETRY)
+}
+
+const SYSTEM_USER_FAILED = 'The system user could not be created.'
+
+async function createSystemUser(
+  deps: DemoAdminDeps,
+  caller: AdminCaller,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  rejectSetupOverrides(body)
+  if (!await deps.callerIsAdmin(caller)) {
+    throw new DemoAdminError(403, 'Administrator access is required.')
+  }
+  const organizationId = uuid(body.organizationId, 'An organization')
+  if (!await deps.memberOf(caller, organizationId)) {
+    throw new DemoAdminError(403, 'Administrator access is required.')
+  }
+  if (body.role !== 'author' && body.role !== 'sales') {
+    throw new DemoAdminError(400, 'Choose an author or sales role.')
+  }
+  const role = body.role
+  const email = emailAddress(body.email)
+  const name = displayName(body.displayName ?? body.display_name)
+  let created: { profileId: string; email: string }
+  try {
+    created = await deps.createAuthUser(email, generateInitialPassword(), name, true)
+  } catch (error) {
+    if (error instanceof AuthIdentityExists) throw error
+    throw new DemoAdminError(500, SYSTEM_USER_FAILED)
+  }
+  try {
+    await deps.assignSystemUser(created.profileId, organizationId, role, name)
+  } catch {
+    try {
+      await deps.deleteAuthUser(created.profileId)
+    } catch {
+      throw new DemoAdminError(500, SYSTEM_USER_FAILED)
+    }
+    throw new DemoAdminError(500, SYSTEM_USER_FAILED)
+  }
+  let setupDelivery: SetupDeliveryResult['outcome'] = 'failed'
+  try {
+    setupDelivery = (await deps.deliverSetup({
+      profileId: created.profileId,
+      recipientEmail: created.email,
+    })).outcome
+  } catch {
+    setupDelivery = 'failed'
+  }
+  return Response.json({
+    profileId: created.profileId,
+    role,
+    setupDelivery,
+  })
 }
 
 /**
@@ -449,6 +510,9 @@ export async function handleDemoAdmin(
     if (body.operation === 'provision') {
       return finish(await provisionDemoAccount(deps, caller, body))
     }
+    if (body.operation === 'create-system-user') {
+      return finish(await createSystemUser(deps, caller, body))
+    }
     if (body.operation === 'delete') {
       return finish(await deleteCreatedUser(deps, caller, body))
     }
@@ -471,7 +535,7 @@ export async function handleDemoAdmin(
       }
       result = await deps.deactivate(caller.userId, profileId, reason?.trim() ?? null)
     } else {
-      throw new DemoAdminError(400, 'Choose start, extend, deactivate, provision, or delete.')
+      throw new DemoAdminError(400, 'Choose start, extend, deactivate, provision, delete, or create-system-user.')
     }
 
     const auth = await applyReturnedAction(deps, result)
