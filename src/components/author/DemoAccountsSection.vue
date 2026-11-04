@@ -379,10 +379,16 @@ function formatDemoDate(iso: string): string {
   }).format(date)
 }
 
+function createdByLabel(value: string): string {
+  const trimmed = value.trim()
+  const at = trimmed.indexOf('@')
+  return at > 0 ? trimmed.slice(0, at) : trimmed
+}
+
 function accountSummary(account: DemoAccountRecord): string {
   const status = statusOf(account)
   const parts: string[] = []
-  if (account.createdBy) parts.push(account.createdBy)
+  if (account.createdBy) parts.push(createdByLabel(account.createdBy))
   parts.push(status)
   if (status === 'Setup incomplete') return parts.join(' · ')
   const start = formatDemoDate(account.startsAt)
