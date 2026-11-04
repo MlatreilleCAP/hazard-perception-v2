@@ -56,6 +56,7 @@ const newLanguageQuery = ref('')
 const newLanguageSearch = ref<HTMLInputElement | null>(null)
 const saveMessage = ref<string | null>(null)
 const title = ref('')
+const videoTitle = ref('')
 const description = ref('')
 const titleError = ref<string | null>(null)
 const introduction = ref<IntroductionDefinition | null>(null)
@@ -276,6 +277,7 @@ async function load(): Promise<void> {
     title.value = current.metadata.title
     description.value = current.metadata.description
     introduction.value = readIntroductionDefinition(current)
+    videoTitle.value = introduction.value.videoTitle.trim() || current.metadata.title
     const nextVersions = await loadVersions(current.metadata.title, introduction.value)
     if (generation !== loadGeneration) return
     versions.value = nextVersions
@@ -353,7 +355,7 @@ async function syncCountryToSiblingVersions(sharedCountry: string): Promise<void
 
 async function saveIntro(): Promise<boolean> {
   if (!editable.value || !introduction.value) return false
-  titleError.value = title.value.trim() ? null : 'Title is required'
+  titleError.value = title.value.trim() ? null : 'Activity name is required'
   if (titleError.value) return false
 
   const id = canonicalActivityId(activityId.value)
@@ -369,6 +371,10 @@ async function saveIntro(): Promise<boolean> {
       await activities.load(id)
     }
     if (!activities.current || activities.current.id !== id || !introduction.value) return false
+    introduction.value = {
+      ...introduction.value,
+      videoTitle: videoTitle.value.trim(),
+    }
     const next = writeIntroductionDefinition(activities.current, introduction.value)
     next.id = id
     next.metadata = {
@@ -540,9 +546,23 @@ async function remove(): Promise<void> {
             </svg>
           </RouterLink>
           <h1 class="author-header-title">
-            {{ title.trim() || 'Stand Alone Video' }}{{ country.trim() ? ` - ${country.trim()}` : '' }}
+            <span v-if="editable" class="author-header-title-sizer">
+              <span class="author-header-title-measure" aria-hidden="true">{{
+                title || 'Activity name'
+              }}</span>
+              <input
+                v-model="title"
+                class="author-header-title-input"
+                type="text"
+                aria-label="Activity name"
+                placeholder="Activity name"
+                :aria-invalid="titleError ? true : undefined"
+              />
+            </span>
+            <span v-else>{{ title.trim() || 'Activity name' }}</span>
           </h1>
           <AuthorStatusChip :label="statusLabel" />
+          <p v-if="titleError" class="author-error">{{ titleError }}</p>
         </div>
         <div class="mvp-header-actions">
           <AuthorPillButton
@@ -668,13 +688,13 @@ async function remove(): Promise<void> {
       <section class="author-stack-sm">
         <AuthorSectionHeader title="Details" />
         <AuthorField
-          :id="`${activityId}-title`"
-          v-model="title"
+          :id="`${activityId}-video-title`"
+          v-model="videoTitle"
           label="Title"
-          :error="titleError ?? undefined"
-          placeholder="Stand Alone Video title"
+          placeholder="Title"
           :disabled="!editable"
         />
+        <p class="author-muted">This title is independent of the activity name in the header and queue.</p>
         <AuthorField
           :id="`${activityId}-description`"
           v-model="description"

@@ -16,7 +16,7 @@ const titleError = ref<string | null>(null)
 const saving = ref(false)
 
 async function create(): Promise<void> {
-  titleError.value = title.value.trim() ? null : 'Title is required'
+  titleError.value = title.value.trim() ? null : 'Activity name is required'
   if (titleError.value) return
 
   saving.value = true
@@ -57,8 +57,8 @@ async function create(): Promise<void> {
         <AuthorField
           id="title"
           v-model="title"
-          label="Title"
-          placeholder="Stand Alone Video title"
+          label="Activity name"
+          placeholder="Activity name"
           :error="titleError ?? undefined"
         />
         <AuthorField

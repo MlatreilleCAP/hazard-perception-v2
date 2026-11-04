@@ -18,9 +18,11 @@ export async function createBlankIntroduction(
   const activity = createIntroductionActivity(title.trim() || 'Stand Alone Video')
   activity.metadata.description = description.trim()
   const intro = readIntroductionDefinition(activity)
+  const name = title.trim() || 'Stand Alone Video'
   const saved = await services.persistence.save(
     writeIntroductionDefinition(activity, {
       ...intro,
+      videoTitle: name,
       country: canonicalizeLessonCountry(country),
       language: canonicalizeLessonLanguage('English'),
     }),

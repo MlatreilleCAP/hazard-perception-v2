@@ -24,6 +24,8 @@ export type IntroductionDefinition = {
   reviewNotes: string
   /** Manual position in a queue column. Unset cards sort by the date they were added. */
   queueOrder: number | null
+  /** Title in Details. Independent of the activity name used in the header and queue. */
+  videoTitle: string
   introMedia: MediaRef | null
   /** Closed captions (.vtt) for the intro video. */
   introCaptions: MediaRef | null
@@ -52,6 +54,7 @@ export function createDefaultIntroductionDefinition(): IntroductionDefinition {
     assigneeName: '',
     reviewNotes: '',
     queueOrder: null,
+    videoTitle: '',
     introMedia: null,
     introCaptions: null,
     exampleMedia: null,
@@ -71,6 +74,7 @@ export function cloneIntroductionDefinition(
     assigneeName: definition.assigneeName.trim(),
     reviewNotes: definition.reviewNotes.trim(),
     queueOrder: readQueueOrder(definition.queueOrder),
+    videoTitle: definition.videoTitle.trim(),
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
       : null,
@@ -96,6 +100,7 @@ export function normalizeIntroductionDefinition(
     assigneeName: typeof raw?.assigneeName === 'string' ? raw.assigneeName.trim() : '',
     reviewNotes: typeof raw?.reviewNotes === 'string' ? raw.reviewNotes.trim() : '',
     queueOrder: readQueueOrder(raw?.queueOrder),
+    videoTitle: typeof raw?.videoTitle === 'string' ? raw.videoTitle.trim() : '',
     introMedia: readMediaRef(raw?.introMedia),
     introCaptions: readMediaRef(raw?.introCaptions),
     exampleMedia: readMediaRef(raw?.exampleMedia),
