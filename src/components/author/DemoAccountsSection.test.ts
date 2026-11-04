@@ -128,7 +128,7 @@ describe('DemoAccountsSection', () => {
     const request = vi.mocked(provisionDemoAccount).mock.calls[0][0]
     expect(request).not.toHaveProperty('startsAt')
     expect(request).not.toHaveProperty('password')
-    expect(request.emailSetup).toBe(false)
+    expect(request.emailSetup).toBe(true)
     expect(wrapper.text()).toContain('Initial password')
     expect(wrapper.text()).toContain('Copy this password now')
     expect(wrapper.get('input[readonly]').element).toHaveProperty('value', password)
@@ -314,7 +314,7 @@ describe('DemoAccountsSection', () => {
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
   })
 
-  it('keeps account setup email off unless the administrator opts in', async () => {
+  it('emails an account setup link without showing a choice', async () => {
     const password = 'must-not-remain-visible'
     vi.mocked(provisionDemoAccount).mockResolvedValue({
       profileId: 'profile-9',
@@ -325,10 +325,8 @@ describe('DemoAccountsSection', () => {
     })
     const wrapper = await mountSection()
     await wrapper.findAll('button').find((button) => button.text() === 'New demo')?.trigger('click')
-    const checkbox = wrapper.get('input[type="checkbox"]')
-    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
-    expect(wrapper.text()).toContain("You'll receive a temporary password")
-    await checkbox.setValue(true)
+    expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Email account setup link')
     expect(wrapper.text()).toContain("We'll email the user a secure link")
     await wrapper.get('input[type="email"]').setValue('mailed.person@example.com')
     await wrapper.get('input[type="datetime-local"]').setValue('2030-06-01T09:30')

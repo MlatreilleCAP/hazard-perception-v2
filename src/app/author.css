@@ -1198,6 +1198,13 @@ fieldset.author-stack {
   background: #fff;
 }
 
+.demo-field input:focus,
+.demo-field select:focus,
+.demo-field textarea:focus {
+  outline: none;
+  background: #f3f3f3;
+}
+
 .demo-incomplete,
 .demo-history {
   padding: 12px 14px;
@@ -1239,6 +1246,11 @@ fieldset.author-stack {
 .demo-dialog p {
   margin: 8px 0 0;
   line-height: 1.45;
+}
+
+.demo-create-lead,
+.demo-create-note {
+  padding-bottom: 16px;
 }
 
 @media (min-width: 640px) {

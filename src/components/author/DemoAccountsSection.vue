@@ -40,7 +40,6 @@ const dialogError = ref<string | null>(null)
 const createDialog = ref<HTMLElement | null>(null)
 
 const revealedPassword = ref<string | null>(null)
-const emailSetup = ref(false)
 const deliveryNotice = ref<'accepted' | 'failed' | 'uncertain' | null>(null)
 const passwordOpen = ref(false)
 const passwordCopied = ref(false)
@@ -152,7 +151,6 @@ async function openCreate(prefill?: { email: string; displayName: string; expire
   email.value = prefill?.email ?? ''
   displayName.value = prefill?.displayName ?? ''
   expiresAtLocal.value = prefill?.expiresAtLocal ?? defaultExpiry()
-  emailSetup.value = false
   dialogError.value = null
   createOpen.value = true
   await nextTick()
@@ -208,7 +206,7 @@ async function submitCreate(): Promise<void> {
       displayName: requestedName || null,
       organizationId: organizationId.value,
       expiresAt,
-      emailSetup: emailSetup.value,
+      emailSetup: true,
     })
     createOpen.value = false
     incomplete.value = null
@@ -349,7 +347,7 @@ function retryHold(account: DemoAccountRecord): void {
       <div>
         <h2 id="demo-accounts-title">Demo Accounts</h2>
         <p>
-          Create a new email address, then share the password yourself. Welcome email is turned off.
+          Create a demo account and email the user a secure link to set their password.
           Access starts immediately.
         </p>
       </div>
@@ -471,13 +469,8 @@ function retryHold(account: DemoAccountRecord): void {
         @keydown="onDialogKeydown($event, createDialog)"
       >
         <h3 id="demo-create-title">New demo</h3>
-        <p class="author-list-sub">
-          <template v-if="emailSetup">
-            The demo account will be created immediately. We'll email the user a secure link to create their password before accessing Inroads.
-          </template>
-          <template v-else>
-            The demo account will be active immediately. You'll receive a temporary password to share securely with the user.
-          </template>
+        <p class="author-list-sub demo-create-lead">
+          The demo account will be created immediately. We'll email the user a secure link to create their password before accessing Inroads.
         </p>
         <form class="demo-form" novalidate @submit.prevent="submitCreate">
           <label class="demo-field">
@@ -492,13 +485,7 @@ function retryHold(account: DemoAccountRecord): void {
             <span>Expiry</span>
             <input v-model="expiresAtLocal" type="datetime-local" required />
           </label>
-          <p class="author-list-sub">Start is immediate. A future start cannot be chosen.</p>
-          <label class="demo-field">
-            <span>
-              <input v-model="emailSetup" type="checkbox" />
-              Email account setup link (recommended)
-            </span>
-          </label>
+          <p class="author-list-sub demo-create-note">Start is immediate. A future start cannot be chosen.</p>
           <p v-if="dialogError" class="auth-error" role="alert">{{ dialogError }}</p>
           <div class="demo-account-actions">
             <AuthorPillButton variant="white" :disabled="busy" @click="closeDialogs">Cancel</AuthorPillButton>
