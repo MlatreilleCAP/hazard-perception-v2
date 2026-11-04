@@ -9,7 +9,6 @@ export {
   signInWithGoogle,
   signInWithPassword,
   signOut,
-  signUpWithPassword,
 } from '@/services/auth'
 export { MediaService } from '@/services/media'
 export { ScoringService } from '@/services/scoring'

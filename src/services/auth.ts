@@ -1,4 +1,4 @@
-import type { AuthError, Session, User } from '@supabase/supabase-js'
+import type { AuthError, Session } from '@supabase/supabase-js'
 import { safeNextPath } from '@/app/safeNextPath'
 import {
   RECOVERY_LINK_ERROR,
@@ -24,25 +24,6 @@ export async function signInWithPassword(
     return { session: null, error: signInFailureMessage(error) }
   }
   return { session: data.session, error: null }
-}
-
-export async function signUpWithPassword(
-  email: string,
-  password: string,
-  nextPath: string,
-): Promise<{ user: User | null; session: Session | null; error: string | null }> {
-  const client = requireClient()
-  const { data, error } = await client.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: authCallbackUrl(nextPath),
-    },
-  })
-  if (error) {
-    return { user: null, session: null, error: error.message }
-  }
-  return { user: data.user, session: data.session, error: null }
 }
 
 export async function signInWithGoogle(nextPath: string): Promise<string | null> {

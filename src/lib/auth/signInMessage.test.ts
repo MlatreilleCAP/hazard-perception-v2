@@ -16,6 +16,14 @@ describe('sign-in failure message', () => {
     expect(message.toLowerCase()).not.toContain('deactivated')
   })
 
+  it('does not tell an unconfirmed user to create an account', () => {
+    const message = signInFailureMessage({ message: 'Email not confirmed' })
+    expect(message).toBe(
+      'This account’s email is not confirmed yet. Ask an administrator to confirm the account.',
+    )
+    expect(message.toLowerCase()).not.toContain('sign up')
+  })
+
   it('passes an unknown authentication failure through unchanged', () => {
     const message = signInFailureMessage({ message: 'Invalid login credentials' })
     expect(message).toBe('Invalid login credentials')

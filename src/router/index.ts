@@ -48,6 +48,14 @@ export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      path: '/signup',
+      redirect: (to) => {
+        const query = { ...to.query }
+        delete query.mode
+        return { path: '/login', query }
+      },
+    },
+    {
       path: '/login',
       name: 'login',
       component: LoginView,

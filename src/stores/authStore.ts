@@ -9,7 +9,6 @@ import {
   signInWithGoogle as startGoogleSignIn,
   signInWithPassword,
   signOut as signOutSession,
-  signUpWithPassword,
   updatePassword as changePassword,
 } from '@/services/auth'
 import type { ProfileRole } from '@/types/database'
@@ -123,29 +122,6 @@ export const useAuthStore = defineStore('auth', () => {
     return result.error
   }
 
-  async function signUp(
-    emailValue: string,
-    password: string,
-    nextPath: string,
-  ): Promise<{ error: string | null; needsSignIn: boolean }> {
-    const result = await signUpWithPassword(emailValue, password, nextPath)
-    if (result.error) {
-      return { error: result.error, needsSignIn: false }
-    }
-    if (result.session) {
-      session.value = result.session
-      await loadProfile(result.session.user.id)
-      return { error: null, needsSignIn: false }
-    }
-    if (result.user) {
-      const signInError = await signIn(emailValue, password)
-      if (signInError) {
-        return { error: signInError, needsSignIn: true }
-      }
-    }
-    return { error: null, needsSignIn: !session.value }
-  }
-
   async function signInWithGoogle(nextPath: string): Promise<string | null> {
     return startGoogleSignIn(nextPath)
   }
@@ -182,7 +158,6 @@ export const useAuthStore = defineStore('auth', () => {
     ready,
     initialize,
     signIn,
-    signUp,
     signInWithGoogle,
     signOut,
     requestPasswordReset,

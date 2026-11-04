@@ -5,13 +5,18 @@ import { safeNextPath } from '@/app/safeNextPath'
 import { isEmailAddress, MIN_PASSWORD_LENGTH } from '@/lib/auth/credentials'
 import { useAuthStore } from '@/stores/authStore'
 
-type Mode = 'signin' | 'signup' | 'recover'
+type Mode = 'signin' | 'recover'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
 const nextPath = computed(() => safeNextPath(String(route.query.next ?? '')) ?? '/')
+if (route.query.mode === 'signup') {
+  const query = { ...route.query }
+  delete query.mode
+  void router.replace({ path: '/login', query })
+}
 const mode = ref<Mode>(initialMode())
 const email = ref('')
 const password = ref('')
@@ -27,7 +32,6 @@ const loading = ref(false)
 
 function initialMode(): Mode {
   if (route.query.mode === 'recover') return 'recover'
-  if (route.query.mode === 'signup') return 'signup'
   return 'signin'
 }
 
@@ -41,22 +45,13 @@ function initialError(): string | null {
   return null
 }
 
-const title = computed(() => {
-  if (mode.value === 'recover') return 'Reset your password'
-  return mode.value === 'signin' ? 'Welcome back' : 'Create your account'
-})
-const subtitle = computed(() => {
-  if (mode.value === 'recover') {
-    return "Enter your email address and we'll send you a link to reset your password."
-  }
-  return mode.value === 'signin'
-    ? 'Sign in to save progress and continue training.'
-    : 'Create an account to build activities, scenarios, and train.'
-})
-const submitLabel = computed(() => {
-  if (loading.value) return 'Please wait…'
-  return mode.value === 'signin' ? 'Sign in' : 'Create account'
-})
+const title = computed(() => (mode.value === 'recover' ? 'Reset your password' : 'Welcome back'))
+const subtitle = computed(() =>
+  mode.value === 'recover'
+    ? "Enter your email address and we'll send you a link to reset your password."
+    : 'Sign in to save progress and continue training.',
+)
+const submitLabel = computed(() => (loading.value ? 'Please wait…' : 'Sign in'))
 const resetLabel = computed(() => (loading.value ? 'Sending…' : 'Send reset link'))
 
 async function handleEmailAuth(): Promise<void> {
@@ -72,25 +67,7 @@ async function handleEmailAuth(): Promise<void> {
         return
       }
       await router.push(nextPath.value)
-      return
     }
-
-    const result = await auth.signUp(email.value, password.value, nextPath.value)
-    if (result.error) {
-      error.value = result.error
-      if (result.needsSignIn) {
-        mode.value = 'signin'
-      }
-      return
-    }
-
-    if (auth.isSignedIn) {
-      await router.push(nextPath.value)
-      return
-    }
-
-    info.value = 'Account created. You can sign in now.'
-    mode.value = 'signin'
   } finally {
     loading.value = false
   }
@@ -227,12 +204,11 @@ async function handleResetRequest(): Promise<void> {
                 type="password"
                 required
                 :minlength="MIN_PASSWORD_LENGTH"
-                :autocomplete="mode === 'signin' ? 'current-password' : 'new-password'"
+                autocomplete="current-password"
                 placeholder="••••••••"
               />
             </label>
             <button
-              v-if="mode === 'signin'"
               type="button"
               class="auth-forgot"
               @click="setMode('recover')"
@@ -250,18 +226,8 @@ async function handleResetRequest(): Promise<void> {
           </template>
         </div>
 
-        <p class="auth-switch">
-          <template v-if="mode === 'recover'">
-            <button type="button" @click="setMode('signin')">Back to login</button>
-          </template>
-          <template v-else-if="mode === 'signin'">
-            New here?
-            <button type="button" @click="setMode('signup')">Create an account</button>
-          </template>
-          <template v-else>
-            Already have an account?
-            <button type="button" @click="setMode('signin')">Sign in</button>
-          </template>
+        <p v-if="mode === 'recover'" class="auth-switch">
+          <button type="button" @click="setMode('signin')">Back to login</button>
         </p>
       </div>
     </div>
