@@ -1190,11 +1190,28 @@ fieldset.author-stack {
   color: var(--editor-ink);
 }
 
+.users-page .users-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 16px;
+}
+
 .users-page .users-switches {
   display: flex;
   flex-shrink: 0;
   align-items: center;
   gap: 28px;
+}
+
+.users-page .users-delete {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #d8d8dc;
+  background: #fff;
+  box-shadow: none;
+  color: var(--editor-ink);
+  font-size: 14px;
 }
 
 .users-page .users-switch {

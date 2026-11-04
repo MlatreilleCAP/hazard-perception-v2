@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import DemoAccountsSection from '@/components/author/DemoAccountsSection.vue'
 import { GUARD_TOGGLE_REASON, isLifecycleRoleGuard, studioToggleReason } from '@/lib/demo/studioToggle'
+import { deleteCreatedDemoUser } from '@/services/demoAccounts'
 import {
   listStudioPeople,
   setCanEditOthers,
@@ -18,6 +19,8 @@ const people = ref<StudioPerson[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const savingId = ref<string | null>(null)
+const deleteTarget = ref<StudioPerson | null>(null)
+const deleteError = ref<string | null>(null)
 const lifecycleProfileIds = ref(new Set<string>())
 const guardBlocked = ref(new Set<string>())
 const demoReload = ref(0)
@@ -83,6 +86,33 @@ async function toggleStudio(person: StudioPerson): Promise<void> {
     error.value = /sqlstate|duplicate key|violates/i.test(message)
       ? 'Studio access could not be changed.'
       : message
+  } finally {
+    savingId.value = null
+  }
+}
+
+function canDelete(person: StudioPerson): boolean {
+  return person.role !== 'admin' && person.id !== auth.userId
+}
+
+function openDelete(person: StudioPerson): void {
+  if (!canDelete(person) || savingId.value) return
+  deleteTarget.value = person
+  deleteError.value = null
+}
+
+async function confirmDelete(): Promise<void> {
+  const person = deleteTarget.value
+  if (!person || savingId.value) return
+  savingId.value = person.id
+  deleteError.value = null
+  try {
+    await deleteCreatedDemoUser(person.id)
+    deleteTarget.value = null
+    demoReload.value += 1
+    await reloadPeople(false)
+  } catch (cause) {
+    deleteError.value = cause instanceof Error ? cause.message : 'The user could not be deleted.'
   } finally {
     savingId.value = null
   }
@@ -169,7 +199,8 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
                 {{ toggleReason(person) }}
               </p>
             </div>
-            <div class="users-switches">
+            <div class="users-actions">
+              <div class="users-switches">
               <button
                 type="button"
                 class="users-switch"
@@ -210,9 +241,43 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
                   <span class="author-switch-knob" />
                 </span>
               </button>
+              </div>
+              <button
+                v-if="canDelete(person)"
+                type="button"
+                class="author-pill users-delete"
+                :disabled="savingId === person.id"
+                @click="openDelete(person)"
+              >
+                Delete
+              </button>
             </div>
           </li>
         </ul>
+      </div>
+
+      <div v-if="deleteTarget" class="demo-dialog-backdrop">
+        <div
+          class="demo-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="system-delete-title"
+        >
+          <h3 id="system-delete-title">Delete {{ deleteTarget.email }}</h3>
+          <p>
+            This permanently removes the sign-in.
+            The email can be used again for a demo account. This cannot be undone.
+          </p>
+          <p v-if="deleteError" class="auth-error" role="alert">{{ deleteError }}</p>
+          <div class="demo-account-actions">
+            <button type="button" class="author-pill" :disabled="savingId === deleteTarget.id" @click="deleteTarget = null">
+              Cancel
+            </button>
+            <button type="button" class="author-pill" :disabled="savingId === deleteTarget.id" @click="confirmDelete">
+              {{ savingId === deleteTarget.id ? 'Deleting…' : 'Delete user' }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

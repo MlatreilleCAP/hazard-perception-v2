@@ -5,6 +5,7 @@ import StudioPeopleView from '@/views/author/StudioPeopleView.vue'
 import { listStudioPeople, setCanEditOthers, setStudioVisible } from '@/services/studioAccess'
 import {
   deactivateDemoAccount,
+  deleteCreatedDemoUser,
   extendDemoAccount,
   listAdminOrganizations,
   listDemoAccounts,
@@ -226,5 +227,28 @@ describe('Studio people and demo accounts', () => {
     expect(systemUsers.text()).toContain('Edit')
     const lifecycle = systemUsers.findAll('li').find((row) => row.text().includes('lifecycle@example.com'))
     expect(lifecycle?.findAll('button').find((button) => button.text() === 'Studio')?.attributes('disabled')).toBeDefined()
+  })
+
+  it('permanently deletes a system user after confirmation and leaves administrators in place', async () => {
+    vi.mocked(listStudioPeople).mockResolvedValue([
+      { id: 'author-1', email: 'author@example.com', displayName: 'Author', role: 'author', canEditOthers: false },
+      { id: 'admin-1', email: 'admin@example.com', displayName: 'Admin', role: 'admin', canEditOthers: false },
+    ])
+    vi.mocked(deleteCreatedDemoUser).mockResolvedValue()
+    const wrapper = mount(StudioPeopleView)
+    await flushPromises()
+    await tab(wrapper, 'System Users').trigger('click')
+
+    const admin = wrapper.get('.system-users').findAll('li').find((row) => row.text().includes('admin@example.com'))
+    const author = wrapper.get('.system-users').findAll('li').find((row) => row.text().includes('author@example.com'))
+    expect(admin?.findAll('button').find((button) => button.text() === 'Delete')).toBeUndefined()
+    await author?.findAll('button').find((button) => button.text() === 'Delete')?.trigger('click')
+    expect(deleteCreatedDemoUser).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('The email can be used again for a demo account.')
+
+    await wrapper.findAll('button').find((button) => button.text() === 'Delete user')?.trigger('click')
+    await flushPromises()
+    expect(deleteCreatedDemoUser).toHaveBeenCalledWith('author-1')
+    expect(listStudioPeople).toHaveBeenCalledTimes(2)
   })
 })
