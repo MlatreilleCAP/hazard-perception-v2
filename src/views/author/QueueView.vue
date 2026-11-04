@@ -149,7 +149,8 @@ function isBoardStatus(status: LessonReviewStatus): status is BoardStatus {
 }
 
 function cardsFor(status: QueueCard['status']): QueueCard[] {
-  return sortCards(cards.value.filter((card) => card.status === status))
+  const items = cards.value.filter((card) => card.status === status)
+  return status === 'available' ? sortAvailableCards(items) : sortCards(items)
 }
 
 function holderName(card: QueueCard): string {
@@ -217,6 +218,19 @@ function sortCards(items: QueueCard[]): QueueCard[] {
     const delta = orderKey(left) - orderKey(right)
     if (delta !== 0) return delta
     return left.title.localeCompare(right.title)
+  })
+}
+
+/** Available stays grouped by country (the locale under the title), then title and language. */
+function sortAvailableCards(items: QueueCard[]): QueueCard[] {
+  return [...items].sort((left, right) => {
+    const byCountry = (left.country || '\uffff').localeCompare(right.country || '\uffff')
+    if (byCountry !== 0) return byCountry
+    const byTitle = left.title.localeCompare(right.title)
+    if (byTitle !== 0) return byTitle
+    const byLanguage = left.language.localeCompare(right.language)
+    if (byLanguage !== 0) return byLanguage
+    return orderKey(left) - orderKey(right)
   })
 }
 
