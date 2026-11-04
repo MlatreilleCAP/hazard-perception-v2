@@ -74,7 +74,7 @@ function supportCopy(address: string | undefined): { html: string; text: string 
   }
   const safe = escapeHtml(value)
   return {
-    html: `<p style="margin:0 0 16px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};">Need help? Contact <a href="mailto:${safe}" style="color:${INK};text-decoration:underline;">${safe}</a>.</p>`,
+    html: `<p style="margin:0 0 16px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};text-align:center;">Need help? Contact <a href="mailto:${safe}" style="color:${INK};text-decoration:underline;">${safe}</a>.</p>`,
     text: `Need help? Contact ${value}.`,
   }
 }
@@ -83,7 +83,7 @@ function paragraphHtml(paragraphs: string[]): string {
   return paragraphs
     .map(
       (paragraph) =>
-        `<p style="margin:0 0 16px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};">${escapeHtml(paragraph)}</p>`,
+        `<p style="margin:0 0 16px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};text-align:center;">${escapeHtml(paragraph)}</p>`,
     )
     .join('')
 }
@@ -121,9 +121,9 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
 
   const safeUrl = escapeHtml(actionUrl)
   const safeLabel = escapeHtml(buttonLabel)
-  const buttonLink = `display:inline-block;padding:12px 28px;font-family:${FONT};font-size:15px;line-height:1.2;font-weight:500;color:#ffffff;text-decoration:none;`
+  const buttonLink = `display:inline-block;padding:12px 28px;font-family:${FONT};font-size:15px;line-height:1.2;font-weight:400;color:#ffffff;text-decoration:none;`
   const button = buttonLabel
-    ? `<table role="presentation" class="email-button" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 28px;">
+    ? `<table role="presentation" class="email-button" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 28px;">
                 <tr>
                   <!--[if mso]>
                   <td align="center" bgcolor="#000000" style="background-color:#000000;">
@@ -140,15 +140,15 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
     : ''
 
   const codeBlock = code
-    ? `<p style="margin:0 0 8px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};">${escapeHtml(codeLead)}</p>
-              <p style="margin:0 0 28px;font-family:${FONT};font-size:15.2px;line-height:1.55;font-weight:600;letter-spacing:0.08em;color:${INK};">${escapeHtml(code)}</p>`
+    ? `<p style="margin:0 0 8px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};text-align:center;">${escapeHtml(codeLead)}</p>
+              <p style="margin:0 0 28px;font-family:${FONT};font-size:15.2px;line-height:1.55;font-weight:600;letter-spacing:0.08em;color:${INK};text-align:center;">${escapeHtml(code)}</p>`
     : ''
 
   const notes = [expiryNote, footerMessage]
     .filter(Boolean)
     .map(
       (paragraph) =>
-        `<p style="margin:0 0 16px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};">${escapeHtml(paragraph)}</p>`,
+        `<p style="margin:0 0 16px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};text-align:center;">${escapeHtml(paragraph)}</p>`,
     )
     .join('')
 
@@ -162,7 +162,7 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
   <title>${escapeHtml(heading)}</title>
   <style>
     @media only screen and (max-width: 600px) {
-      .email-shell { padding: 16px 12px !important; }
+      .email-shell { padding: 16px 12px 200px !important; }
       .email-card { width: 100% !important; }
       .email-inner { padding: 28px 20px !important; }
       .email-button a { display: block !important; text-align: center !important; }
@@ -173,23 +173,23 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#ffffff;">${escapeHtml(heading)}</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background:#ffffff;margin:0;padding:0;width:100%;">
     <tr>
-      <td class="email-shell" align="center" style="padding:32px 16px;">
+      <td class="email-shell" align="center" style="padding:32px 16px 200px;">
         <!--[if mso]><table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
         <table role="presentation" class="email-card" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:560px;background:#ffffff;border:1px solid ${LINE};border-radius:16px;">
           <tr>
-            <td class="email-inner" style="padding:40px 36px;font-family:${FONT};">
+            <td class="email-inner" align="center" style="padding:40px 36px;font-family:${FONT};text-align:center;">
               <p style="margin:0 0 28px;text-align:center;">
                 <a href="${escapeHtml(product.href)}" style="text-decoration:none;">
                   <img src="${escapeHtml(product.logo)}" width="160" height="32" alt="AlertDriving" border="0" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;height:32px;width:160px;">
                 </a>
               </p>
-              <h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;font-weight:700;color:${INK};">${escapeHtml(heading)}</h1>
+              <h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;font-weight:700;color:${INK};text-align:center;">${escapeHtml(heading)}</h1>
               ${paragraphHtml(paragraphs)}
               ${button}
               ${codeBlock}
               ${notes}
               ${support?.html ?? ''}
-              <p style="margin:12px 0 0;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};">${escapeHtml(product.domain)}</p>
+              <p style="margin:12px 0 0;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};text-align:center;">${escapeHtml(product.domain)}</p>
             </td>
           </tr>
         </table>
