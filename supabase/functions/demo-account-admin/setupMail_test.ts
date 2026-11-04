@@ -30,7 +30,7 @@ Deno.test('the setup message contains the verify button and no generated passwor
   assertEquals(message.subject, SETUP_SUBJECT)
   assertEquals(message.html.includes('>Set Up Account</a>'), true)
   assertEquals(message.html.includes('#ff6bb5'), true)
-  assertEquals(message.html.includes('or copy this link'), true)
+  assertEquals(message.html.includes('or copy this link'), false)
   assertEquals(message.html.includes('INROADS'), false)
   assertEquals(message.html.includes('max-width:560px'), true)
   assertEquals(message.html.includes('one-time-token'), true)

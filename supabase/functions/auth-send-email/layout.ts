@@ -3,7 +3,6 @@ import { HookError } from './errors.ts'
 const DEFAULT_PRODUCT_URL = 'https://inroads.alertdriving.com'
 const FONT = 'Poppins,Segoe UI,Helvetica,Arial,sans-serif'
 const INK = '#222b3f'
-const LINK = '#000000'
 const LINE = '#e7e9ee'
 
 /**
@@ -75,7 +74,7 @@ function supportCopy(address: string | undefined): { html: string; text: string 
   }
   const safe = escapeHtml(value)
   return {
-    html: `<p style="margin:0 0 16px;font-family:${FONT};font-size:16px;line-height:1.55;color:${INK};">Need help? Contact <a href="mailto:${safe}" style="color:${INK};text-decoration:underline;">${safe}</a>.</p>`,
+    html: `<p style="margin:0 0 16px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};">Need help? Contact <a href="mailto:${safe}" style="color:${INK};text-decoration:underline;">${safe}</a>.</p>`,
     text: `Need help? Contact ${value}.`,
   }
 }
@@ -84,7 +83,7 @@ function paragraphHtml(paragraphs: string[]): string {
   return paragraphs
     .map(
       (paragraph) =>
-        `<p style="margin:0 0 16px;font-family:${FONT};font-size:16px;line-height:1.55;color:${INK};">${escapeHtml(paragraph)}</p>`,
+        `<p style="margin:0 0 16px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};">${escapeHtml(paragraph)}</p>`,
     )
     .join('')
 }
@@ -122,7 +121,7 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
 
   const safeUrl = escapeHtml(actionUrl)
   const safeLabel = escapeHtml(buttonLabel)
-  const buttonLink = `display:inline-block;padding:12px 28px;font-family:${FONT};font-size:15px;line-height:1.2;font-weight:600;color:#ffffff;text-decoration:none;`
+  const buttonLink = `display:inline-block;padding:12px 28px;font-family:${FONT};font-size:15px;line-height:1.2;font-weight:500;color:#ffffff;text-decoration:none;`
   const button = buttonLabel
     ? `<table role="presentation" class="email-button" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 28px;">
                 <tr>
@@ -137,21 +136,19 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
                   </td>
                   <!--<![endif]-->
                 </tr>
-              </table>
-              <p style="margin:0 0 8px;font-family:${FONT};font-size:16px;line-height:1.55;color:${INK};">or copy this link</p>
-              <p style="margin:0 0 28px;font-family:${FONT};font-size:15px;line-height:1.5;word-break:break-all;color:${LINK};"><a class="email-link" href="${safeUrl}" style="color:${LINK};text-decoration:none;"><span style="color:${LINK};text-decoration:none;">${safeUrl}</span></a></p>`
+              </table>`
     : ''
 
   const codeBlock = code
-    ? `<p style="margin:0 0 8px;font-family:${FONT};font-size:16px;line-height:1.55;color:${INK};">${escapeHtml(codeLead)}</p>
-              <p style="margin:0 0 28px;font-family:${FONT};font-size:16px;line-height:1.55;font-weight:600;letter-spacing:0.08em;color:${INK};">${escapeHtml(code)}</p>`
+    ? `<p style="margin:0 0 8px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};">${escapeHtml(codeLead)}</p>
+              <p style="margin:0 0 28px;font-family:${FONT};font-size:15.2px;line-height:1.55;font-weight:600;letter-spacing:0.08em;color:${INK};">${escapeHtml(code)}</p>`
     : ''
 
   const notes = [expiryNote, footerMessage]
     .filter(Boolean)
     .map(
       (paragraph) =>
-        `<p style="margin:0 0 16px;font-family:${FONT};font-size:16px;line-height:1.55;color:${INK};">${escapeHtml(paragraph)}</p>`,
+        `<p style="margin:0 0 16px;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};">${escapeHtml(paragraph)}</p>`,
     )
     .join('')
 
@@ -164,8 +161,6 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
   <meta name="supported-color-schemes" content="light">
   <title>${escapeHtml(heading)}</title>
   <style>
-    a.email-link, a.email-link span { color: #000000 !important; text-decoration: none !important; }
-    u + #body a.email-link, u + #body a.email-link span { color: #000000 !important; text-decoration: none !important; }
     @media only screen and (max-width: 600px) {
       .email-shell { padding: 16px 12px !important; }
       .email-card { width: 100% !important; }
@@ -194,7 +189,7 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
               ${codeBlock}
               ${notes}
               ${support?.html ?? ''}
-              <p style="margin:12px 0 0;font-family:${FONT};font-size:16px;line-height:1.55;color:${INK};">${escapeHtml(product.domain)}</p>
+              <p style="margin:12px 0 0;font-family:${FONT};font-size:15.2px;line-height:1.55;color:${INK};">${escapeHtml(product.domain)}</p>
             </td>
           </tr>
         </table>
