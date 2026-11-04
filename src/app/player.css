@@ -561,6 +561,17 @@ body:has(.player-page) {
   text-align: center;
 }
 
+.player-access-notice {
+  margin: 12px 0;
+  color: #222b3f;
+  line-height: 1.45;
+}
+
+.player-phone .player-access-notice {
+  margin: 0;
+  text-align: center;
+}
+
 .player-page.is-waiting .process-player-message {
   color: #403b3b;
 }

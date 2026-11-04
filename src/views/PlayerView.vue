@@ -25,6 +25,7 @@ import {
 } from '@/lib/lesson/resultsChrome'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
 import AnticipateExperience from '@/components/anticipate/AnticipateExperience.vue'
+import PlayerAccessNotice from '@/components/player/PlayerAccessNotice.vue'
 import LessonExperience from '@/components/lesson/LessonExperience.vue'
 import ProcessExperience from '@/components/process/ProcessExperience.vue'
 import SeeExperience from '@/components/see/SeeExperience.vue'
@@ -38,6 +39,8 @@ import { isLessonActivity } from '@/types/lesson'
 import { isProcessActivity } from '@/types/process'
 import { isSeeActivity } from '@/types/see'
 import { loadInroadsScoring } from '@/services/inroadsScoring'
+import { describePlayerAccess, isAccessBlockedError, type OwnDemoAccount } from '@/lib/demo/accessMessage'
+import { publishedAccessBlocked, readOwnDemoAccount } from '@/services/demoAccess'
 
 const route = useRoute()
 const router = useRouter()
@@ -46,6 +49,8 @@ const runtime = useRuntimeStore()
 const definition = ref<ActivityDefinition | null>(null)
 const loading = ref(typeof route.query.activity === 'string')
 const replayNonce = ref(0)
+const ownAccount = ref<OwnDemoAccount | null>(null)
+const accessBlocked = ref(false)
 
 const published = computed(() =>
   activities.summaries.filter(
@@ -81,6 +86,19 @@ const activityId = computed(() =>
   typeof route.query.activity === 'string' ? route.query.activity : null,
 )
 const isPreview = computed(() => route.query.preview === '1')
+const accessMessage = computed(() => {
+  if (isPreview.value) return null
+  const raw = `${runtime.error ?? ''}\n${activities.error ?? ''}`
+  return describePlayerAccess(ownAccount.value, accessBlocked.value || isAccessBlockedError(raw))
+})
+const activityError = computed(() => {
+  if (accessMessage.value || isAccessBlockedError(runtime.error)) return null
+  return runtime.error
+})
+const catalogError = computed(() => {
+  if (accessMessage.value || isAccessBlockedError(activities.error)) return null
+  return activities.error
+})
 const showPreviewZoom = computed(() => isPreview.value && Boolean(activityId.value))
 const previewRandomResults = computed(
   () => isPreview.value && route.query.results === 'random',
@@ -265,6 +283,20 @@ async function resolveSeeExampleSrc(activity: ActivityDefinition): Promise<strin
   }
 }
 
+async function refreshAccess(): Promise<void> {
+  if (isPreview.value) {
+    ownAccount.value = null
+    accessBlocked.value = false
+    return
+  }
+  const [account, blocked] = await Promise.all([
+    readOwnDemoAccount().catch(() => null),
+    publishedAccessBlocked().catch(() => false),
+  ])
+  ownAccount.value = account
+  accessBlocked.value = blocked
+}
+
 async function loadActivity(id: string): Promise<void> {
   loading.value = true
   seeExampleSrc.value = ''
@@ -347,7 +379,14 @@ async function loadActivity(id: string): Promise<void> {
     runtime.playDefinition(cloneJson(definition.value))
   } catch (cause) {
     definition.value = null
-    runtime.setError(cause instanceof Error ? cause.message : 'Failed to start activity')
+    const message = cause instanceof Error ? cause.message : 'Failed to start activity'
+    if (isAccessBlockedError(message)) {
+      await refreshAccess()
+      accessBlocked.value = true
+      runtime.setError(null)
+    } else {
+      runtime.setError(message)
+    }
   } finally {
     loading.value = false
   }
@@ -356,6 +395,7 @@ async function loadActivity(id: string): Promise<void> {
 onMounted(async () => {
   await loadInroadsScoring()
   await activities.refreshList('catalog')
+  await refreshAccess()
   if (activityId.value) {
     await loadActivity(activityId.value)
   }
@@ -494,7 +534,8 @@ function onExperienceFinished(): void {
       class="player-phone-slot"
     >
       <div class="player-phone is-waiting" aria-busy="true" aria-label="Loading activity">
-        <p v-if="runtime.error && !loading" class="process-player-message">{{ runtime.error }}</p>
+        <PlayerAccessNotice v-if="accessMessage && !loading" class="process-player-message" :message="accessMessage" />
+        <p v-else-if="activityError && !loading" class="process-player-message">{{ activityError }}</p>
       </div>
     </div>
 
@@ -509,9 +550,10 @@ function onExperienceFinished(): void {
         <button type="button" class="counter" @click="playFirstPublished">
           Play published activity
         </button>
-        <p v-if="activities.error" class="error">{{ activities.error }}</p>
-        <p v-if="runtime.error" class="error">{{ runtime.error }}</p>
-        <p v-if="published.length === 0">No published activities yet.</p>
+        <PlayerAccessNotice :message="accessMessage" />
+        <p v-if="catalogError" class="error">{{ catalogError }}</p>
+        <p v-if="activityError" class="error">{{ activityError }}</p>
+        <p v-if="!accessMessage && published.length === 0">No published activities yet.</p>
         <dl v-if="runtime.session && !hasExperience" class="status-grid">
           <div>
             <dt>Status</dt>

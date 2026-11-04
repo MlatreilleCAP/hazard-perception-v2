@@ -6,6 +6,7 @@ import {
   readRecoveryCallback,
   type RecoveryCallback,
 } from '@/lib/auth/recoveryCallback'
+import { signInFailureMessage } from '@/lib/auth/signInMessage'
 import { createRecoveryRequestClient, getAuthArrivalHref, getSupabase } from '@/services/supabase'
 
 export function authCallbackUrl(nextPath: string): string {
@@ -20,10 +21,7 @@ export async function signInWithPassword(
   const client = requireClient()
   const { data, error } = await client.auth.signInWithPassword({ email, password })
   if (error) {
-    const message = error.message.toLowerCase().includes('email not confirmed')
-      ? 'This account’s email is not confirmed yet. Sign up again or ask an admin to confirm the account.'
-      : error.message
-    return { session: null, error: message }
+    return { session: null, error: signInFailureMessage(error) }
   }
   return { session: data.session, error: null }
 }

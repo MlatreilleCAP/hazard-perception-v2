@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
+import DemoAccountsSection from '@/components/author/DemoAccountsSection.vue'
+import { GUARD_TOGGLE_REASON, isLifecycleRoleGuard, studioToggleReason } from '@/lib/demo/studioToggle'
 import {
   listStudioPeople,
   setCanEditOthers,
@@ -14,6 +16,25 @@ const people = ref<StudioPerson[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const savingId = ref<string | null>(null)
+const lifecycleProfileIds = ref(new Set<string>())
+const guardBlocked = ref(new Set<string>())
+const demoReload = ref(0)
+
+function onLifecycleProfiles(ids: string[]): void {
+  lifecycleProfileIds.value = new Set(ids)
+  const nextGuards = new Set(guardBlocked.value)
+  for (const id of ids) nextGuards.delete(id)
+  guardBlocked.value = nextGuards
+}
+
+function toggleReason(person: StudioPerson): string | null {
+  return studioToggleReason({
+    role: person.role,
+    profileId: person.id,
+    lifecycleProfileIds: lifecycleProfileIds.value,
+    guardBlocked: guardBlocked.value.has(person.id),
+  })
+}
 
 onMounted(async () => {
   loading.value = true
@@ -28,7 +49,7 @@ onMounted(async () => {
 })
 
 async function toggleStudio(person: StudioPerson): Promise<void> {
-  if (person.role === 'admin' || person.id === auth.userId || savingId.value) return
+  if (toggleReason(person) || person.role === 'admin' || person.id === auth.userId || savingId.value) return
   const visible = person.role === 'demo'
   savingId.value = person.id
   error.value = null
@@ -36,8 +57,18 @@ async function toggleStudio(person: StudioPerson): Promise<void> {
     await setStudioVisible(person.id, visible)
     person.role = visible ? 'author' : 'demo'
     if (!visible) person.canEditOthers = false
+    guardBlocked.value.delete(person.id)
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Failed to update Studio access'
+    const message = cause instanceof Error ? cause.message : 'Failed to update Studio access'
+    if (isLifecycleRoleGuard(message)) {
+      guardBlocked.value = new Set(guardBlocked.value).add(person.id)
+      error.value = GUARD_TOGGLE_REASON
+      demoReload.value += 1
+      return
+    }
+    error.value = /sqlstate|duplicate key|violates/i.test(message)
+      ? 'Studio access could not be changed.'
+      : message
   } finally {
     savingId.value = null
   }
@@ -83,6 +114,13 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
           <div style="min-width: 0; flex: 1">
             <p class="author-list-title">{{ person.email }}</p>
             <p v-if="person.displayName" class="author-list-sub">{{ person.displayName }}</p>
+            <p
+              v-if="toggleReason(person)"
+              :id="`studio-lock-${person.id}`"
+              class="author-list-sub"
+            >
+              {{ toggleReason(person) }}
+            </p>
           </div>
           <p v-if="person.role === 'admin'" class="author-muted">Admin</p>
           <div v-else class="author-section-actions">
@@ -96,7 +134,8 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
             </AuthorPillButton>
             <AuthorPillButton
               variant="white"
-              :disabled="person.id === auth.userId || savingId === person.id"
+              :disabled="Boolean(toggleReason(person)) || person.id === auth.userId || savingId === person.id"
+              :aria-describedby="toggleReason(person) ? `studio-lock-${person.id}` : undefined"
               @click="toggleStudio(person)"
             >
               {{ person.role === 'demo' ? 'Studio off' : 'Studio on' }}
@@ -104,6 +143,8 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
           </div>
         </li>
       </ul>
+
+      <DemoAccountsSection :reload-token="demoReload" @lifecycle-profiles="onLifecycleProfiles" />
     </div>
   </div>
 </template>
