@@ -25,6 +25,34 @@ export function getAuthArrivalHref(): string {
  * Creates the v2 Supabase client only. Table access goes through the
  * persistence service, never from node components.
  */
+/**
+ * Hosted Edge Functions reject loopback Origins. In dev, function calls go to
+ * this page's origin and Vite forwards them.
+ */
+export function localDevFunctionUrl(
+  supabaseUrl: string,
+  requestUrl: string,
+  pageOrigin: string,
+): string | null {
+  const base = supabaseUrl.trim().replace(/\/$/, '')
+  const origin = pageOrigin.trim().replace(/\/$/, '')
+  const prefix = `${base}/functions/v1/`
+  if (!base || !origin || !requestUrl.startsWith(prefix)) return null
+  return `${origin}/functions/v1/${requestUrl.slice(prefix.length)}`
+}
+
+function devAwareFetch(supabaseUrl: string): typeof fetch {
+  const baseFetch = globalThis.fetch.bind(globalThis)
+  if (!import.meta.env.DEV || typeof window === 'undefined') return baseFetch
+  return (input, init) => {
+    const url = input instanceof Request ? input.url : input instanceof URL ? input.href : String(input)
+    const proxied = localDevFunctionUrl(supabaseUrl, url, window.location.origin)
+    if (!proxied || proxied === url) return baseFetch(input, init)
+    if (input instanceof Request) return baseFetch(new Request(proxied, input), init)
+    return baseFetch(proxied, init)
+  }
+}
+
 export function initSupabase(): SupabaseClient | null {
   if (initialized) return client
   initialized = true
@@ -41,6 +69,9 @@ export function initSupabase(): SupabaseClient | null {
       autoRefreshToken: true,
       detectSessionInUrl: true,
       flowType: 'pkce',
+    },
+    global: {
+      fetch: devAwareFetch(env.supabaseUrl),
     },
   })
   return client

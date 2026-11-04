@@ -596,7 +596,7 @@ function retryHold(account: DemoAccountRecord): void {
         @keydown="onDialogKeydown($event, deactivateDialog)"
       >
         <h3 id="demo-deactivate-title">Deactivate {{ deactivateTarget.email }}</h3>
-        <p>This person will lose access. You can extend the demo later to turn it back on.</p>
+        <p>This person will lose access. A deactivated demo stays off.</p>
         <form class="demo-form" novalidate @submit.prevent="submitDeactivate">
           <label class="demo-field">
             <span>Reason (optional)</span>

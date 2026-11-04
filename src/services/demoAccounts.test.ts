@@ -124,6 +124,8 @@ describe('demo account administration', () => {
       .toBe('Demo accounts are not available on this server yet.')
     expect(presentDemoError('Choose start, extend, or deactivate.'))
       .toBe('Creating demo accounts is not available on this server yet.')
+    expect(presentDemoError('Failed to send a request to the Edge Function'))
+      .toBe('The demo account service could not be reached.')
   })
 
   it('extends with the signed-in function and no password field', async () => {

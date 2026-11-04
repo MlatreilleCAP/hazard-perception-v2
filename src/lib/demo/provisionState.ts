@@ -52,5 +52,8 @@ export function presentDemoError(message: string): string {
   if (/does not exist|schema cache|pgrst202/i.test(text)) {
     return 'Demo accounts are not available on this server yet.'
   }
+  if (/failed to fetch|failed to send a request to the edge function/i.test(text)) {
+    return 'The demo account service could not be reached.'
+  }
   return 'The demo account could not be changed.'
 }
