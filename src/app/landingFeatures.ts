@@ -36,7 +36,7 @@ export const LANDING_FEATURES = [
     visual: 'modes',
   },
   {
-    title: 'Built For Fleets & Schools',
+    title: 'Built for Any Fleet',
     description:
       'Scale from a single demo to full programs without losing clarity, consistency, or learner engagement.',
     visual: 'scale',
