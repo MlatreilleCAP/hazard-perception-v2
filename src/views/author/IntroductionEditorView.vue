@@ -12,6 +12,7 @@ import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
+import { canonicalActivityId } from '@/app/id'
 import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { reviewerAssignee } from '@/lib/lesson/queueAssignment'
@@ -333,16 +334,17 @@ function setIntroFirstVisit(value: boolean): void {
 async function syncCountryToSiblingVersions(sharedCountry: string): Promise<void> {
   const nextCountry = canonicalizeLessonCountry(sharedCountry)
   for (const version of versions.value) {
-    if (version.id === activityId.value) continue
+    const siblingId = canonicalActivityId(version.id)
+    if (!siblingId || siblingId === canonicalActivityId(activityId.value)) continue
     if (canonicalizeLessonCountry(version.country) === nextCountry) continue
     try {
-      const definition = await services.persistence.getById(version.id)
+      const definition = await services.persistence.getById(siblingId)
       const parsed = definition ? readIntroductionDefinition(definition) : null
       if (!definition || !parsed) continue
       if (canonicalizeLessonCountry(parsed.country) === nextCountry) continue
-      await services.persistence.save(
-        writeIntroductionDefinition(definition, { ...parsed, country: nextCountry }),
-      )
+      const next = writeIntroductionDefinition(definition, { ...parsed, country: nextCountry })
+      next.id = siblingId
+      await services.persistence.save(next)
     } catch {
       // Keep saving the current version even if a sibling update fails.
     }
@@ -354,14 +356,21 @@ async function saveIntro(): Promise<boolean> {
   titleError.value = title.value.trim() ? null : 'Title is required'
   if (titleError.value) return false
 
+  const id = canonicalActivityId(activityId.value)
+  if (!id) {
+    window.alert('This video could not be saved because its id is missing.')
+    return false
+  }
+
   saving.value = true
   saveMessage.value = null
   try {
-    if (!activities.current || activities.current.id !== activityId.value) {
-      await activities.load(activityId.value)
+    if (!activities.current || activities.current.id !== id) {
+      await activities.load(id)
     }
-    if (!activities.current || !introduction.value) return false
+    if (!activities.current || activities.current.id !== id || !introduction.value) return false
     const next = writeIntroductionDefinition(activities.current, introduction.value)
+    next.id = id
     next.metadata = {
       ...next.metadata,
       title: title.value.trim(),

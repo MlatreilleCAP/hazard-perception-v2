@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ActivityDefinition, ActivityId, ActivitySummary } from '@/types/activity'
 import type { ActivityRow, ActivityVersionRow } from '@/types/database'
 import type { ActivityRepository, ActivityListScope, PersistenceDriver } from '@/types/repository'
+import { canonicalActivityId } from '@/app/id'
 import { validateActivityDefinition } from '@/engine/validateActivity'
 import {
   fromVersionRows,
@@ -108,8 +109,8 @@ export class SupabaseActivityRepository implements ActivityRepository {
       'id' | 'title' | 'updated_at' | 'published_version_id' | 'tags' | 'created_by'
     >[]
     const publishedIds = rows
-      .map((row) => row.published_version_id)
-      .filter((id): id is string => Boolean(id))
+      .map((row) => canonicalActivityId(row.published_version_id))
+      .filter((id) => id.length > 0)
 
     const versionsById = new Map<string, number>()
     if (publishedIds.length > 0) {
@@ -142,13 +143,17 @@ export class SupabaseActivityRepository implements ActivityRepository {
   }
 
   async getById(id: ActivityId): Promise<ActivityDefinition | null> {
-    return this.getVersion(id, 'draft')
+    const activityId = canonicalActivityId(id)
+    if (!activityId) return null
+    return this.getVersion(activityId, 'draft')
   }
 
   async getPublished(id: ActivityId): Promise<ActivityDefinition | null> {
+    const activityId = canonicalActivityId(id)
+    if (!activityId) return null
     await this.requireUserId()
     const { data, error } = await this.client.rpc('get_published_activity', {
-      p_activity_id: id,
+      p_activity_id: activityId,
     })
     throwIfError(error, 'Failed to load published activity')
     if (!data || typeof data !== 'object') return null
@@ -160,6 +165,13 @@ export class SupabaseActivityRepository implements ActivityRepository {
   }
 
   async save(definition: ActivityDefinition): Promise<ActivityDefinition> {
+    const id = canonicalActivityId(definition.id)
+    if (!id) {
+      throw new Error('This activity could not be saved because its id is missing.')
+    }
+    if (definition.id !== id) {
+      definition = { ...definition, id }
+    }
     await this.requireUserId()
     const errors = validateActivityDefinition(definition)
     if (errors.length > 0) {
@@ -205,13 +217,17 @@ export class SupabaseActivityRepository implements ActivityRepository {
   }
 
   async publish(id: ActivityId): Promise<ActivityDefinition> {
+    const activityId = canonicalActivityId(id)
+    if (!activityId) {
+      throw new Error('This activity could not be published because its id is missing.')
+    }
     await this.requireUserId()
     const { error } = await this.client.rpc('publish_activity', {
-      p_activity_id: id,
+      p_activity_id: activityId,
     })
     throwIfError(error, 'Failed to publish activity')
 
-    const published = await this.getPublished(id)
+    const published = await this.getPublished(activityId)
     if (!published) {
       throw new Error(`Activity ${id} has no published version after publish`)
     }
@@ -219,17 +235,21 @@ export class SupabaseActivityRepository implements ActivityRepository {
   }
 
   async unpublish(id: ActivityId): Promise<void> {
+    const activityId = canonicalActivityId(id)
+    if (!activityId) return
     await this.requireUserId()
     const { error } = await this.client.rpc('unpublish_activity', {
-      p_activity_id: id,
+      p_activity_id: activityId,
     })
     throwIfError(error, 'Failed to unpublish activity')
   }
 
   async delete(id: ActivityId): Promise<void> {
+    const activityId = canonicalActivityId(id)
+    if (!activityId) return
     await this.requireUserId()
     const { error } = await this.client.rpc('remove_activity', {
-      p_activity_id: id,
+      p_activity_id: activityId,
     })
     throwIfError(error, 'Failed to remove activity')
   }
@@ -245,7 +265,7 @@ export class SupabaseActivityRepository implements ActivityRepository {
     })
     throwIfError(error, 'Failed to create activity')
 
-    const activityId = typeof data === 'string' ? data : null
+    const activityId = canonicalActivityId(typeof data === 'string' ? data : '')
     if (!activityId) {
       throw new Error('create_activity did not return an activity id')
     }
@@ -267,16 +287,19 @@ export class SupabaseActivityRepository implements ActivityRepository {
     id: ActivityId,
     status: 'draft' | 'published',
   ): Promise<ActivityDefinition | null> {
+    const activityId = canonicalActivityId(id)
+    if (!activityId) return null
     await this.requireUserId()
-    const activity = await this.getActivityRow(id)
+    const activity = await this.getActivityRow(activityId)
     if (!activity || activity.removed_at) return null
 
     if (status === 'published') {
-      if (!activity.published_version_id) return null
+      const publishedVersionId = canonicalActivityId(activity.published_version_id)
+      if (!publishedVersionId) return null
       const { data, error } = await this.client
         .from('activity_versions')
         .select('*')
-        .eq('id', activity.published_version_id)
+        .eq('id', publishedVersionId)
         .eq('status', 'published')
         .maybeSingle()
       throwIfError(error, 'Failed to load published activity version')
@@ -287,7 +310,7 @@ export class SupabaseActivityRepository implements ActivityRepository {
     const { data, error } = await this.client
       .from('activity_versions')
       .select('*')
-      .eq('activity_id', id)
+      .eq('activity_id', activityId)
       .eq('status', 'draft')
       .maybeSingle()
     throwIfError(error, 'Failed to load draft activity version')
@@ -296,10 +319,12 @@ export class SupabaseActivityRepository implements ActivityRepository {
   }
 
   private async getActivityRow(id: ActivityId): Promise<ActivityRow | null> {
+    const activityId = canonicalActivityId(id)
+    if (!activityId) return null
     const { data, error } = await this.client
       .from('activities')
       .select('*')
-      .eq('id', id)
+      .eq('id', activityId)
       .maybeSingle()
     throwIfError(error, 'Failed to load activity')
     return (data as ActivityRow | null) ?? null

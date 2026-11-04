@@ -16,6 +16,7 @@ import SeeTimelineEditor from '@/components/author/SeeTimelineEditor.vue'
 import { useAuthorAutosave } from '@/composables/useAuthorAutosave'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { contentReadonlyMessage } from '@/lib/auth/roles'
+import { canonicalActivityId } from '@/app/id'
 import { services } from '@/app/container'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
 import { useActivityStore } from '@/stores/activityStore'
@@ -233,12 +234,20 @@ async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
   if (origin === 'manual') saving.value = true
   saveMessage.value = null
   try {
+    const id = canonicalActivityId(activityId.value)
+    if (!id) {
+      if (origin === 'manual') {
+        window.alert('This activity could not be saved because its id is missing.')
+      }
+      return false
+    }
     const source =
-      sourceActivity.value?.id === activityId.value
+      canonicalActivityId(sourceActivity.value?.id) === id
         ? sourceActivity.value
-        : await services.persistence.getById(activityId.value)
-    if (!source || source.id !== activityId.value) return false
+        : await services.persistence.getById(id)
+    if (!source || canonicalActivityId(source.id) !== id) return false
     const next = writeSeeDefinition(source, see.value)
+    next.id = id
     if (!props.embedded) {
       next.metadata.title = title.value.trim() || next.metadata.title
       next.metadata.description = description.value.trim()

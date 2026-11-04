@@ -6,6 +6,7 @@ import { readIntroductionDefinition } from '@/activities/introductionDefinition'
 import availableIcon from '@/assets/queue/available.svg'
 import inProgressIcon from '@/assets/queue/in-progress.svg'
 import reviewIcon from '@/assets/queue/review.svg'
+import { canonicalActivityId } from '@/app/id'
 import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { downloadBlob } from '@/lib/inroadsMvp/buildImportTemplate'
@@ -335,10 +336,17 @@ function onCardDragOver(card: QueueCard, event: DragEvent): void {
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
 }
 
+function draggedCardId(event: DragEvent): string {
+  return (
+    canonicalActivityId(draggingId.value) ||
+    canonicalActivityId(event.dataTransfer?.getData('text/plain'))
+  )
+}
+
 function onCardDrop(card: QueueCard, event: DragEvent): void {
   event.preventDefault()
   event.stopPropagation()
-  const id = event.dataTransfer?.getData('text/plain') || draggingId.value
+  const id = draggedCardId(event)
   const place = dropPlace.value?.id === card.id ? dropPlace.value.place : 'before'
   onDragEnd()
   if (!id || !isBoardStatus(card.status)) return
@@ -347,7 +355,7 @@ function onCardDrop(card: QueueCard, event: DragEvent): void {
 
 function onDrop(status: BoardStatus, event: DragEvent): void {
   event.preventDefault()
-  const id = event.dataTransfer?.getData('text/plain') || draggingId.value
+  const id = draggedCardId(event)
   onDragEnd()
   if (!id) return
   void placeCard(id, status, null, 'after')

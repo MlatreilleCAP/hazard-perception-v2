@@ -11,11 +11,9 @@ import { readProcessDefinition, writeProcessDefinition } from '@/activities/proc
 import { readSeeDefinition, writeSeeDefinition } from '@/activities/seeDefinition'
 import { services } from '@/app/container'
 import { mergeResultsChrome } from '@/lib/lesson/resultsChrome'
-import { lessonVersionKey, sharedLessonTitle } from '@/lib/inroadsMvp/lessonVersions'
 import {
   INROADS_MVP_CHILD_TAG,
   createDefaultInroadsMvpDefinition,
-  isInroadsMvpActivity,
   type InroadsMvpDefinition,
 } from '@/types/inroadsMvp'
 import {
@@ -25,7 +23,6 @@ import {
   SLOT_FOLDER_LABELS,
   TEMPLATE_FOLDER_SLOT_IDS,
   WORKBOOK_REPLACE_ID,
-  canonicalizeLessonLanguage,
   fileMatchesSlot,
   isVttName,
   mediaKindForSlot,
@@ -508,6 +505,7 @@ export function buildEnglishReferenceFromWorkbook(payload: ParsedImportPackage):
     ...createDefaultInroadsMvpDefinition('', '', ''),
     country: lesson.country.trim(),
     language: lesson.language.trim() || 'English',
+    lessonTitle: lesson.title.trim(),
     sku: lesson.sku ?? '',
     buttonLabel: lesson.button ?? '',
     submitLabel: lesson.submit ?? '',
@@ -968,27 +966,6 @@ function applySegmentSlotCaptions<
   return { ...current, segments }
 }
 
-async function syncSiblingLessonTitles(
-  activityName: string,
-  nextTitle: string,
-  currentId: string,
-): Promise<void> {
-  const next = nextTitle.trim()
-  const key = lessonVersionKey(activityName)
-  if (!next || !key) return
-  const summaries = await services.persistence.list('authoring')
-  for (const item of summaries) {
-    if (item.id === currentId || !isInroadsMvpActivity(item.tags)) continue
-    if (lessonVersionKey(item.title) !== key) continue
-    const definition = await services.persistence.getById(item.id)
-    const parsed = definition ? readInroadsMvpDefinition(definition) : null
-    if (!definition || !parsed || parsed.lessonTitle.trim() === next) continue
-    await services.persistence.save(
-      writeInroadsMvpDefinition(definition, { ...parsed, lessonTitle: next }),
-    )
-  }
-}
-
 export async function importInroadsMvpPackage(
   parentId: string,
   payload: ParsedImportPackage,
@@ -1003,12 +980,7 @@ export async function importInroadsMvpPackage(
   const processActivity = await loadActivityOrThrow(mvp.processActivityId)
   const anticipateActivity = await loadActivityOrThrow(mvp.anticipateActivityId)
 
-  const previousLessonTitle = mvp.lessonTitle.trim() || parent.metadata.title
-  const lessonTitle = sharedLessonTitle(
-    payload.lesson.language.trim() || mvp.language,
-    payload.lesson.title,
-    previousLessonTitle,
-  )
+  const lessonTitle = payload.lesson.title.trim() || mvp.lessonTitle.trim()
 
   const uploaded: Partial<Record<VideoSlotId, { media: MediaRef; durationMs: number }>> = {}
   const uploadedCaptions: Partial<Record<VideoSlotId, MediaRef>> = {}
@@ -1173,9 +1145,6 @@ export async function importInroadsMvpPackage(
     nextParent.metadata.description = payload.lesson.description
   }
   await services.persistence.save(nextParent)
-  if (canonicalizeLessonLanguage(payload.lesson.language.trim() || mvp.language) === 'English') {
-    await syncSiblingLessonTitles(parent.metadata.title, lessonTitle, parentId)
-  }
 
   if (uploaded.intro?.media || uploadedCaptions.intro) {
     onProgress?.('Updating Stand Alone Video…')

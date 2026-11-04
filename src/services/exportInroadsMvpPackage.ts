@@ -264,7 +264,10 @@ async function englishWorkbookContent(
   const reference = readInroadsMvpEnglishTextReference(parent)
   if (!reference) return upload
   return workbookContentFromParts(
-    { title: reference.title, description: reference.description },
+    {
+      title: reference.mvp.lessonTitle.trim() || reference.title,
+      description: reference.description,
+    },
     reference.mvp,
     reference.see,
     reference.process,
@@ -295,7 +298,10 @@ async function lessonWorkbookContent(
     await loadLessonForExport(mvp.anticipateActivityId, source),
   )
   return workbookContentFromParts(
-    { title: parent.metadata.title, description: parent.metadata.description },
+    {
+      title: mvp.lessonTitle.trim() || parent.metadata.title,
+      description: parent.metadata.description,
+    },
     mvp,
     see,
     process,

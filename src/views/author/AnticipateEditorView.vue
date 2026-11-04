@@ -15,6 +15,7 @@ import ProcessQuestionsForm from '@/components/author/ProcessQuestionsForm.vue'
 import { useAuthorAutosave } from '@/composables/useAuthorAutosave'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { contentReadonlyMessage } from '@/lib/auth/roles'
+import { canonicalActivityId } from '@/app/id'
 import { services } from '@/app/container'
 import { provideLessonButtonLabel, provideLessonSubmitLabel } from '@/lib/lesson/buttonLabel'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
@@ -227,11 +228,18 @@ async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
   if (origin === 'manual') saving.value = true
   saveMessage.value = null
   try {
+    const id = canonicalActivityId(activityId.value)
+    if (!id) {
+      if (origin === 'manual') {
+        window.alert('This activity could not be saved because its id is missing.')
+      }
+      return false
+    }
     const source =
-      sourceActivity.value?.id === activityId.value
+      canonicalActivityId(sourceActivity.value?.id) === id
         ? sourceActivity.value
-        : await services.persistence.getById(activityId.value)
-    if (!source || source.id !== activityId.value) return false
+        : await services.persistence.getById(id)
+    if (!source || canonicalActivityId(source.id) !== id) return false
     const nextAnticipate = {
       ...buildPersistableAnticipateDefinition(anticipate.value, true, enableThird.value),
       secondSegmentScoreThreshold: 100,
@@ -239,6 +247,7 @@ async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
     autosave.pause()
     anticipate.value = nextAnticipate
     const next = writeAnticipateDefinition(source, nextAnticipate)
+    next.id = id
     if (!props.embedded) {
       next.metadata.title = title.value.trim() || next.metadata.title
       next.metadata.description = description.value.trim()

@@ -3,6 +3,7 @@ import { previewCardTitle } from '@/lib/inroadsMvp/lessonVersions'
 import { writeLessonDefinition } from '@/activities/lessonDefinition'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { readIntroductionDefinition } from '@/activities/introductionDefinition'
+import { canonicalActivityId } from '@/app/id'
 import { services } from '@/app/container'
 import type { ActivityDefinition } from '@/types/activity'
 import type { InroadsMvpDefinition } from '@/types/inroadsMvp'
@@ -83,8 +84,9 @@ export async function expandInroadsMvpForPlayback(
   const loadIntro = options?.preview
     ? services.persistence.getById.bind(services.persistence)
     : services.persistence.getPublished.bind(services.persistence)
-  if (mvp.introductionActivityId) {
-    const introActivity = await loadIntro(mvp.introductionActivityId)
+  const introductionId = canonicalActivityId(mvp.introductionActivityId)
+  if (introductionId) {
+    const introActivity = await loadIntro(introductionId)
     if (introActivity) {
       const intro = readIntroductionDefinition(introActivity)
       lesson.introMedia = intro.introMedia
@@ -92,8 +94,9 @@ export async function expandInroadsMvpForPlayback(
       lesson.introShowOnFirstVisitOnly = intro.introShowOnFirstVisitOnly
     }
   }
-  if (mvp.exampleActivityId) {
-    const exampleActivity = await loadIntro(mvp.exampleActivityId)
+  const exampleId = canonicalActivityId(mvp.exampleActivityId)
+  if (exampleId) {
+    const exampleActivity = await loadIntro(exampleId)
     if (exampleActivity) {
       lesson.observeExampleMedia = readIntroductionDefinition(exampleActivity).introMedia
     }

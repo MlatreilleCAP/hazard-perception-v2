@@ -7,18 +7,6 @@ export function lessonVersionKey(title: string): string {
   return title.trim().toLowerCase()
 }
 
-/** Lesson title shared by every language. English copy wins; other languages keep it. */
-export function sharedLessonTitle(
-  language: string,
-  importedTitle: string,
-  existingTitle: string,
-): string {
-  const imported = importedTitle.trim()
-  const existing = existingTitle.trim()
-  if (canonicalizeLessonLanguage(language) === 'English') return imported || existing
-  return existing || imported
-}
-
 /** Demo preview card title. The activity name is not the card title once a title is set. */
 export function previewCardTitle(
   lessonTitle: string | null | undefined,

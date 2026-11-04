@@ -22,6 +22,7 @@ import InroadsMvpImportPanel from '@/components/author/InroadsMvpImportPanel.vue
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import ProcessEditorView from '@/views/author/ProcessEditorView.vue'
 import SeeEditorView from '@/views/author/SeeEditorView.vue'
+import { canonicalActivityId } from '@/app/id'
 import { services } from '@/app/container'
 import { duplicateInroadsMvpVersion } from '@/services/createInroadsMvp'
 import {
@@ -204,14 +205,6 @@ const sku = computed({
   },
 })
 
-const lessonTitleLocked = computed(() => {
-  if (canonicalizeLessonLanguage(language.value) === 'English') return false
-  return versions.value.some(
-    (item) =>
-      item.id !== activityId.value && canonicalizeLessonLanguage(item.language) === 'English',
-  )
-})
-
 const showEnglishReference = computed(
   () => canonicalizeLessonLanguage(language.value) !== 'English',
 )
@@ -240,6 +233,9 @@ const selectedEnglishId = computed(() =>
   preferredEnglishId(englishCandidates.value, title.value),
 )
 
+const englishLessonTitle = computed(
+  () => englishSource.value?.mvp.lessonTitle.trim() || englishSource.value?.title.trim() || '',
+)
 const englishDescription = computed(() => englishSource.value?.description ?? '')
 const englishCountry = computed(() => englishSource.value?.mvp.country ?? '')
 const englishLanguageName = computed(() => englishSource.value?.mvp.language ?? '')
@@ -592,9 +588,11 @@ async function createVersion(nextLanguage: string): Promise<void> {
 }
 
 async function ensureParentLoaded(): Promise<boolean> {
-  if (activities.current?.id === activityId.value) return true
-  await activities.load(activityId.value)
-  return activities.current?.id === activityId.value
+  const id = canonicalActivityId(activityId.value)
+  if (!id) return false
+  if (activities.current?.id === id) return true
+  await activities.load(id)
+  return activities.current?.id === id
 }
 
 async function load(options?: { keepVisible?: boolean }): Promise<void> {
@@ -623,11 +621,6 @@ async function load(options?: { keepVisible?: boolean }): Promise<void> {
       applyFileReference()
     }
     const nextVersions = await loadVersions(current.metadata.title, parsed)
-    if (canonicalizeLessonLanguage(parsed.language) !== 'English') {
-      const sharedTitle = await englishSiblingLessonTitle(nextVersions)
-      if (generation !== loadGeneration) return
-      if (sharedTitle) lessonTitle.value = sharedTitle
-    }
     const nextIntroductionVersions = await loadIntroductionVersions([
       parsed.introductionActivityId,
       parsed.exampleActivityId,
@@ -732,9 +725,10 @@ function setExampleActivityId(id: string): void {
 async function persistExampleChoice(): Promise<boolean> {
   if (!editable.value || !mvp.value) return true
   try {
-    await ensureParentLoaded()
-    if (!activities.current || !mvp.value) return false
+    const id = canonicalActivityId(activityId.value)
+    if (!id || !(await ensureParentLoaded()) || !activities.current || !mvp.value) return false
     const next = writeInroadsMvpDefinition(activities.current, mvpForSave(mvp.value))
+    next.id = id
     await activities.save(next)
     return true
   } catch (cause) {
@@ -766,45 +760,27 @@ async function prepareTemplateDownload(): Promise<boolean> {
   return true
 }
 
-async function englishSiblingLessonTitle(
-  versionOptions: LessonVersionOption[],
-): Promise<string> {
-  const sibling = versionOptions.find(
-    (item) =>
-      item.id !== activityId.value && canonicalizeLessonLanguage(item.language) === 'English',
-  )
-  if (!sibling) return ''
-  try {
-    const definition = await services.persistence.getById(sibling.id)
-    const parsed = definition ? readInroadsMvpDefinition(definition) : null
-    return parsed?.lessonTitle.trim() || definition?.metadata.title.trim() || ''
-  } catch {
-    return ''
-  }
-}
-
 async function syncSharedFieldsToSiblingVersions(): Promise<void> {
   if (!mvp.value) return
-  const sharedCardTitle = lessonTitle.value.trim()
   const sharedPreview = mvp.value.previewImage
     ? { media_asset_id: mvp.value.previewImage.media_asset_id }
     : null
   const previewId = sharedPreview?.media_asset_id ?? ''
 
   for (const version of versions.value) {
-    if (version.id === activityId.value) continue
+    const siblingId = canonicalActivityId(version.id)
+    if (!siblingId || siblingId === canonicalActivityId(activityId.value)) continue
     try {
-      const definition = await services.persistence.getById(version.id)
+      const definition = await services.persistence.getById(siblingId)
       const parsed = definition ? readInroadsMvpDefinition(definition) : null
       if (!definition || !parsed) continue
-      const cardChanged = Boolean(sharedCardTitle) && parsed.lessonTitle.trim() !== sharedCardTitle
       const previewChanged = (parsed.previewImage?.media_asset_id ?? '') !== previewId
-      if (!cardChanged && !previewChanged) continue
+      if (!previewChanged) continue
       const next = writeInroadsMvpDefinition(definition, {
         ...parsed,
-        lessonTitle: sharedCardTitle || parsed.lessonTitle,
         previewImage: sharedPreview,
       })
+      next.id = siblingId
       await services.persistence.save(next)
     } catch {
       // Keep saving the current version even if a sibling update fails.
@@ -817,15 +793,21 @@ async function saveLesson(): Promise<boolean> {
   titleError.value = title.value.trim() ? null : 'Activity name is required'
   if (titleError.value) return false
 
+  const id = canonicalActivityId(activityId.value)
+  if (!id) {
+    window.alert('This lesson could not be saved because its id is missing.')
+    return false
+  }
+
   saving.value = true
   saveMessage.value = null
   try {
-    await ensureParentLoaded()
-    if (!activities.current || !mvp.value) return false
+    if (!(await ensureParentLoaded()) || !activities.current || !mvp.value) return false
     const next = writeInroadsMvpDefinition(activities.current, {
       ...mvpForSave(mvp.value),
       lessonTitle: lessonTitle.value.trim(),
     })
+    next.id = id
     next.metadata = {
       ...next.metadata,
       title: title.value.trim(),
@@ -1175,19 +1157,20 @@ async function deleteVersion(id: string): Promise<void> {
 
         <section class="author-stack-sm">
           <AuthorSectionHeader title="Details" />
-          <FieldPair :enabled="false" label="Title">
+          <FieldPair
+            :enabled="showEnglishReference"
+            label="Title"
+            :value="englishLessonTitle"
+          >
             <AuthorField
               :id="`${activityId}-card-title`"
               v-model="lessonTitle"
               label="Title"
               placeholder="Title"
-              :disabled="!editable || lessonTitleLocked"
+              :disabled="!editable"
             />
           </FieldPair>
           <p class="author-muted">Demo preview cards use this title and the country.</p>
-          <p v-if="lessonTitleLocked" class="author-muted">
-            The title stays in English and is the same for every language.
-          </p>
           <FieldPair
             :enabled="showEnglishReference"
             label="SKU"

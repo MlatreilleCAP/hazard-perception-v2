@@ -1,3 +1,4 @@
+import { canonicalActivityId } from '@/app/id'
 import { getSupabase } from '@/services/supabase'
 import {
   ACTIVITY_MEDIA_BUCKET,
@@ -301,8 +302,9 @@ export class MediaService {
     }
 
     const id = crypto.randomUUID()
-    const path = activityId
-      ? `${activityId}/${id}`
+    const ownerId = canonicalActivityId(activityId) || null
+    const path = ownerId
+      ? `${ownerId}/${id}`
       : `${LIBRARY_MEDIA_PATH_PREFIX}/${id}`
     const mimeType = file.type || fallbackMime
     const probe = await readMediaProbe(file)
@@ -311,7 +313,7 @@ export class MediaService {
     const parsedMetadata = metadata ? parseMediaClipMetadata(metadata) : null
     const row = {
       id,
-      activity_id: activityId,
+      activity_id: ownerId,
       bucket: ACTIVITY_MEDIA_BUCKET,
       path,
       mime_type: mimeType,
