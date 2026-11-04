@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { MIN_PASSWORD_LENGTH, passwordError } from '@/lib/auth/credentials'
 import { RECOVERY_LINK_ERROR, RECOVERY_NETWORK_ERROR } from '@/lib/auth/recoveryCallback'
-import { setupRequired } from '@/lib/auth/setupAccess'
+import { accessTokenIssuedAt, millisecondsUntilNextSetupSession, setupRequired } from '@/lib/auth/setupAccess'
 import { completeAccountSetup } from '@/services/accountSetup'
 import { clearPasswordRecovery, establishPasswordRecovery } from '@/services/auth'
 import { useAuthStore } from '@/stores/authStore'
@@ -64,8 +64,11 @@ async function handleSetup(): Promise<void> {
     return
   }
   loading.value = true
+  const chosenPassword = password.value
+  const email = auth.email
+  const issuedAt = accessTokenIssuedAt(auth.session?.access_token)
   try {
-    const result = await completeAccountSetup(password.value)
+    const result = await completeAccountSetup(chosenPassword)
     password.value = ''
     confirmation.value = ''
     if (result.status === 'retry') {
@@ -76,9 +79,25 @@ async function handleSetup(): Promise<void> {
       error.value = result.message
       return
     }
-    state.value = 'success'
     clearPasswordRecovery()
     await auth.signOut().catch(() => undefined)
+    if (!email) {
+      state.value = 'success'
+      return
+    }
+    const wait = millisecondsUntilNextSetupSession(issuedAt)
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
+    try {
+      const signInError = await auth.signIn(email, chosenPassword)
+      if (signInError) {
+        state.value = 'success'
+        return
+      }
+    } catch {
+      state.value = 'success'
+      return
+    }
+    await router.replace('/')
   } catch {
     if (state.value === 'success') return
     error.value = 'Could not create the password. Try again.'

@@ -38,6 +38,16 @@ export function sessionPredatesSetup(
   return issuedAt <= cutoff
 }
 
+/**
+ * The setup token's own second stays closed. A password sign-in is eligible
+ * at the start of the next second. When the cutoff is unknown, wait long
+ * enough to leave the current second.
+ */
+export function millisecondsUntilNextSetupSession(cutoff: number | null, now = Date.now()): number {
+  if (cutoff == null || !Number.isFinite(cutoff)) return 1100
+  return Math.max(0, (Math.floor(cutoff) + 1) * 1000 - now)
+}
+
 export function setupPathAllowed(path: string): boolean {
   return path === '/setup-account'
     || path === '/reset-password'

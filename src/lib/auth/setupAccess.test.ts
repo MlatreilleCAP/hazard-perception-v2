@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  millisecondsUntilNextSetupSession,
   playerMayLoadContent,
   sessionPredatesSetup,
   setupPathAllowed,
@@ -20,6 +21,12 @@ describe('account setup access', () => {
     expect(sessionPredatesSetup({ sessions_valid_after: 100 }, token(101))).toBe(false)
     expect(sessionPredatesSetup({ sessions_valid_after: 100 }, 'not-a-token')).toBe(true)
     expect(playerMayLoadContent({ sessions_valid_after: 100 }, token(100))).toBe(false)
+  })
+
+  it('waits until the second after the setup token before a new sign-in', () => {
+    expect(millisecondsUntilNextSetupSession(100, 100_000)).toBe(1000)
+    expect(millisecondsUntilNextSetupSession(100, 101_000)).toBe(0)
+    expect(millisecondsUntilNextSetupSession(null, 100_000)).toBe(1100)
   })
 
   it('allows the setup and recovery screens while setup is unfinished', () => {

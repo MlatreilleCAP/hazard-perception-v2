@@ -7,11 +7,20 @@ import { establishPasswordRecovery } from '@/services/auth'
 import SetupAccountView from '@/views/SetupAccountView.vue'
 
 const signOut = vi.fn(async () => undefined)
+const signIn = vi.fn(async () => null)
+
+function setupToken(issuedAt: number): string {
+  const payload = btoa(JSON.stringify({ iat: issuedAt })).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/g, '')
+  return `header.${payload}.signature`
+}
 
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: () => ({
     initialize: vi.fn(async () => undefined),
-    user: { app_metadata: {} },
+    user: { email: 'person@example.com', app_metadata: {} },
+    email: 'person@example.com',
+    session: { access_token: setupToken(1) },
+    signIn,
     signOut,
   }),
 }))
@@ -43,6 +52,8 @@ async function mountSetup() {
 describe('account setup screen', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    signIn.mockResolvedValue(null)
+    signOut.mockResolvedValue(undefined)
   })
 
   it('opens the password form for a verified setup link', async () => {
@@ -81,7 +92,7 @@ describe('account setup screen', () => {
     expect(completeAccountSetup).not.toHaveBeenCalled()
   })
 
-  it('signs the user out after the password is saved', async () => {
+  it('signs the user in and opens the landing page after the password is saved', async () => {
     vi.mocked(establishPasswordRecovery).mockResolvedValue({ status: 'ready' })
     vi.mocked(completeAccountSetup).mockResolvedValue({ status: 'updated' })
     const wrapper = await mountSetup()
@@ -92,15 +103,32 @@ describe('account setup screen', () => {
     await flushPromises()
     expect(completeAccountSetup).toHaveBeenCalledWith('long-enough')
     expect(signOut).toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Password created')
-    expect(wrapper.text()).toContain('You can sign in with your new password.')
-    expect(wrapper.text()).toContain('Back to login')
+    expect(signIn).toHaveBeenCalledWith('person@example.com', 'long-enough')
+    expect(wrapper.vm.$router.currentRoute.value.fullPath).toBe('/')
+    expect(wrapper.text()).not.toContain('Back to login')
     expect(wrapper.text()).not.toContain('long-enough')
   })
 
-  it('keeps the success state when sign-out fails and ignores a second submit', async () => {
+  it('keeps a sign-in path when the new session cannot be started', async () => {
     vi.mocked(establishPasswordRecovery).mockResolvedValue({ status: 'ready' })
-    signOut.mockRejectedValue(new Error('Authentication required.'))
+    vi.mocked(completeAccountSetup).mockResolvedValue({ status: 'updated' })
+    signIn.mockResolvedValue('Could not sign in.')
+    const wrapper = await mountSetup()
+    const inputs = wrapper.findAll('input')
+    await inputs[0].setValue('long-enough')
+    await inputs[1].setValue('long-enough')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Password created')
+    expect(wrapper.text()).toContain('You can sign in with your new password.')
+    expect(wrapper.text()).not.toContain('long-enough')
+    await wrapper.get('button').trigger('click')
+    await flushPromises()
+    expect(wrapper.vm.$router.currentRoute.value.fullPath).toBe('/login?reset=success')
+  })
+
+  it('ignores a second submit while the password is being saved', async () => {
+    vi.mocked(establishPasswordRecovery).mockResolvedValue({ status: 'ready' })
     let finish: (result: { status: 'updated' }) => void = () => undefined
     vi.mocked(completeAccountSetup).mockImplementation(
       () => new Promise((resolve) => {
@@ -116,11 +144,7 @@ describe('account setup screen', () => {
     expect(completeAccountSetup).toHaveBeenCalledTimes(1)
     finish({ status: 'updated' })
     await flushPromises()
-    expect(wrapper.text()).toContain('Password created')
-    expect(wrapper.text()).toContain('You can sign in with your new password.')
-    expect(wrapper.text()).not.toContain('Authentication required.')
-    await wrapper.get('button').trigger('click')
-    await flushPromises()
-    expect(wrapper.vm.$router.currentRoute.value.fullPath).toBe('/login?reset=success')
+    expect(signIn).toHaveBeenCalledTimes(1)
+    expect(wrapper.vm.$router.currentRoute.value.fullPath).toBe('/')
   })
 })
