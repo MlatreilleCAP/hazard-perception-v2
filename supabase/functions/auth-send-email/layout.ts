@@ -3,7 +3,7 @@ import { HookError } from './errors.ts'
 const DEFAULT_PRODUCT_URL = 'https://inroads.alertdriving.com'
 const FONT = 'Poppins,Segoe UI,Helvetica,Arial,sans-serif'
 const INK = '#222b3f'
-const QUIET = '#8d93a3'
+const LINK = '#000000'
 const LINE = '#e7e9ee'
 
 /**
@@ -125,7 +125,7 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
                 </tr>
               </table>
               <p style="margin:0 0 8px;font-family:${FONT};font-size:16px;line-height:1.55;color:${INK};">or copy this link</p>
-              <p style="margin:0 0 28px;font-family:${FONT};font-size:15px;line-height:1.5;word-break:break-all;"><a href="${escapeHtml(actionUrl)}" style="color:${QUIET};text-decoration:underline;">${escapeHtml(actionUrl)}</a></p>`
+              <p style="margin:0 0 28px;font-family:${FONT};font-size:15px;line-height:1.5;word-break:break-all;color:${LINK};"><a class="email-link" href="${escapeHtml(actionUrl)}" style="color:${LINK};text-decoration:none;"><span style="color:${LINK};text-decoration:none;">${escapeHtml(actionUrl)}</span></a></p>`
     : ''
 
   const codeBlock = code
@@ -150,6 +150,8 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
   <meta name="supported-color-schemes" content="light">
   <title>${escapeHtml(heading)}</title>
   <style>
+    a.email-link, a.email-link span { color: #000000 !important; text-decoration: none !important; }
+    u + #body a.email-link, u + #body a.email-link span { color: #000000 !important; text-decoration: none !important; }
     @media only screen and (max-width: 600px) {
       .email-shell { padding: 16px 12px !important; }
       .email-card { width: 100% !important; }
@@ -158,7 +160,7 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background:#ffffff;color:${INK};font-family:${FONT};-webkit-text-size-adjust:100%;">
+<body id="body" style="margin:0;padding:0;background:#ffffff;color:${INK};font-family:${FONT};-webkit-text-size-adjust:100%;">
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#ffffff;">${escapeHtml(heading)}</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background:#ffffff;margin:0;padding:0;width:100%;">
     <tr>
