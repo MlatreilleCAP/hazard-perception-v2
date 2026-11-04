@@ -2,7 +2,7 @@ import { HookError } from './errors.ts'
 
 const DEFAULT_PRODUCT_URL = 'https://inroads.alertdriving.com'
 const FONT = 'Poppins,Segoe UI,Helvetica,Arial,sans-serif'
-const INK = '#000000'
+const INK = '#1a1a1a'
 const LINE = '#e7e9ee'
 
 /**
@@ -121,7 +121,7 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
 
   const safeUrl = escapeHtml(actionUrl)
   const safeLabel = escapeHtml(buttonLabel)
-  const buttonLink = `display:inline-block;padding:12px 28px;font-family:${FONT};font-size:15px;line-height:1.2;font-weight:400;color:#ffffff;text-decoration:none;`
+  const buttonLink = `display:inline-block;padding:12px 28px;font-family:${FONT};font-size:15px;line-height:1.2;font-weight:300;color:#ffffff;text-decoration:none;`
   const button = buttonLabel
     ? `<table role="presentation" class="email-button" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 28px;">
                 <tr>
