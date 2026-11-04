@@ -2,7 +2,7 @@ import { HookError } from './errors.ts'
 
 const DEFAULT_PRODUCT_URL = 'https://inroads.alertdriving.com'
 const FONT = 'Poppins,Segoe UI,Helvetica,Arial,sans-serif'
-const INK = '#222b3f'
+const INK = '#000000'
 const LINE = '#e7e9ee'
 
 /**
