@@ -161,54 +161,6 @@ test('templates escape html and keep the code out of the link label', () => {
   assert.match(rendered.text, /Contact your AlertDriving administrator/)
 })
 
-test('recovery mail keeps the verified link and uses the Inroads reset copy', () => {
-  const [message] = planAuthEmails(
-    parseHookPayload(
-      payload({
-        emailData: {
-          email_action_type: 'recovery',
-          token: '444444',
-          token_hash: 'recovery-hash',
-          redirect_to: 'https://inroads.alertdriving.com/reset-password',
-        },
-      }),
-    ),
-  )
-  assert.ok(message)
-  const link = authVerificationUrl(
-    'https://project.supabase.co/auth/v1',
-    message.tokenHash ?? '',
-    message.action,
-    message.redirectTo,
-  )
-  const rendered = renderAuthEmail(message, link)
-
-  assert.equal(rendered.subject, 'Reset your Inroads password')
-  assert.match(rendered.html, /Reset your password/)
-  assert.match(rendered.html, /We received a request to reset your Inroads password\./)
-  assert.match(rendered.html, />Reset Password</)
-  assert.match(rendered.html, /If you didn&#39;t request this change, you can safely ignore this email\./)
-  assert.match(rendered.text, /If you didn't request this change, you can safely ignore this email\./)
-  assert.match(rendered.html, /AlertDriving · Inroads/)
-  assert.match(rendered.html, /max-width:560px/)
-  assert.match(rendered.html, /#222b3f/)
-  assert.match(rendered.text, /Reset Password/)
-  assert.match(rendered.text, new RegExp(link.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
-  assert.doesNotMatch(rendered.html, /444444/)
-  assert.doesNotMatch(rendered.html, /Reset your AlertDriving password/)
-
-  const href = rendered.html.match(/href="([^"]*\/verify[^"]*)"/)
-  assert.ok(href?.[1])
-  const url = new URL(href[1].replaceAll('&amp;', '&'))
-  assert.equal(url.searchParams.get('token'), 'recovery-hash')
-  assert.equal(url.searchParams.get('type'), 'recovery')
-  assert.equal(url.searchParams.get('redirect_to'), 'https://inroads.alertdriving.com/reset-password')
-
-  const hostile = renderAuthEmail(message, `${link}"><script>`)
-  assert.match(hostile.html, /&quot;&gt;&lt;script&gt;/)
-  assert.doesNotMatch(hostile.html, /"><script>/)
-})
-
 test('signup mail includes one action link and the one-time code', () => {
   const [message] = planAuthEmails(parseHookPayload(payload({})))
   assert.ok(message)

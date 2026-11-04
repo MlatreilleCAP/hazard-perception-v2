@@ -123,14 +123,15 @@ function copyFor(message: PlannedEmail): EmailCopy {
       }
     case 'recovery':
       return {
-        subject: 'Reset your Inroads password',
+        subject: 'Reset your AlertDriving password',
         heading: 'Reset your password',
         paragraphs: [
-          'We received a request to reset your Inroads password. Click below to create a new password.',
+          'A password reset was requested for your AlertDriving account. Choose a new password with the button below.',
         ],
-        actionLabel: 'Reset Password',
-        showCode: false,
-        security: "If you didn't request this change, you can safely ignore this email.",
+        actionLabel: 'Reset password',
+        showCode: true,
+        codeLead: 'Or enter this code if the button does not open:',
+        security: linkSecurity(),
       }
     case 'invite':
       return {
@@ -260,102 +261,6 @@ function supportLine(supportAddress: string | undefined): { html: string; text: 
   }
 }
 
-interface BrandedAuthEmail {
-  subject: string
-  heading: string
-  paragraphs: string[]
-  action: { label: string; url: string } | null
-  note: string
-  productUrl: string
-  support: { html: string; text: string }
-}
-
-/**
- * Responsive AlertDriving / Inroads shell. Other auth actions still use the
- * original renderer until they are moved onto this layout.
- */
-function renderBrandedAuthEmail(content: BrandedAuthEmail): RenderedEmail {
-  const paragraphHtml = content.paragraphs
-    .map(
-      (paragraph) =>
-        `<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#243044;">${escapeHtml(paragraph)}</p>`,
-    )
-    .join('')
-  const buttonHtml = content.action
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 28px;">
-        <tr>
-          <td bgcolor="#222b3f" style="border-radius:8px;">
-            <a href="${escapeHtml(content.action.url)}" style="display:inline-block;padding:14px 28px;font-size:16px;line-height:1.2;font-weight:600;color:#ffffff;text-decoration:none;">${escapeHtml(content.action.label)}</a>
-          </td>
-        </tr>
-      </table>`
-    : ''
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(content.subject)}</title>
-  <style>
-    @media only screen and (max-width: 600px) {
-      .email-outer { padding: 16px 12px !important; }
-      .email-inner { padding: 28px 20px !important; }
-    }
-  </style>
-</head>
-<body style="margin:0;padding:0;background:#ffffff;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(content.heading)}</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;margin:0;padding:0;">
-    <tr>
-      <td class="email-outer" align="center" style="padding:40px 16px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #e6e8ee;border-radius:16px;">
-          <tr>
-            <td class="email-inner" style="padding:40px 40px 8px;font-family:Segoe UI,Helvetica,Arial,sans-serif;">
-              <a href="${escapeHtml(content.productUrl)}" style="font-size:20px;line-height:1.2;font-weight:700;letter-spacing:0.01em;color:#222b3f;text-decoration:none;">AlertDriving</a>
-              <p style="margin:8px 0 0;font-size:13px;line-height:1.4;color:#5c6578;">Inroads</p>
-            </td>
-          </tr>
-          <tr>
-            <td class="email-inner" style="padding:20px 40px 36px;font-family:Segoe UI,Helvetica,Arial,sans-serif;">
-              <h1 style="margin:0 0 20px;font-size:28px;line-height:1.3;font-weight:700;color:#1b2436;">${escapeHtml(content.heading)}</h1>
-              ${paragraphHtml}
-              ${buttonHtml}
-              <p style="margin:0;font-size:14px;line-height:1.5;color:#5c6578;">${escapeHtml(content.note)}</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:24px 40px 32px;border-top:1px solid #eef0f4;font-family:Segoe UI,Helvetica,Arial,sans-serif;">
-              <p style="margin:0 0 8px;font-size:13px;line-height:1.5;color:#5c6578;">AlertDriving · Inroads</p>
-              <p style="margin:0 0 8px;font-size:13px;line-height:1.5;"><a href="${escapeHtml(content.productUrl)}" style="color:#222b3f;text-decoration:underline;">${escapeHtml(content.productUrl)}</a></p>
-              <p style="margin:0;font-size:13px;line-height:1.5;color:#5c6578;">${content.support.html}</p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`
-  const text = [
-    'AlertDriving',
-    'Inroads',
-    '',
-    content.heading,
-    '',
-    ...content.paragraphs,
-    ...(content.action ? ['', content.action.label, content.action.url] : []),
-    '',
-    content.note,
-    '',
-    'AlertDriving · Inroads',
-    content.productUrl,
-    '',
-    content.support.text,
-  ].join('\n')
-
-  return { subject: content.subject, html, text }
-}
-
 export function renderAuthEmail(
   message: PlannedEmail,
   actionUrl: string | null,
@@ -369,18 +274,6 @@ export function renderAuthEmail(
     copy.actionLabel && actionUrl
       ? { label: copy.actionLabel, url: actionUrl }
       : null
-
-  if (message.action === 'recovery') {
-    return renderBrandedAuthEmail({
-      subject: copy.subject,
-      heading: copy.heading,
-      paragraphs: copy.paragraphs,
-      action,
-      note: copy.security,
-      productUrl,
-      support,
-    })
-  }
 
   const text = [
     PRODUCT_NAME,
