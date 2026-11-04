@@ -116,16 +116,26 @@ export function renderEmailLayout(props: EmailLayoutProps): EmailLayoutDocument 
     product.domain,
   ].join('\n')
 
+  const safeUrl = escapeHtml(actionUrl)
+  const safeLabel = escapeHtml(buttonLabel)
+  const buttonLink = `display:inline-block;padding:12px 28px;font-family:${FONT};font-size:15px;line-height:1.2;font-weight:600;color:#ffffff;text-decoration:none;`
   const button = buttonLabel
     ? `<table role="presentation" class="email-button" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 28px;">
                 <tr>
-                  <td align="center" bgcolor="#ff6bb5" style="border-radius:999px;background-color:#ff6bb5;background-image:linear-gradient(90deg,#ff6bb5,#707591);">
-                    <a href="${escapeHtml(actionUrl)}" style="display:inline-block;padding:12px 28px;font-family:${FONT};font-size:15px;line-height:1.2;font-weight:600;color:#ffffff;text-decoration:none;border-radius:999px;">${escapeHtml(buttonLabel)}</a>
+                  <!--[if mso]>
+                  <td align="center" bgcolor="#000000" style="background-color:#000000;">
+                    <a href="${safeUrl}" style="${buttonLink}">${safeLabel}</a>
                   </td>
+                  <![endif]-->
+                  <!--[if !mso]><!-->
+                  <td align="center" bgcolor="#ff6bb5" style="border-radius:999px;background-color:#ff6bb5;background-image:linear-gradient(90deg,#ff6bb5,#707591);">
+                    <a href="${safeUrl}" style="${buttonLink}border-radius:999px;">${safeLabel}</a>
+                  </td>
+                  <!--<![endif]-->
                 </tr>
               </table>
               <p style="margin:0 0 8px;font-family:${FONT};font-size:16px;line-height:1.55;color:${INK};">or copy this link</p>
-              <p style="margin:0 0 28px;font-family:${FONT};font-size:15px;line-height:1.5;word-break:break-all;color:${LINK};"><a class="email-link" href="${escapeHtml(actionUrl)}" style="color:${LINK};text-decoration:none;"><span style="color:${LINK};text-decoration:none;">${escapeHtml(actionUrl)}</span></a></p>`
+              <p style="margin:0 0 28px;font-family:${FONT};font-size:15px;line-height:1.5;word-break:break-all;color:${LINK};"><a class="email-link" href="${safeUrl}" style="color:${LINK};text-decoration:none;"><span style="color:${LINK};text-decoration:none;">${safeUrl}</span></a></p>`
     : ''
 
   const codeBlock = code

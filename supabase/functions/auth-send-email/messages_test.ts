@@ -257,6 +257,7 @@ test('transactional auth mail uses the Inroads layout and its own verify link', 
     assert.equal(rendered.html.includes('111111'), false)
     assert.match(rendered.html, new RegExp(`>${item.button}<`))
     assert.match(rendered.html, /#ff6bb5/)
+    assert.match(rendered.html, /bgcolor="#000000"/)
     assert.match(rendered.html, /#707591/)
     assert.match(rendered.html, /#222b3f/)
     assert.match(rendered.html, /or copy this link/)
