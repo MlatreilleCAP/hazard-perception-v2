@@ -269,7 +269,14 @@
 .auth-info {
   margin: 0;
   font-size: 14px;
+  line-height: calc(16px * 1.45 * 0.9);
   color: #528f95;
+}
+
+@media (min-width: 1025px) {
+  .auth-info {
+    line-height: calc(18px * 1.45 * 0.9);
+  }
 }
 
 .auth-submit {
