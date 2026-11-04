@@ -448,11 +448,11 @@ router.beforeEach(async (to) => {
   }
 
   if (to.name === 'access-pending' && auth.isSignedIn && auth.role !== 'unprovisioned') {
-    return auth.role === 'sales' ? { path: '/studio/people' } : { path: '/' }
+    return { path: '/' }
   }
 
   if (auth.isSignedIn && auth.role === 'sales' && !salesOnlyPathAllowed(to.path)) {
-    return { path: '/studio/people' }
+    return { path: '/' }
   }
 
   if (to.matched.some((record) => record.meta.requiresStudio) && !auth.canAccessStudio) {
@@ -469,7 +469,11 @@ router.beforeEach(async (to) => {
 
   if (to.name === 'login' && auth.isSignedIn) {
     if (setupRequired(auth.user?.app_metadata)) return { path: '/setup-account' }
-    if (auth.role === 'sales') return { path: '/studio/people' }
+    if (auth.role === 'sales') {
+      const next = safeNextPath(String(to.query.next ?? ''))
+      if (next && salesOnlyPathAllowed(next)) return next
+      return { path: '/', hash: '#demos' }
+    }
     const next = safeNextPath(String(to.query.next ?? '')) ?? '/'
     if (
       auth.role === 'unprovisioned' &&

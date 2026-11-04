@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import DemoAccountsSection from '@/components/author/DemoAccountsSection.vue'
 import { GUARD_TOGGLE_REASON, isLifecycleRoleGuard, studioToggleReason } from '@/lib/demo/studioToggle'
 import { deleteCreatedDemoUser, createSystemUser, listAdminOrganizations, type DemoOrganization } from '@/services/demoAccounts'
@@ -250,14 +251,36 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
 <template>
   <div class="author-page users-page">
     <div class="author-page-inner author-stack-sm">
-      <div class="author-page-header">
-        <div>
-          <h1>{{ auth.isSales ? 'Demo Accounts' : 'Users' }}</h1>
+      <div class="author-page-header" :class="{ 'users-sales-header': auth.isSales }">
+        <div :class="auth.isSales ? 'users-sales-heading' : undefined">
+          <div class="author-header-left">
+            <RouterLink
+              v-if="auth.isSales"
+              :to="{ path: '/', hash: '#demos' }"
+              class="author-back"
+              aria-label="Back to demos"
+            >
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
+                <path
+                  d="M10 3.5 5.5 8 10 12.5"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </RouterLink>
+            <h1>{{ auth.isSales ? 'Demo Accounts' : 'Users' }}</h1>
+          </div>
+          <p v-if="auth.isSales" class="users-intro">
+            Create a new demo user. Access starts immediately.
+          </p>
         </div>
+        <div v-if="auth.isSales" id="users-new-demo" class="users-toolbar-action"></div>
       </div>
 
-      <div class="users-toolbar">
-        <nav v-if="!auth.isSales" class="mvp-section-nav" aria-label="Users">
+      <div v-if="!auth.isSales" class="users-toolbar">
+        <nav class="mvp-section-nav" aria-label="Users">
           <button
             type="button"
             class="mvp-section-tab"
@@ -277,10 +300,9 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
             System Users
           </button>
         </nav>
-        <div v-else class="users-toolbar-spacer" aria-hidden="true" />
         <div id="users-new-demo" class="users-toolbar-action">
           <button
-            v-if="!auth.isSales && activeTab === 'system'"
+            v-if="activeTab === 'system'"
             type="button"
             class="author-pill author-pill-primary"
             @click="openCreateUser"
@@ -296,6 +318,7 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
         v-show="auth.isSales || activeTab === 'demo'"
         :reload-token="demoReload"
         :show-new-demo="auth.isSales || activeTab === 'demo'"
+        :show-intro="!auth.isSales"
         @lifecycle-profiles="onLifecycleProfiles"
         @changed="onDemoAccountsChanged"
       />

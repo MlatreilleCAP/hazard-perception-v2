@@ -1143,11 +1143,25 @@ fieldset.author-stack {
 
 .users-page .users-toolbar-action {
   display: flex;
+  flex-shrink: 0;
   justify-content: flex-end;
 }
 
-.users-page .users-toolbar-spacer {
-  flex: 1;
+.users-page .users-sales-header {
+  align-items: flex-start;
+}
+
+.users-page .users-sales-heading {
+  min-width: 0;
+}
+
+.users-page .users-sales-heading .users-intro {
+  margin: 6px 0 0 52px;
+}
+
+.users-page .users-sales-header .users-toolbar-action {
+  height: 36px;
+  align-items: center;
 }
 
 .users-page .demo-accounts > .users-new-demo {

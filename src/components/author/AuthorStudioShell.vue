@@ -14,7 +14,7 @@ onMounted(() => {
 
 <template>
   <div class="author-app">
-    <AuthorSidebar />
+    <AuthorSidebar v-if="!auth.isSales" />
     <main class="author-main">
       <RouterView />
     </main>

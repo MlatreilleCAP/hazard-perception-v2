@@ -20,8 +20,10 @@ import {
 const props = withDefaults(defineProps<{
   reloadToken?: number
   showNewDemo?: boolean
+  showIntro?: boolean
 }>(), {
   showNewDemo: true,
+  showIntro: true,
 })
 
 const toolbarReady = ref(false)
@@ -400,7 +402,7 @@ function retryHold(account: DemoAccountRecord): void {
 
 <template>
   <section class="demo-accounts" aria-label="Demo Accounts">
-    <p class="users-intro">
+    <p v-if="showIntro" class="users-intro">
       Create a new demo user. Access starts immediately.
     </p>
     <AuthorPillButton

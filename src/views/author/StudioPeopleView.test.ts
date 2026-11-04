@@ -258,13 +258,30 @@ describe('Studio people and demo accounts', () => {
     vi.mocked(listStudioPeople).mockClear()
     const auth = useAuthStore()
     auth.role = 'sales'
-    const wrapper = mount(StudioPeopleView)
+    const wrapper = mount(StudioPeopleView, {
+      global: {
+        stubs: {
+          RouterLink: {
+            props: ['to'],
+            template: '<a class="author-back" :href="linkHref"><slot /></a>',
+            computed: {
+              linkHref(): string {
+                const target = this.to as string | { path?: string; hash?: string }
+                if (typeof target === 'string') return target
+                return `${target.path ?? ''}${target.hash ?? ''}`
+              },
+            },
+          },
+        },
+      },
+    })
     await flushPromises()
 
     expect(wrapper.get('h1').text()).toBe('Demo Accounts')
+    expect(wrapper.get('a.author-back').attributes('href')).toBe('/#demos')
     expect(wrapper.text()).not.toContain('System Users')
     expect(listStudioPeople).not.toHaveBeenCalled()
-    expect(wrapper.get('.demo-accounts').text()).toContain('Access starts immediately.')
+    expect(wrapper.text()).toContain('Access starts immediately.')
   })
 
   it('gives a system user the Sales role', async () => {

@@ -36,6 +36,13 @@ async function signOut(): Promise<void> {
             <RouterLink v-if="auth.canAccessStudio" to="/studio" class="landing-text-link">
               Studio
             </RouterLink>
+            <RouterLink
+              v-else-if="auth.canManageDemoAccounts"
+              to="/studio/people"
+              class="landing-text-link"
+            >
+              Admin
+            </RouterLink>
             <button type="button" class="landing-signout" @click="signOut">Sign out</button>
           </template>
           <RouterLink v-else to="/login?next=/" class="landing-text-link">Sign in</RouterLink>
