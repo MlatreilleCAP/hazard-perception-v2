@@ -174,10 +174,11 @@ test('templates escape html and keep the code out of the link label', () => {
   assert.equal(rendered.subject, 'A sign-in method was linked to your AlertDriving account')
   assert.match(rendered.html, /&lt;img src=x&gt;/)
   assert.doesNotMatch(rendered.html, /<img src=x>/)
-  assert.match(rendered.text, /Contact your AlertDriving administrator/)
+  assert.match(rendered.text, /inroads\.alertdriving\.com/)
+  assert.equal(rendered.text.includes('Contact your AlertDriving administrator'), false)
 })
 
-test('signup mail includes one action link and the one-time code', () => {
+test('signup mail includes one action link and no one-time code', () => {
   const [message] = planAuthEmails(parseHookPayload(payload({})))
   assert.ok(message)
   const link = authVerificationUrl(
@@ -194,9 +195,10 @@ test('signup mail includes one action link and the one-time code', () => {
   assert.equal(rendered.subject, 'Confirm your Inroads email')
   assert.match(rendered.html, />Confirm email</)
   assert.match(rendered.html, /token=hash-for-link&amp;type=signup/)
-  assert.match(rendered.html, /111111/)
+  assert.equal(rendered.html.includes('111111'), false)
+  assert.equal(rendered.text.includes('111111'), false)
   assert.match(rendered.text, /help@example.com/)
-  assert.match(rendered.html, /https:\/\/inroads\.alertdriving\.com/)
+  assert.match(rendered.html, /inroads\.alertdriving\.com/)
   assert.match(rendered.text, /Thanks for joining Inroads/)
 })
 
@@ -250,18 +252,17 @@ test('transactional auth mail uses the Inroads layout and its own verify link', 
     assert.ok(rendered.text.includes(item.button))
     assert.ok(rendered.text.includes(item.footer))
     assert.ok(rendered.text.includes(link))
-    assert.ok(rendered.text.includes('INROADS'))
     assert.ok(rendered.text.includes('inroads.alertdriving.com'))
     assert.equal(rendered.text.includes('<table'), false)
+    assert.equal(rendered.html.includes('111111'), false)
     assert.match(rendered.html, new RegExp(`>${item.button}<`))
-    assert.match(rendered.html, /#F2F3F5/)
-    assert.match(rendered.html, /#171C24/)
-    assert.match(rendered.html, /#58616C/)
-    assert.match(rendered.html, /#192D43/)
-    assert.match(rendered.html, /#E9EBEE/)
-    assert.match(rendered.html, /INROADS/)
+    assert.match(rendered.html, /#ff6bb5/)
+    assert.match(rendered.html, /#707591/)
+    assert.match(rendered.html, /#222b3f/)
+    assert.match(rendered.html, /or copy this link/)
     assert.match(rendered.html, /max-width:560px/)
     assert.match(rendered.html, /@media only screen and \(max-width: 600px\)/)
+    assert.match(rendered.html, /border-radius:16px/)
     assert.match(rendered.html, new RegExp(`type=${item.action}`))
     assert.equal(rendered.html.includes('https://inroads.alertdriving.com/reset'), false)
   }
@@ -293,9 +294,9 @@ test('email change and reauthentication still render in the shared layout', () =
   const reauthMail = renderAuthEmail(reauth, null)
   assert.equal(reauthMail.subject, 'Your AlertDriving verification code')
   assert.match(reauthMail.text, /654321/)
-  assert.match(reauthMail.html, /INROADS/)
+  assert.match(reauthMail.html, /border-radius:16px/)
   assert.equal(reauthMail.html.includes('/verify'), false)
-  assert.match(reauthMail.html, /#F2F3F5/)
+  assert.equal(reauthMail.html.includes('or copy this link'), false)
 
   const [change] = planAuthEmails(
     parseHookPayload(
@@ -317,6 +318,8 @@ test('email change and reauthentication still render in the shared layout', () =
   assert.match(changeMail.html, />Confirm new email</)
   assert.match(changeMail.html, /type=email_change/)
   assert.match(changeMail.html, /token=hash-of-new-email/)
+  assert.equal(changeMail.html.includes('333333'), false)
+  assert.equal(changeMail.text.includes('333333'), false)
 })
 
 test('link emails reject a missing or untrusted action URL without revealing it', () => {

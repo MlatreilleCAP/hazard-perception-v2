@@ -233,12 +233,14 @@ Deno.test('auth send email runtime', async (t) => {
           assert(rendered.html.startsWith('<!DOCTYPE html>'))
           assertStringIncludes(rendered.html, 'name="viewport"')
           assertStringIncludes(rendered.html, 'max-width:560px')
-          assertStringIncludes(rendered.html, '>AlertDriving</a>')
+          assertStringIncludes(rendered.html, 'border-radius:16px')
           assertEquals(rendered.html.includes('undefined'), false)
           assertEquals(rendered.text.includes('undefined'), false)
           if (message.tokenHash) {
+            assertStringIncludes(rendered.html, 'or copy this link')
             assertStringIncludes(rendered.html, 'expires in 1 hour')
             assertStringIncludes(rendered.text, 'expires in 1 hour')
+            assertEquals(rendered.html.includes(message.otp ?? '111111'), false)
             assertEquals(verifyLink(rendered.html).searchParams.get('token'), message.tokenHash)
           }
         }
@@ -431,7 +433,8 @@ Deno.test('auth send email runtime', async (t) => {
         const currentLink = verifyLink(currentSent.html)
         assertEquals(currentLink.searchParams.get('token'), HASH_CURRENT)
         assertEquals(currentLink.searchParams.get('type'), 'email_change')
-        assertStringIncludes(currentSent.html, OTP_CURRENT)
+        assertEquals(currentSent.html.includes(OTP_CURRENT), false)
+        assertEquals(currentSent.text.includes(OTP_CURRENT), false)
         assertEquals(currentSent.html.includes(OTP_NEW), false)
         assertEquals(currentSent.text.includes(OTP_NEW), false)
 
@@ -458,7 +461,8 @@ Deno.test('auth send email runtime', async (t) => {
         assertEquals(newLink.searchParams.get('token'), HASH_NEW)
         assertEquals(newLink.searchParams.get('type'), 'email_change')
         assertEquals(newLink.searchParams.get('redirect_to'), 'https://inroads.alertdriving.com/auth/callback?next=%2F')
-        assertStringIncludes(newSent.html, OTP_NEW)
+        assertEquals(newSent.html.includes(OTP_NEW), false)
+        assertEquals(newSent.text.includes(OTP_NEW), false)
         assertEquals(newSent.html.includes(OTP_CURRENT), false)
         assertEquals(
           calls.filter((call) => call.to === 'current@example.com' && call.result === 'delivered').length,

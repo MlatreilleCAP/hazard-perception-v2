@@ -85,8 +85,7 @@ function emailChangeCopy(message: PlannedEmail): EmailCopy {
         'Confirm the change from this current address. AlertDriving also asks the new address to confirm.',
       ],
       actionLabel: 'Confirm email change',
-      showCode: true,
-      codeLead: 'Or enter this code if the button does not open:',
+      showCode: false,
       security: linkSecurity(),
     }
   }
@@ -100,8 +99,7 @@ function emailChangeCopy(message: PlannedEmail): EmailCopy {
     heading: 'Confirm your new email',
     paragraphs: [fromLine],
     actionLabel: 'Confirm new email',
-    showCode: true,
-    codeLead: 'Or enter this code if the button does not open:',
+    showCode: false,
     security: linkSecurity(),
   }
 }
@@ -120,8 +118,7 @@ function copyFor(message: PlannedEmail): EmailCopy {
           'Thanks for joining Inroads. Please confirm your email address to finish setting up your account.',
         ],
         actionLabel: 'Confirm email',
-        showCode: true,
-        codeLead: 'Or enter this code if the button does not open:',
+        showCode: false,
         security: "If you didn't create this account, you can safely ignore this email.",
       }
     case 'recovery':
@@ -132,8 +129,7 @@ function copyFor(message: PlannedEmail): EmailCopy {
           'We received a request to reset the password for your Inroads account. Click the button below to create a new password.',
         ],
         actionLabel: 'Reset password',
-        showCode: true,
-        codeLead: 'Or enter this code if the button does not open:',
+        showCode: false,
         security: "If you didn't request a password reset, you can safely ignore this email.",
       }
     case 'invite':
@@ -144,8 +140,7 @@ function copyFor(message: PlannedEmail): EmailCopy {
           "You've been invited to join Inroads, the driver safety learning platform from AlertDriving. Accept your invitation to get started.",
         ],
         actionLabel: 'Accept invitation',
-        showCode: true,
-        codeLead: 'Or enter this code if the button does not open:',
+        showCode: false,
         security: "If you weren't expecting this invitation, you can safely ignore this email.",
       }
     case 'magiclink':
@@ -156,8 +151,7 @@ function copyFor(message: PlannedEmail): EmailCopy {
         heading: 'Your sign-in link.',
         paragraphs: ['Use the secure link below to sign in to your Inroads account.'],
         actionLabel: 'Sign in to Inroads',
-        showCode: true,
-        codeLead: 'Or enter this code if the button does not open:',
+        showCode: false,
         security: "If you didn't request this link, you can safely ignore this email.",
       }
     case 'reauthentication':
@@ -318,7 +312,7 @@ export function renderAuthEmail(
 ): RenderedEmail {
   const copy = copyFor(message)
   const trustedUrl = trustedAuthActionUrl(actionUrl, message, options.verifyBase)
-  const code = copy.showCode && isDisplayCode(message.otp) ? message.otp : null
+  const code = !trustedUrl && copy.showCode && isDisplayCode(message.otp) ? message.otp : null
   const expiryNote = trustedUrl && !copy.security.includes('expires in') ? LINK_EXPIRY : ''
   const rendered = renderEmailLayout({
     heading: copy.heading,

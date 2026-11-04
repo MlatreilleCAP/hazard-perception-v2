@@ -56,7 +56,7 @@ export function buildSetupMessage(actionLink: string): { subject: string; html: 
   const rendered = renderEmailLayout({
     heading: 'Set up your account',
     body: 'Your Inroads demo account has been created. To get started, click the button below to create your password.',
-    buttonLabel: 'Set Up Your Account',
+    buttonLabel: 'Set Up Account',
     actionUrl: actionLink,
     footerMessage:
       'If the link expires, you can request a new one using Forgot Password on the Inroads sign-in page. Once your password is created, you can sign in and start exploring Inroads.',
