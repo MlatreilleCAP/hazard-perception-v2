@@ -17,6 +17,9 @@ export function canManageDemoAccounts(role: ProfileRole | null | undefined): boo
 
 export function salesOnlyPathAllowed(path: string): boolean {
   return (
+    path === '/' ||
+    path === '/player' ||
+    path.startsWith('/player/') ||
     path === '/studio/people' ||
     path.startsWith('/studio/people/') ||
     path === '/auth/callback' ||

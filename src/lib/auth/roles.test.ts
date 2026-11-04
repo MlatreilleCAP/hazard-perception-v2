@@ -17,9 +17,9 @@ describe('profile roles', () => {
     expect(canManageDemoAccounts('author')).toBe(false)
     expect(canManageDemoAccounts('demo')).toBe(false)
     expect(salesOnlyPathAllowed('/studio/people')).toBe(true)
+    expect(salesOnlyPathAllowed('/')).toBe(true)
+    expect(salesOnlyPathAllowed('/player')).toBe(true)
     expect(salesOnlyPathAllowed('/studio/inroads-mvp')).toBe(false)
-    expect(salesOnlyPathAllowed('/player')).toBe(false)
-    expect(salesOnlyPathAllowed('/')).toBe(false)
   })
 
   it('does not turn an unknown role into a demo account', () => {

@@ -60,6 +60,9 @@ const emailOpen = computed(
         >
           Demo Accounts
         </RouterLink>
+        <RouterLink to="/#demos" class="author-nav-link">
+          Demos
+        </RouterLink>
       </template>
       <template v-else>
       <RouterLink

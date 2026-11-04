@@ -379,11 +379,14 @@ function formatDemoDate(iso: string): string {
 
 function accountSummary(account: DemoAccountRecord): string {
   const status = statusOf(account)
-  if (status === 'Setup incomplete') return status
+  const parts: string[] = []
+  if (account.createdBy) parts.push(account.createdBy)
+  parts.push(status)
+  if (status === 'Setup incomplete') return parts.join(' · ')
   const start = formatDemoDate(account.startsAt)
   const end = formatDemoDate(account.expiresAt)
-  if (!start || !end) return status
-  return `${status} · ${start} - ${end}`
+  if (start && end) parts.push(`${start} - ${end}`)
+  return parts.join(' · ')
 }
 
 function retryHold(account: DemoAccountRecord): void {

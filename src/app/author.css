@@ -1146,6 +1146,15 @@ fieldset.author-stack {
   justify-content: flex-end;
 }
 
+.users-page .users-toolbar-spacer {
+  flex: 1;
+}
+
+.users-page .demo-accounts > .users-new-demo {
+  align-self: flex-start;
+  width: auto;
+}
+
 .users-page .users-intro {
   margin: 0;
   max-width: 46rem;
@@ -1164,6 +1173,7 @@ fieldset.author-stack {
   margin: 8px 0 0;
   padding: 0;
   list-style: none;
+  border-top: 1px solid #ececf0;
 }
 
 .users-page .users-row {

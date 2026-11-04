@@ -20,6 +20,7 @@ export type DemoAccountRecord = {
   previousRole: string
   deactivatedAt: string | null
   createdAt: string | null
+  createdBy: string | null
 }
 
 export type DemoAccountEventRecord = {
@@ -142,6 +143,9 @@ export async function listDemoAccounts(
       previousRole: String(record.previous_role ?? ''),
       deactivatedAt: typeof record.deactivated_at === 'string' ? record.deactivated_at : null,
       createdAt: typeof record.created_at === 'string' ? record.created_at : null,
+      createdBy: typeof record.created_by_email === 'string' && record.created_by_email.trim()
+        ? record.created_by_email.trim()
+        : null,
     }
   })
 }

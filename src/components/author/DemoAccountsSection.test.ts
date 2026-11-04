@@ -34,6 +34,8 @@ const existing = {
   role: 'demo',
   previousRole: 'demo',
   deactivatedAt: null,
+  createdAt: '2026-11-01T15:00:00.000Z',
+  createdBy: 'admin@example.com',
 }
 
 async function mountSection() {
@@ -69,7 +71,7 @@ describe('DemoAccountsSection', () => {
   it('shows the account, organization, status, dates, and history', async () => {
     const wrapper = await mountSection()
     expect(wrapper.text()).toContain('existing.demo@example.com')
-    expect(wrapper.text()).toContain('Active · Nov 1, 2026 - Jan 1, 2030')
+    expect(wrapper.text()).toContain('admin@example.com · Active · Nov 1, 2026 - Jan 1, 2030')
 
     const history = wrapper.findAll('button').find((button) => button.text() === 'History')
     await history?.trigger('click')

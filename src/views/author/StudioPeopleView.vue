@@ -256,8 +256,8 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
         </div>
       </div>
 
-      <div v-if="!auth.isSales" class="users-toolbar">
-        <nav class="mvp-section-nav" aria-label="Users">
+      <div class="users-toolbar">
+        <nav v-if="!auth.isSales" class="mvp-section-nav" aria-label="Users">
           <button
             type="button"
             class="mvp-section-tab"
@@ -277,9 +277,10 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
             System Users
           </button>
         </nav>
+        <div v-else class="users-toolbar-spacer" aria-hidden="true" />
         <div id="users-new-demo" class="users-toolbar-action">
           <button
-            v-if="activeTab === 'system'"
+            v-if="!auth.isSales && activeTab === 'system'"
             type="button"
             class="author-pill author-pill-primary"
             @click="openCreateUser"
