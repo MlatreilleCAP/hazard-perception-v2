@@ -282,6 +282,8 @@ describe('Studio people and demo accounts', () => {
     expect(wrapper.text()).not.toContain('System Users')
     expect(listStudioPeople).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('Access starts immediately.')
+    expect(wrapper.get('.users-sales-header .users-toolbar-action .users-new-demo').text()).toBe('New Demo')
+    expect(wrapper.find('.demo-accounts > .users-new-demo').exists()).toBe(false)
   })
 
   it('gives a system user the Sales role', async () => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import DemoAccountsSection from '@/components/author/DemoAccountsSection.vue'
 import { GUARD_TOGGLE_REASON, isLifecycleRoleGuard, studioToggleReason } from '@/lib/demo/studioToggle'
 import { deleteCreatedDemoUser, createSystemUser, listAdminOrganizations, type DemoOrganization } from '@/services/demoAccounts'
@@ -35,6 +36,16 @@ const createNotice = ref<string | null>(null)
 const creating = ref(false)
 const organizations = ref<DemoOrganization[]>([])
 const organizationId = ref('')
+const demoAccounts = ref<{
+  openCreate: () => Promise<void>
+  loading: boolean
+  busy: boolean
+  organizationId: string
+} | null>(null)
+
+function openNewDemo(): void {
+  void demoAccounts.value?.openCreate()
+}
 
 function onLifecycleProfiles(ids: string[]): void {
   lifecycleProfileIds.value = new Set(ids)
@@ -252,31 +263,42 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
   <div class="author-page users-page">
     <div class="author-page-inner author-stack-sm">
       <div class="author-page-header" :class="{ 'users-sales-header': auth.isSales }">
-        <div :class="auth.isSales ? 'users-sales-heading' : undefined">
-          <div class="author-header-left">
-            <RouterLink
-              v-if="auth.isSales"
-              :to="{ path: '/', hash: '#demos' }"
-              class="author-back"
-              aria-label="Back to demos"
-            >
-              <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
-                <path
-                  d="M10 3.5 5.5 8 10 12.5"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </RouterLink>
-            <h1>{{ auth.isSales ? 'Demo Accounts' : 'Users' }}</h1>
+        <div v-if="auth.isSales" class="users-sales-heading">
+          <RouterLink
+            :to="{ path: '/', hash: '#demos' }"
+            class="author-back"
+            aria-label="Back to demos"
+          >
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
+              <path
+                d="M10 3.5 5.5 8 10 12.5"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </RouterLink>
+          <div class="users-sales-copy">
+            <h1>Demo Accounts</h1>
+            <p class="users-intro">
+              Create a new demo user. Access starts immediately.
+            </p>
           </div>
-          <p v-if="auth.isSales" class="users-intro">
-            Create a new demo user. Access starts immediately.
-          </p>
         </div>
-        <div v-if="auth.isSales" id="users-new-demo" class="users-toolbar-action"></div>
+        <div v-else class="author-header-left">
+          <h1>Users</h1>
+        </div>
+        <div v-if="auth.isSales" class="users-toolbar-action">
+          <AuthorPillButton
+            class="users-new-demo"
+            variant="primary"
+            :disabled="!demoAccounts || demoAccounts.loading || demoAccounts.busy || !demoAccounts.organizationId"
+            @click="openNewDemo"
+          >
+            New Demo
+          </AuthorPillButton>
+        </div>
       </div>
 
       <div v-if="!auth.isSales" class="users-toolbar">
@@ -315,9 +337,10 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
       <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
 
       <DemoAccountsSection
+        ref="demoAccounts"
         v-show="auth.isSales || activeTab === 'demo'"
         :reload-token="demoReload"
-        :show-new-demo="auth.isSales || activeTab === 'demo'"
+        :show-new-demo="!auth.isSales && activeTab === 'demo'"
         :show-intro="!auth.isSales"
         @lifecycle-profiles="onLifecycleProfiles"
         @changed="onDemoAccountsChanged"

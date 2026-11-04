@@ -165,6 +165,13 @@ async function openCreate(prefill?: { email: string; displayName: string; expire
   createDialog.value?.querySelector('input')?.focus()
 }
 
+defineExpose({
+  openCreate,
+  loading,
+  busy,
+  organizationId,
+})
+
 function defaultExpiry(): string {
   const date = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
   const pad = (value: number) => String(value).padStart(2, '0')

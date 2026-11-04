@@ -1148,20 +1148,30 @@ fieldset.author-stack {
 }
 
 .users-page .users-sales-header {
-  align-items: flex-start;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .users-page .users-sales-heading {
+  display: flex;
   min-width: 0;
-}
-
-.users-page .users-sales-heading .users-intro {
-  margin: 6px 0 0 52px;
+  align-items: center;
+  gap: 16px;
 }
 
 .users-page .users-sales-header .users-toolbar-action {
+  margin-left: auto;
   height: 36px;
   align-items: center;
+}
+
+.users-page .users-sales-copy {
+  min-width: 0;
+}
+
+.users-page .users-sales-copy .users-intro {
+  margin: 6px 0 0;
 }
 
 .users-page .demo-accounts > .users-new-demo {
