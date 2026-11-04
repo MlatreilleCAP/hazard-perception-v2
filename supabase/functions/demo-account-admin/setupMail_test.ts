@@ -29,6 +29,8 @@ Deno.test('the setup message contains the verify button and no generated passwor
   const message = buildSetupMessage(LINK)
   assertEquals(message.subject, SETUP_SUBJECT)
   assertEquals(message.html.includes('>Set Up Your Account</a>'), true)
+  assertEquals(message.html.includes('INROADS'), true)
+  assertEquals(message.html.includes('max-width:560px'), true)
   assertEquals(message.html.includes('one-time-token'), true)
   assertEquals(message.text.includes(LINK), true)
   assertEquals(message.html.includes(PASSWORD), false)

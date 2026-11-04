@@ -1,3 +1,5 @@
+import { renderEmailLayout } from '../auth-send-email/layout.ts'
+
 export const SETUP_REDIRECT = 'https://inroads.alertdriving.com/setup-account'
 export const SETUP_SUBJECT = 'Welcome to Inroads — Set Up Your Account'
 export const SETUP_FROM = 'AlertDriving <demo@auth.alertdriving.com>'
@@ -26,14 +28,6 @@ export function classifyResendResponse(status: number, hasId: boolean): SetupOut
   return status >= 400 && status < 500 ? 'failed' : 'uncertain'
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-}
-
 /**
  * Admin generateLink returns a verify URL. It is a bearer credential.
  * Resend click tracking would wrap it, so this message is sent only when
@@ -59,34 +53,16 @@ export function isRecoveryVerifyLink(link: string, supabaseUrl: string): boolean
 }
 
 export function buildSetupMessage(actionLink: string): { subject: string; html: string; text: string } {
-  const href = escapeHtml(actionLink)
-  const html = [
-    '<p>Hello,</p>',
-    '<p>Your Inroads demo account has been created.</p>',
-    '<p>To get started, click the button below to create your password.</p>',
-    `<p><a href="${href}">Set Up Your Account</a></p>`,
-    '<p>For security, this link expires after a limited time.</p>',
-    '<p>If the link expires, you can request a new one using Forgot Password on the Inroads sign-in page.</p>',
-    '<p>Once your password is created, you can sign in and start exploring Inroads.</p>',
-    '<p>The AlertDriving Team</p>',
-  ].join('')
-  const text = [
-    'Hello,',
-    '',
-    'Your Inroads demo account has been created.',
-    '',
-    'To get started, open this link to create your password:',
-    actionLink,
-    '',
-    'For security, this link expires after a limited time.',
-    '',
-    'If the link expires, you can request a new one using Forgot Password on the Inroads sign-in page.',
-    '',
-    'Once your password is created, you can sign in and start exploring Inroads.',
-    '',
-    'The AlertDriving Team',
-  ].join('\n')
-  return { subject: SETUP_SUBJECT, html, text }
+  const rendered = renderEmailLayout({
+    heading: 'Set up your account',
+    body: 'Your Inroads demo account has been created. To get started, click the button below to create your password.',
+    buttonLabel: 'Set Up Your Account',
+    actionUrl: actionLink,
+    footerMessage:
+      'If the link expires, you can request a new one using Forgot Password on the Inroads sign-in page. Once your password is created, you can sign in and start exploring Inroads.',
+    expiryNote: 'For security, this link expires after a limited time.',
+  })
+  return { subject: SETUP_SUBJECT, html: rendered.html, text: rendered.text }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
