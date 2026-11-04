@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { INACTIVE_ACCOUNT_MESSAGE } from '@/lib/auth/accountMessage'
 import { signInFailureMessage } from '@/lib/auth/signInMessage'
 
 vi.mock('@/services/supabase', () => ({
@@ -8,9 +9,17 @@ vi.mock('@/services/supabase', () => ({
 }))
 
 describe('sign-in failure message', () => {
-  it('asks the person to contact support for a ban without naming a lifecycle status', () => {
+  it('uses a neutral message for a ban without naming a lifecycle status', () => {
     const message = signInFailureMessage({ message: 'User is banned', code: 'user_banned' })
-    expect(message).toBe('This account cannot sign in. Contact support if you need access.')
+    expect(message).toBe(INACTIVE_ACCOUNT_MESSAGE)
+    expect(message.toLowerCase()).not.toContain('expired')
+    expect(message.toLowerCase()).not.toContain('deactivated')
+  })
+
+  it('passes an unknown authentication failure through unchanged', () => {
+    const message = signInFailureMessage({ message: 'Invalid login credentials' })
+    expect(message).toBe('Invalid login credentials')
+    expect(message).not.toBe(INACTIVE_ACCOUNT_MESSAGE)
     expect(message.toLowerCase()).not.toContain('expired')
     expect(message.toLowerCase()).not.toContain('deactivated')
   })

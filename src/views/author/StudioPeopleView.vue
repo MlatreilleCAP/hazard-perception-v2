@@ -36,8 +36,8 @@ function toggleReason(person: StudioPerson): string | null {
   })
 }
 
-onMounted(async () => {
-  loading.value = true
+async function reloadPeople(showLoading: boolean): Promise<void> {
+  if (showLoading) loading.value = true
   error.value = null
   try {
     people.value = await listStudioPeople()
@@ -46,7 +46,15 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(() => {
+  void reloadPeople(true)
 })
+
+async function onDemoAccountsChanged(): Promise<void> {
+  await reloadPeople(false)
+}
 
 async function toggleStudio(person: StudioPerson): Promise<void> {
   if (toggleReason(person) || person.role === 'admin' || person.id === auth.userId || savingId.value) return
@@ -144,7 +152,11 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
         </li>
       </ul>
 
-      <DemoAccountsSection :reload-token="demoReload" @lifecycle-profiles="onLifecycleProfiles" />
+      <DemoAccountsSection
+        :reload-token="demoReload"
+        @lifecycle-profiles="onLifecycleProfiles"
+        @changed="onDemoAccountsChanged"
+      />
     </div>
   </div>
 </template>

@@ -1,9 +1,14 @@
+import { INACTIVE_ACCOUNT_MESSAGE } from '@/lib/auth/accountMessage'
+
 export type OwnDemoAccount = {
   status: string
   startsAt: string
   expiresAt: string
   deactivatedAt: string | null
 }
+
+/** How the signed-in session was confirmed. Status text is never inferred from a ban alone. */
+export type PlayerAccessAuth = 'session' | 'banned' | 'unknown'
 
 export function isAccessBlockedError(message: string | null | undefined): boolean {
   return Boolean(message && message.toLowerCase().includes('account_access_blocked'))
@@ -27,15 +32,25 @@ function expiryPassed(account: OwnDemoAccount): boolean {
 
 /**
  * Explains a blocked player session from the signed-in profile's own lifecycle
- * row. A missing row plus a blocked read means setup never finished. Status is
- * not guessed from a ban alone.
+ * row. Expired and deactivated are used only when that row was read. A ban
+ * that prevents the read stays neutral. A missing row plus a blocked read
+ * means setup never finished.
  */
-export function describePlayerAccess(account: OwnDemoAccount | null, blocked: boolean): string | null {
+export function describePlayerAccess(
+  account: OwnDemoAccount | null,
+  blocked: boolean,
+  auth: PlayerAccessAuth = 'session',
+): string | null {
   if (account?.status === 'deactivated') {
     return 'This demo account was deactivated. Contact support if you need access again.'
   }
   if (account && expiryPassed(account)) {
     return `Demo access ended on ${formatDemoTimestamp(account.expiresAt)}.`
+  }
+  if (auth === 'banned') return INACTIVE_ACCOUNT_MESSAGE
+  if (auth === 'unknown') {
+    if (!blocked) return null
+    return 'This account cannot open published activities. Contact support if you need access.'
   }
   if (!blocked) return null
   if (account) {

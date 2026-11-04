@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { INACTIVE_ACCOUNT_MESSAGE } from '@/lib/auth/accountMessage'
 import { signInWithPassword } from '@/services/auth'
 import { getSupabase } from '@/services/supabase'
 
@@ -23,7 +24,7 @@ describe('signInWithPassword ban', () => {
   it('returns the support message and does not claim why the account was banned', async () => {
     const result = await signInWithPassword('person@example.com', 'secret')
     expect(result.session).toBeNull()
-    expect(result.error).toBe('This account cannot sign in. Contact support if you need access.')
+    expect(result.error).toBe(INACTIVE_ACCOUNT_MESSAGE)
     expect(result.error?.toLowerCase()).not.toContain('expired')
     expect(result.error?.toLowerCase()).not.toContain('deactivated')
   })

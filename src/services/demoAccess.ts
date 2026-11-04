@@ -1,25 +1,37 @@
+import { isBannedAuthError } from '@/lib/auth/accountMessage'
 import type { OwnDemoAccount } from '@/lib/demo/accessMessage'
 import { getSupabase } from '@/services/supabase'
 
 const ACCESS_PROBE = '00000000-0000-0000-0000-000000000000'
 
-export async function readOwnDemoAccount(): Promise<OwnDemoAccount | null> {
+export type OwnDemoRead =
+  | { state: 'account'; account: OwnDemoAccount }
+  | { state: 'none' }
+  | { state: 'banned' }
+  | { state: 'unknown' }
+
+export async function readOwnDemoAccount(): Promise<OwnDemoRead> {
   const client = getSupabase()
-  if (!client) return null
-  const { data: userData } = await client.auth.getUser()
+  if (!client) return { state: 'none' }
+  const { data: userData, error: userError } = await client.auth.getUser()
+  if (userError) return { state: isBannedAuthError(userError) ? 'banned' : 'unknown' }
   const userId = userData.user?.id
-  if (!userId) return null
+  if (!userId) return { state: 'none' }
   const { data, error } = await client
     .from('demo_accounts')
     .select('status, starts_at, expires_at, deactivated_at')
     .eq('profile_id', userId)
     .maybeSingle()
-  if (error || !data) return null
+  if (error) return { state: 'unknown' }
+  if (!data) return { state: 'none' }
   return {
-    status: String(data.status ?? ''),
-    startsAt: String(data.starts_at ?? ''),
-    expiresAt: String(data.expires_at ?? ''),
-    deactivatedAt: typeof data.deactivated_at === 'string' ? data.deactivated_at : null,
+    state: 'account',
+    account: {
+      status: String(data.status ?? ''),
+      startsAt: String(data.starts_at ?? ''),
+      expiresAt: String(data.expires_at ?? ''),
+      deactivatedAt: typeof data.deactivated_at === 'string' ? data.deactivated_at : null,
+    },
   }
 }
 

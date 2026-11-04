@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { INACTIVE_ACCOUNT_MESSAGE } from '@/lib/auth/accountMessage'
 import { describePlayerAccess, formatDemoTimestamp, isAccessBlockedError } from '@/lib/demo/accessMessage'
 
 const expiry = '2026-11-03T22:00:00.000Z'
@@ -33,5 +34,33 @@ describe('player access messages', () => {
 
   it('leaves existing accounts without a lifecycle row alone', () => {
     expect(describePlayerAccess(null, false)).toBeNull()
+  })
+
+  it('uses a neutral message when a ban prevents the lifecycle row from being read', () => {
+    const message = describePlayerAccess(null, true, 'banned')
+    expect(message).toBe(INACTIVE_ACCOUNT_MESSAGE)
+    expect(message.toLowerCase()).not.toContain('expired')
+    expect(message.toLowerCase()).not.toContain('deactivated')
+    expect(message).not.toContain('setup is incomplete')
+  })
+
+  it('does not treat an unknown authentication failure as a ban or a lifecycle status', () => {
+    const message = describePlayerAccess(null, true, 'unknown')
+    expect(message).toBe('This account cannot open published activities. Contact support if you need access.')
+    expect(message).not.toBe(INACTIVE_ACCOUNT_MESSAGE)
+    expect(message?.toLowerCase()).not.toContain('expired')
+    expect(message?.toLowerCase()).not.toContain('deactivated')
+    expect(message).not.toContain('setup is incomplete')
+    expect(describePlayerAccess(null, false, 'unknown')).toBeNull()
+  })
+
+  it('keeps a specific status when that lifecycle row was read', () => {
+    const message = describePlayerAccess({
+      status: 'expired',
+      startsAt: '2026-11-01T22:00:00.000Z',
+      expiresAt: expiry,
+      deactivatedAt: null,
+    }, true, 'session')
+    expect(message).toBe(`Demo access ended on ${formatDemoTimestamp(expiry)}.`)
   })
 })

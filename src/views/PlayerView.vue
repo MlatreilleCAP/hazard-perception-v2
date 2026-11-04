@@ -39,7 +39,12 @@ import { isLessonActivity } from '@/types/lesson'
 import { isProcessActivity } from '@/types/process'
 import { isSeeActivity } from '@/types/see'
 import { loadInroadsScoring } from '@/services/inroadsScoring'
-import { describePlayerAccess, isAccessBlockedError, type OwnDemoAccount } from '@/lib/demo/accessMessage'
+import {
+  describePlayerAccess,
+  isAccessBlockedError,
+  type OwnDemoAccount,
+  type PlayerAccessAuth,
+} from '@/lib/demo/accessMessage'
 import { publishedAccessBlocked, readOwnDemoAccount } from '@/services/demoAccess'
 
 const route = useRoute()
@@ -51,6 +56,7 @@ const loading = ref(typeof route.query.activity === 'string')
 const replayNonce = ref(0)
 const ownAccount = ref<OwnDemoAccount | null>(null)
 const accessBlocked = ref(false)
+const accessAuth = ref<PlayerAccessAuth>('session')
 
 const published = computed(() =>
   activities.summaries.filter(
@@ -89,7 +95,11 @@ const isPreview = computed(() => route.query.preview === '1')
 const accessMessage = computed(() => {
   if (isPreview.value) return null
   const raw = `${runtime.error ?? ''}\n${activities.error ?? ''}`
-  return describePlayerAccess(ownAccount.value, accessBlocked.value || isAccessBlockedError(raw))
+  return describePlayerAccess(
+    ownAccount.value,
+    accessBlocked.value || isAccessBlockedError(raw),
+    accessAuth.value,
+  )
 })
 const activityError = computed(() => {
   if (accessMessage.value || isAccessBlockedError(runtime.error)) return null
@@ -287,13 +297,15 @@ async function refreshAccess(): Promise<void> {
   if (isPreview.value) {
     ownAccount.value = null
     accessBlocked.value = false
+    accessAuth.value = 'session'
     return
   }
-  const [account, blocked] = await Promise.all([
-    readOwnDemoAccount().catch(() => null),
+  const [read, blocked] = await Promise.all([
+    readOwnDemoAccount().catch(() => ({ state: 'unknown' as const })),
     publishedAccessBlocked().catch(() => false),
   ])
-  ownAccount.value = account
+  ownAccount.value = read.state === 'account' ? read.account : null
+  accessAuth.value = read.state === 'banned' || read.state === 'unknown' ? read.state : 'session'
   accessBlocked.value = blocked
 }
 

@@ -138,6 +138,59 @@ describe('DemoAccountsSection', () => {
     expect(stored).not.toContain(password)
   })
 
+  it('copies the password from the button click and does not store it', async () => {
+    const password = 'clipboard-secret-value'
+    const writeText = vi.fn(async () => undefined)
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    vi.mocked(provisionDemoAccount).mockResolvedValue({
+      profileId: 'profile-2',
+      status: 'active',
+      expiresAt: '2030-06-01T13:30:00.000Z',
+      initialPassword: password,
+    })
+    const wrapper = await mountSection()
+    await wrapper.findAll('button').find((button) => button.text() === 'New demo')?.trigger('click')
+    await wrapper.get('input[type="email"]').setValue('copy.person@example.com')
+    await wrapper.get('input[type="datetime-local"]').setValue('2030-06-01T09:30')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text() === 'Copy password')?.trigger('click')
+    await flushPromises()
+    expect(writeText).toHaveBeenCalledWith(password)
+    expect(wrapper.text()).toContain('Copied.')
+    const stored = vi.mocked(Storage.prototype.setItem).mock.calls.flat().join(' ')
+    expect(stored).not.toContain(password)
+  })
+
+  it('explains a clipboard denial and leaves the password selectable', async () => {
+    const password = 'blocked-secret-value'
+    const writeText = vi.fn(async () => {
+      throw new DOMException('denied', 'NotAllowedError')
+    })
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    vi.mocked(provisionDemoAccount).mockResolvedValue({
+      profileId: 'profile-2',
+      status: 'active',
+      expiresAt: '2030-06-01T13:30:00.000Z',
+      initialPassword: password,
+    })
+    const wrapper = await mountSection()
+    await wrapper.findAll('button').find((button) => button.text() === 'New demo')?.trigger('click')
+    await wrapper.get('input[type="email"]').setValue('blocked.person@example.com')
+    await wrapper.get('input[type="datetime-local"]').setValue('2030-06-01T09:30')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text() === 'Copy password')?.trigger('click')
+    await flushPromises()
+    expect(writeText).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('Copying is blocked in this browser. Select the password and copy it yourself.')
+    expect(wrapper.get('input[readonly]').element).toHaveProperty('value', password)
+    const stored = vi.mocked(Storage.prototype.setItem).mock.calls.flat().join(' ')
+    expect(stored).not.toContain(password)
+  })
+
   it('retries an incomplete setup without showing a previous password', async () => {
     const password = 'previous-secret-value'
     vi.mocked(provisionDemoAccount)

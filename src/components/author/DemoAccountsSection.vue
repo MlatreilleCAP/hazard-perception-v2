@@ -22,6 +22,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   lifecycleProfiles: [ids: string[]]
+  changed: []
 }>()
 
 const organizations = ref<DemoOrganization[]>([])
@@ -41,6 +42,7 @@ const createDialog = ref<HTMLElement | null>(null)
 const revealedPassword = ref<string | null>(null)
 const passwordOpen = ref(false)
 const passwordCopied = ref(false)
+const copyBlocked = ref(false)
 const passwordDialog = ref<HTMLElement | null>(null)
 
 const incomplete = ref<{ email: string; displayName: string; expiresAtLocal: string } | null>(null)
@@ -84,6 +86,11 @@ watch(() => props.reloadToken, () => {
 onMounted(() => {
   void load()
 })
+
+async function refreshAfterChange(): Promise<void> {
+  await load()
+  if (!error.value) emit('changed')
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -167,6 +174,7 @@ function clearPassword(): void {
   revealedPassword.value = null
   passwordOpen.value = false
   passwordCopied.value = false
+  copyBlocked.value = false
 }
 
 async function submitCreate(): Promise<void> {
@@ -199,7 +207,7 @@ async function submitCreate(): Promise<void> {
     })
     createOpen.value = false
     incomplete.value = null
-    await load()
+    await refreshAfterChange()
     revealedPassword.value = result.initialPassword
     passwordCopied.value = false
     passwordOpen.value = true
@@ -211,7 +219,7 @@ async function submitCreate(): Promise<void> {
       createOpen.value = false
       incomplete.value = null
       dialogError.value = null
-      await load()
+      await refreshAfterChange()
       return
     }
     dialogError.value = message
@@ -233,8 +241,10 @@ async function copyPassword(): Promise<void> {
   try {
     await navigator.clipboard.writeText(password)
     passwordCopied.value = true
+    copyBlocked.value = false
   } catch {
     passwordCopied.value = false
+    copyBlocked.value = true
     const field = passwordDialog.value?.querySelector('input')
     field?.focus()
     field?.select()
@@ -261,7 +271,7 @@ async function submitExtend(): Promise<void> {
     await extendDemoAccount(account.profileId, expiresAt)
     extendTarget.value = null
     restoreFocus()
-    await load()
+    await refreshAfterChange()
     if (historyProfileId.value === account.profileId) await openHistory(account)
   } catch (cause) {
     extendError.value = cause instanceof Error ? cause.message : 'The demo account could not be extended.'
@@ -291,7 +301,7 @@ async function submitDeactivate(): Promise<void> {
     await deactivateDemoAccount(account.profileId, reason || null)
     deactivateTarget.value = null
     restoreFocus()
-    await load()
+    await refreshAfterChange()
     if (historyProfileId.value === account.profileId) await openHistory(account)
   } catch (cause) {
     deactivateError.value = cause instanceof Error ? cause.message : 'The demo account could not be deactivated.'
@@ -503,6 +513,9 @@ function retryHold(account: DemoAccountRecord): void {
             <input :value="revealedPassword" type="text" readonly spellcheck="false" autocomplete="off" />
           </label>
           <p v-if="passwordCopied" class="author-list-sub" role="status">Copied.</p>
+          <p v-else-if="copyBlocked" class="author-list-sub" role="status">
+            Copying is blocked in this browser. Select the password and copy it yourself.
+          </p>
         </template>
         <p v-else>
           The account is ready. A password from an earlier attempt cannot be shown.
