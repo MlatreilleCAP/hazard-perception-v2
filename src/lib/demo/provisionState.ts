@@ -22,6 +22,8 @@ const SAFE_MESSAGES = new Set([
   'Administrators cannot be deleted.',
   'This account cannot be deleted here.',
   'The user could not be deleted.',
+  'The system user could not be created.',
+  'Choose an author or sales role.',
   'The caller is taken from the signed-in session.',
 ])
 
@@ -52,6 +54,9 @@ export function presentDemoError(message: string): string {
     (/choose start, extend, deactivate\./i.test(text) && !/provision/i.test(text))
   ) {
     return 'Creating demo accounts is not available on this server yet.'
+  }
+  if (/a profile is required\./i.test(text)) {
+    return 'Creating system users is not available on this server yet.'
   }
   if (/does not exist|schema cache|pgrst202/i.test(text)) {
     return 'Demo accounts are not available on this server yet.'

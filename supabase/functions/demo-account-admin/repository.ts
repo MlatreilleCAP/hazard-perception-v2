@@ -64,8 +64,11 @@ export function createDemoAdminDeps(authorization: string | null): DemoAdminDeps
           return { id: data.user.id }
         },
         async isAdmin() {
-          const { data, error } = await callerClient.rpc('can_manage_demo_accounts')
-          return !error && data === true
+          const managed = await callerClient.rpc('can_manage_demo_accounts')
+          if (!managed.error) return managed.data === true
+          // Older databases still expose is_admin only.
+          const legacy = await callerClient.rpc('is_admin')
+          return !legacy.error && legacy.data === true
         },
       })
     },
