@@ -56,6 +56,7 @@ function hasRecoveryParams(): boolean {
 }
 
 async function handleSetup(): Promise<void> {
+  if (state.value === 'success' || loading.value) return
   error.value = null
   const validationError = passwordError(password.value, confirmation.value)
   if (validationError) {
@@ -75,20 +76,21 @@ async function handleSetup(): Promise<void> {
       error.value = result.message
       return
     }
-    clearPasswordRecovery()
-    await auth.signOut()
     state.value = 'success'
+    clearPasswordRecovery()
+    await auth.signOut().catch(() => undefined)
   } catch {
+    if (state.value === 'success') return
     error.value = 'Could not create the password. Try again.'
   } finally {
-    loading.value = false
+    if (state.value !== 'success') loading.value = false
   }
 }
 
 async function returnToLogin(): Promise<void> {
   returning.value = true
   clearPasswordRecovery()
-  await auth.signOut()
+  await auth.signOut().catch(() => undefined)
   await router.replace({ path: '/login', query: { reset: 'success' } })
 }
 

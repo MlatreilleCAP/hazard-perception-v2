@@ -93,6 +93,34 @@ describe('account setup screen', () => {
     expect(completeAccountSetup).toHaveBeenCalledWith('long-enough')
     expect(signOut).toHaveBeenCalled()
     expect(wrapper.text()).toContain('Password created')
+    expect(wrapper.text()).toContain('You can sign in with your new password.')
+    expect(wrapper.text()).toContain('Back to login')
     expect(wrapper.text()).not.toContain('long-enough')
+  })
+
+  it('keeps the success state when sign-out fails and ignores a second submit', async () => {
+    vi.mocked(establishPasswordRecovery).mockResolvedValue({ status: 'ready' })
+    signOut.mockRejectedValue(new Error('Authentication required.'))
+    let finish: (result: { status: 'updated' }) => void = () => undefined
+    vi.mocked(completeAccountSetup).mockImplementation(
+      () => new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    const wrapper = await mountSetup()
+    const inputs = wrapper.findAll('input')
+    await inputs[0].setValue('long-enough')
+    await inputs[1].setValue('long-enough')
+    await wrapper.get('form').trigger('submit')
+    await wrapper.get('form').trigger('submit')
+    expect(completeAccountSetup).toHaveBeenCalledTimes(1)
+    finish({ status: 'updated' })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Password created')
+    expect(wrapper.text()).toContain('You can sign in with your new password.')
+    expect(wrapper.text()).not.toContain('Authentication required.')
+    await wrapper.get('button').trigger('click')
+    await flushPromises()
+    expect(wrapper.vm.$router.currentRoute.value.fullPath).toBe('/login?reset=success')
   })
 })
