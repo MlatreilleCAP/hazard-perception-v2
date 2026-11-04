@@ -9,6 +9,7 @@ import {
   parseCaptionsText,
   type CaptionCue,
 } from '@/lib/media/captions'
+import { captionsEnabled, setCaptionsEnabled } from '@/lib/media/captionPreference'
 
 const props = defineProps<{
   src: string
@@ -37,7 +38,7 @@ const pendingSlot = ref<number | null>(null)
 const started = ref(false)
 const finished = ref(false)
 const showAutoplayPrompt = ref(false)
-const captionsOn = ref(true)
+const captionsOn = captionsEnabled
 const captionCues = ref<CaptionCue[]>([])
 const captionText = ref('')
 let captionLoadToken = 0
@@ -73,7 +74,7 @@ function updateCaptionText(timeSeconds: number): void {
 }
 
 function toggleCaptions(): void {
-  captionsOn.value = !captionsOn.value
+  setCaptionsEnabled(!captionsOn.value)
   const el = activeVideo()
   updateCaptionText(el?.currentTime ?? 0)
 }

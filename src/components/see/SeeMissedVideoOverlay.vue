@@ -5,6 +5,7 @@ import ProcessInstructionCard from '@/components/process/ProcessInstructionCard.
 import SeeHazardSummaryCard from '@/components/see/SeeHazardSummaryCard.vue'
 import { services } from '@/app/container'
 import { activeCaptionText, parseCaptionsText, type CaptionCue } from '@/lib/media/captions'
+import { captionsEnabled, setCaptionsEnabled } from '@/lib/media/captionPreference'
 import { DEFAULT_SEE_INSTRUCTION_PILL, type HazardClipSummary } from '@/types/see'
 
 const props = withDefaults(
@@ -39,7 +40,7 @@ const started = ref(false)
 const finished = ref(false)
 const frameReady = ref(false)
 const introActive = ref(false)
-const captionsOn = ref(true)
+const captionsOn = captionsEnabled
 const captionCues = ref<CaptionCue[]>([])
 const captionText = ref('')
 let captionLoadToken = 0
@@ -56,7 +57,7 @@ function updateCaptionText(timeSeconds: number): void {
 }
 
 function toggleCaptions(): void {
-  captionsOn.value = !captionsOn.value
+  setCaptionsEnabled(!captionsOn.value)
   updateCaptionText(video.value?.currentTime ?? 0)
 }
 

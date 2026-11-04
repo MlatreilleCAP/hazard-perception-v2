@@ -90,8 +90,7 @@ async function signOut(): Promise<void> {
             <span class="landing-gradient">Demo</span>
           </h2>
           <p>
-            Interactive lessons and hazard perception scenarios in one place —
-            browse the catalog and start training instantly.
+            Interactive activities that incorporate Hazard Perception, Situational awareness and targeted training in one place.
           </p>
         </div>
         <p v-if="auth.role === 'unprovisioned'" class="landing-lede" role="status">
