@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from 'jsr:@std/assert@1'
 import { ApplicationEmailError } from './errors.ts'
-import { applicationIdempotencyKey, buildApplicationMessage } from './messages.ts'
+import { applicationIdempotencyKey, applicationMessageInsert, buildApplicationMessage } from './messages.ts'
 
 Deno.test('the same send inputs produce the same idempotency key', async () => {
   const input = {
@@ -29,15 +29,23 @@ Deno.test('a message requires the published version and a usable key', () => {
     templateKey: 'demo_account_created',
     locale: 'en',
     toEmail: 'admin@alertdriving.com',
+    fromEmail: 'demo@auth.alertdriving.com',
     subject: '[Test] Hello',
     idempotencyKey: 'app-email.example',
     variables: { name: 'Alex' },
     requestedBy: 'admin-id',
   }
-  assertEquals(buildApplicationMessage(base).templateVersionId, 'version-1')
+  const row = applicationMessageInsert(base)
+  assertEquals(row.template_version_id, 'version-1')
+  assertEquals(row.from_email, 'demo@auth.alertdriving.com')
   assertThrows(
-    () => buildApplicationMessage({ ...base, templateVersionId: '' }),
+    () => applicationMessageInsert({ ...base, templateVersionId: '' }),
     ApplicationEmailError,
     'A template version is required.',
+  )
+  assertThrows(
+    () => applicationMessageInsert({ ...base, fromEmail: 'other@example.com' }),
+    ApplicationEmailError,
+    'The sender address is not configured.',
   )
 })

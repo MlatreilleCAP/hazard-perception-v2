@@ -7,6 +7,7 @@ export interface NewApplicationMessage {
   templateKey: string
   locale: string
   toEmail: string
+  fromEmail: string
   subject: string
   idempotencyKey: string
   variables: Record<string, string>
@@ -32,6 +33,9 @@ export function buildApplicationMessage(input: NewApplicationMessage): NewApplic
   if (!input.templateVersionId) {
     throw new ApplicationEmailError(400, 'A template version is required.')
   }
+  if (!/^[^@\s]+@auth\.alertdriving\.com$/i.test(input.fromEmail)) {
+    throw new ApplicationEmailError(400, 'The sender address is not configured.')
+  }
   if (input.organizationId.length === 0 || input.templateId.length === 0) {
     throw new ApplicationEmailError(400, 'The template does not belong to this organization.')
   }
@@ -39,4 +43,23 @@ export function buildApplicationMessage(input: NewApplicationMessage): NewApplic
     throw new ApplicationEmailError(400, 'The idempotency key is invalid.')
   }
   return input
+}
+
+export function applicationMessageInsert(input: NewApplicationMessage) {
+  const row = buildApplicationMessage(input)
+  return {
+    organization_id: row.organizationId,
+    template_id: row.templateId,
+    template_version_id: row.templateVersionId,
+    template_key: row.templateKey,
+    locale: row.locale,
+    to_email: row.toEmail,
+    from_email: row.fromEmail,
+    subject: row.subject,
+    status: 'sending' as const,
+    idempotency_key: row.idempotencyKey,
+    variables: row.variables,
+    trigger: 'test' as const,
+    requested_by: row.requestedBy,
+  }
 }

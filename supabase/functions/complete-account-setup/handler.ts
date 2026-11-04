@@ -1,5 +1,5 @@
 import { allowedOrigins, corsHeadersFor, withCors } from './cors.ts'
-import { PasswordUnchanged, SetupError } from './errors.ts'
+import { SetupError, type SetupFailureCategory } from './errors.ts'
 import { setupPasswordError } from './policy.ts'
 
 export interface SetupMetadata {
@@ -24,9 +24,8 @@ export interface SetupDeps {
   readMetadata(userId: string): Promise<SetupMetadata>
   sessionClaim(authorization: string | null): Promise<SetupSessionClaim | null>
   databaseCutoff(sessionIat: number): Promise<number>
-  updateUser(userId: string, input: { password?: string; appMetadata: SetupMetadata }): Promise<void>
-  revokeSessions(userId: string): Promise<void>
-  verifyCurrentPassword(email: string, password: string): Promise<boolean>
+  exclusive<T>(userId: string, task: () => Promise<T>): Promise<T>
+  updateUser(userId: string, input: { password: string; appMetadata: SetupMetadata }): Promise<void>
 }
 
 const FORBIDDEN_FIELDS = [
@@ -51,17 +50,19 @@ function json(status: number, payload: Record<string, unknown>): Response {
   })
 }
 
-function logResult(userId: string, result: string): void {
-  console.log(JSON.stringify({ source: 'complete-account-setup', userId, result }))
+function logResult(userId: string, result: string, category?: SetupFailureCategory): void {
+  const entry: Record<string, string> = { source: 'complete-account-setup', userId, result }
+  if (category) entry.category = category
+  console.log(JSON.stringify(entry))
 }
 
-const RETRY = { error: 'The password update could not be finished.', recovery: 'retry' }
-
 /**
- * Saves the signed-in user's chosen password and clears setup_required only
- * after sessions are revoked. The cutoff stored is the setup token's own iat,
- * confirmed by the database. That token, and any refresh of its session, stays
- * closed. A sign-in in a later second gets a new session and is eligible.
+ * Completes setup in one Auth admin update. The caller holds a session
+ * advisory lock across that call and reads setup_required again after the
+ * lock is acquired. GoTrue then commits the password, app_metadata, and
+ * logout of every session in its own transaction. A failed Auth response
+ * rolls that transaction back, so setup_required stays true and the lock is
+ * released. The stored cutoff is this token's own iat.
  */
 export async function handleAccountSetup(
   request: Request,
@@ -88,61 +89,36 @@ export async function handleAccountSetup(
       if (field in body) throw new SetupError(400, 'The signed-in user is taken from the session.')
     }
     if (typeof body.password !== 'string') throw new SetupError(400, 'A new password is required.')
-    const passwordError = setupPasswordError(body.password, caller.email)
+    const password = body.password
+    const passwordError = setupPasswordError(password, caller.email)
     if (passwordError) throw new SetupError(400, passwordError)
-
-    const current = await deps.readMetadata(caller.userId)
-    if (current.setup_required !== true) throw new SetupError(409, 'Account setup is not required.')
 
     const claim = await deps.sessionClaim(request.headers.get('Authorization'))
     if (!claim) throw new SetupError(400, 'The setup session is not valid.')
     const cutoff = await deps.databaseCutoff(claim.iat)
     if (cutoff !== claim.iat) throw new SetupError(400, 'The setup session is not valid.')
-    const locked: SetupMetadata = {
-      ...current,
-      setup_required: true,
-      sessions_valid_after: cutoff,
-      setup_session_id: claim.sessionId,
-    }
-    try {
-      await deps.updateUser(caller.userId, { password: body.password, appMetadata: locked })
-    } catch (error) {
-      if (!(error instanceof PasswordUnchanged)) throw new SetupError(400, 'Could not update the password.')
-      const matches = await deps.verifyCurrentPassword(caller.email, body.password)
-      if (!matches) throw new SetupError(400, 'Could not update the password.')
-      try {
-        await deps.updateUser(caller.userId, { appMetadata: locked })
-      } catch {
-        logResult(caller.userId, 'retry')
-        return finish(json(503, RETRY))
+
+    await deps.exclusive(caller.userId, async () => {
+      const current = await deps.readMetadata(caller.userId)
+      if (current.setup_required !== true) throw new SetupError(409, 'Account setup is not required.')
+      const completed: SetupMetadata = {
+        ...current,
+        setup_required: false,
+        sessions_valid_after: cutoff,
+        setup_session_id: claim.sessionId,
       }
-    }
-
-    try {
-      await deps.revokeSessions(caller.userId)
-    } catch {
-      logResult(caller.userId, 'retry')
-      return finish(json(503, RETRY))
-    }
-
-    try {
-      await deps.updateUser(caller.userId, {
-        appMetadata: {
-          ...current,
-          setup_required: false,
-          sessions_valid_after: cutoff,
-          setup_session_id: claim.sessionId,
-        },
-      })
-    } catch {
-      logResult(caller.userId, 'retry')
-      return finish(json(503, RETRY))
-    }
+      try {
+        await deps.updateUser(caller.userId, { password, appMetadata: completed })
+      } catch (error) {
+        if (error instanceof SetupError) throw error
+        throw new SetupError(400, 'Could not update the password.')
+      }
+    })
 
     logResult(caller.userId, 'updated')
     return finish(json(200, { status: 'updated' }))
   } catch (error) {
-    if (userId) logResult(userId, 'rejected')
+    if (userId) logResult(userId, 'rejected', error instanceof SetupError ? error.category : undefined)
     if (error instanceof SetupError) return finish(json(error.status, { error: error.message }))
     return finish(json(500, { error: 'Could not update the password.' }))
   }

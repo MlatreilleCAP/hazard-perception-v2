@@ -24,8 +24,14 @@ function request(body: unknown, authorization = 'Bearer token'): Request {
   })
 }
 
-function harness(): { deps: SendApplicationEmailDeps; delivered: number; rows: StoredMessage[] } {
+function harness(): {
+  deps: SendApplicationEmailDeps
+  delivered: number
+  rows: StoredMessage[]
+  inserted: { templateVersionId: string; fromEmail: string }[]
+} {
   const rows: StoredMessage[] = []
+  const inserted: { templateVersionId: string; fromEmail: string }[] = []
   let delivered = 0
   const deps: SendApplicationEmailDeps = {
     authorize: () => Promise.resolve(caller),
@@ -50,6 +56,7 @@ function harness(): { deps: SendApplicationEmailDeps; delivered: number; rows: S
       }),
     findMessage: (key) => Promise.resolve(rows.find((row) => row.id === `msg-${key}`) ?? null),
     createMessage: (row) => {
+      inserted.push({ templateVersionId: row.templateVersionId, fromEmail: row.fromEmail })
       const stored: StoredMessage = {
         id: `msg-${row.idempotencyKey}`,
         status: 'sending',
@@ -86,6 +93,7 @@ function harness(): { deps: SendApplicationEmailDeps; delivered: number; rows: S
       return delivered
     },
     rows,
+    inserted,
   }
 }
 
@@ -129,6 +137,9 @@ Deno.test('a repeated idempotency key does not send twice', async () => {
   assertEquals(secondBody.id, firstBody.id)
   assertEquals(state.delivered, 1)
   assertEquals(state.rows[0].toEmail, caller.email)
+  assertEquals(state.inserted, [
+    { templateVersionId: 'version-1', fromEmail: 'demo@auth.alertdriving.com' },
+  ])
 })
 
 Deno.test('a draft test renders the draft and a published test does not', async () => {
@@ -139,7 +150,7 @@ Deno.test('a draft test renders the draft and a published test does not', async 
       settings: {
         organizationId: 'org-1',
         fromName: 'AlertDriving',
-        fromEmail: 'demo@auth.alertdriving.com',
+        fromEmail: 'desk@auth.alertdriving.com',
         replyTo: null,
         defaultLocale: 'en',
       },
@@ -174,6 +185,10 @@ Deno.test('a draft test renders the draft and a published test does not', async 
   assertEquals((await draftResponse.json()).source, 'draft')
   assertEquals((await publishedResponse.json()).source, 'published')
   assertEquals(subjects, ['[Test] Draft hello Alex', '[Test] Hello Alex'])
+  assertEquals(state.inserted, [
+    { templateVersionId: 'draft-1', fromEmail: 'desk@auth.alertdriving.com' },
+    { templateVersionId: 'version-1', fromEmail: 'desk@auth.alertdriving.com' },
+  ])
 })
 
 Deno.test('test content cannot be supplied by the caller', async () => {

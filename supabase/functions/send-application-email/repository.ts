@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.1
 import { authorizeCaller, type AdminCaller } from './authorize.ts'
 import { ApplicationEmailError } from './errors.ts'
 import type { SendApplicationEmailDeps, StoredMessage } from './handler.ts'
-import type { NewApplicationMessage } from './messages.ts'
+import { applicationMessageInsert, type NewApplicationMessage } from './messages.ts'
 import type { TemplateVariable } from './render.ts'
 import { formatFromAddress, sendViaResend } from './resend.ts'
 import type { EmailSettingsRecord, EmailTemplateRecord, EmailVersionRecord } from './select.ts'
@@ -163,21 +163,7 @@ export function createApplicationEmailDeps(authorization: string | null): SendAp
     async createMessage(row: NewApplicationMessage) {
       const { data, error } = await service
         .from('email_messages')
-        .insert({
-          organization_id: row.organizationId,
-          template_id: row.templateId,
-          template_version_id: row.templateVersionId,
-          template_key: row.templateKey,
-          locale: row.locale,
-          to_email: row.toEmail,
-          subject: row.subject,
-          status: 'sending',
-          idempotency_key: row.idempotencyKey,
-          // email_messages has no sender column. From is taken from email_settings at delivery.
-          variables: row.variables,
-          trigger: 'test',
-          requested_by: row.requestedBy,
-        })
+        .insert(applicationMessageInsert(row))
         .select('id, status, resend_id, locale, requested_by, organization_id, template_id, to_email')
         .single()
       if (error) {

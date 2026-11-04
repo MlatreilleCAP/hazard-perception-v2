@@ -1,7 +1,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.112.4'
-import { PasswordUnchanged, SetupError } from './errors.ts'
+import { SetupError } from './errors.ts'
 import type { SetupDeps, SetupMetadata } from './handler.ts'
 import { sessionClaimFromAuthorization } from './sessionClaim.ts'
+import { openPostgresLockSession, sessionPoolerUrl, withSessionAdvisoryLock } from './setupLock.ts'
 
 function requiredEnv(name: string): string {
   const value = Deno.env.get(name)?.trim()
@@ -40,9 +41,13 @@ export function createSetupDeps(authorization: string | null): SetupDeps {
     sessionClaim(header) {
       return Promise.resolve(sessionClaimFromAuthorization(header))
     },
+    exclusive(userId, task) {
+      const databaseUrl = sessionPoolerUrl(Deno.env.get('INROADS_SESSION_DB_URL'))
+      return withSessionAdvisoryLock(userId, () => openPostgresLockSession(databaseUrl), task)
+    },
     async databaseCutoff(sessionIat) {
       const { data, error } = await service.rpc('setup_access_cutoff', { p_session_iat: sessionIat })
-      if (error) throw new SetupError(503, 'The password update could not be finished.')
+      if (error) throw new SetupError(503, 'The password update could not be finished.', 'cutoff')
       const cutoff = typeof data === 'number'
         ? data
         : typeof data === 'string' && /^[0-9]+$/.test(data)
@@ -54,30 +59,14 @@ export function createSetupDeps(authorization: string | null): SetupDeps {
       return cutoff
     },
     async updateUser(userId, input) {
+      // One admin PUT. Auth applies the password, merged app_metadata, and
+      // logout of every session in a single database transaction. A non-2xx
+      // response means that transaction was not committed.
       const { error } = await service.auth.admin.updateUserById(userId, {
-        ...(input.password ? { password: input.password } : {}),
+        password: input.password,
         app_metadata: input.appMetadata,
       })
-      if (!error) return
-      if (/different from the old password|same password/i.test(error.message)) throw new PasswordUnchanged()
-      throw new SetupError(400, 'Could not update the password.')
-    },
-    async revokeSessions(userId) {
-      const { error } = await service.auth.admin.signOut(userId, 'global')
-      if (error) throw new SetupError(503, 'The password update could not be finished.')
-    },
-    async verifyCurrentPassword(email, password) {
-      try {
-        const response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
-          method: 'POST',
-          headers: { apikey: anonKey, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        })
-        await response.body?.cancel()
-        return response.ok
-      } catch {
-        return false
-      }
+      if (error) throw new SetupError(400, 'Could not update the password.')
     },
   }
 }

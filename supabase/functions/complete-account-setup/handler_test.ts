@@ -1,5 +1,5 @@
 import { assertEquals } from 'jsr:@std/assert@1'
-import { PasswordUnchanged } from './errors.ts'
+import { SetupError } from './errors.ts'
 import { handleAccountSetup, type SetupDeps, type SetupMetadata } from './handler.ts'
 
 const USER = '22222222-2222-2222-2222-222222222222'
@@ -20,8 +20,7 @@ function deps(overrides: Partial<SetupDeps> = {}): SetupDeps & {
       updates.push(input)
       return Promise.resolve()
     },
-    revokeSessions: () => Promise.resolve(),
-    verifyCurrentPassword: () => Promise.resolve(false),
+    exclusive: (_userId, task) => task(),
     sessionClaim: () => Promise.resolve({ iat: ISSUED_AT, sessionId: SESSION }),
     databaseCutoff: (iat) => Promise.resolve(iat),
   }
@@ -51,7 +50,7 @@ Deno.test('another user cannot clear setup and a short password is rejected', as
   assertEquals(idle.updates, [])
 })
 
-Deno.test('setup stays required until revocation succeeds, then the flag clears', async () => {
+Deno.test('one update saves the password and clears setup without signing out by user id', async () => {
   const logs: string[] = []
   const original = console.log
   console.log = (...args: unknown[]) => {
@@ -62,35 +61,29 @@ Deno.test('setup stays required until revocation succeeds, then the flag clears'
     const response = await handleAccountSetup(post({ password: PASSWORD }), admin)
     assertEquals(response.status, 200)
     assertEquals(await response.json(), { status: 'updated' })
-    assertEquals(admin.updates[0].appMetadata.setup_required, true)
+    assertEquals(admin.updates.length, 1)
+    assertEquals(admin.updates[0].password, PASSWORD)
+    assertEquals(admin.updates[0].appMetadata.setup_required, false)
     assertEquals(admin.updates[0].appMetadata.sessions_valid_after, ISSUED_AT)
     assertEquals(admin.updates[0].appMetadata.setup_session_id, SESSION)
-    assertEquals(admin.updates[1].password, undefined)
-    assertEquals(admin.updates[1].appMetadata.setup_required, false)
-    assertEquals(admin.updates[1].appMetadata.sessions_valid_after, ISSUED_AT)
+    assertEquals(admin.updates[0].appMetadata.theme, 'keep')
+    assertEquals('revokeSessions' in admin, false)
     assertEquals(logs.join('\n').includes(PASSWORD), false)
   } finally {
     console.log = original
   }
 })
 
-Deno.test('a lost revocation or flag clear asks the user to retry without opening content', async () => {
-  const revoked = deps({ revokeSessions: () => Promise.reject(new Error('sign-out failed')) })
-  const revokeResponse = await handleAccountSetup(post({ password: PASSWORD }), revoked)
-  assertEquals(revokeResponse.status, 503)
-  assertEquals((await revokeResponse.json()).recovery, 'retry')
-  assertEquals(revoked.updates[0].appMetadata.setup_required, true)
-
-  const stuck = deps({
-    updateUser: (_userId, input) => {
-      stuck.updates.push(input)
-      if (stuck.updates.length === 2) return Promise.reject(new Error('metadata failed'))
-      return Promise.resolve()
-    },
+Deno.test('a failed update leaves setup required and does not write again', async () => {
+  let stored: SetupMetadata = { setup_required: true, theme: 'keep' }
+  const failed = deps({
+    readMetadata: () => Promise.resolve({ ...stored }),
+    updateUser: () => Promise.reject(new Error('auth rejected the update')),
   })
-  const clearResponse = await handleAccountSetup(post({ password: PASSWORD }), stuck)
-  assertEquals(clearResponse.status, 503)
-  assertEquals(stuck.updates[1].appMetadata.setup_required, false)
+  const response = await handleAccountSetup(post({ password: PASSWORD }), failed)
+  assertEquals(response.status, 400)
+  assertEquals(failed.updates, [])
+  assertEquals(stored.setup_required, true)
 })
 
 Deno.test('a missing or earlier cutoff does not clear setup', async () => {
@@ -103,21 +96,63 @@ Deno.test('a missing or earlier cutoff does not clear setup', async () => {
   assertEquals(earlier.updates, [])
 })
 
-Deno.test('repeating the same password finishes setup only when the user knows it', async () => {
-  const denied = deps({
-    updateUser: () => Promise.reject(new PasswordUnchanged()),
-    verifyCurrentPassword: () => Promise.resolve(false),
-  })
-  assertEquals((await handleAccountSetup(post({ password: PASSWORD }), denied)).status, 400)
-
-  const confirmed = deps({
+Deno.test('a completed account cannot be reactivated or given another password', async () => {
+  let stored: SetupMetadata = { setup_required: true, theme: 'keep' }
+  const shared = deps({
+    readMetadata: () => Promise.resolve({ ...stored }),
     updateUser: (_userId, input) => {
-      confirmed.updates.push(input)
-      if (input.password) return Promise.reject(new PasswordUnchanged())
+      shared.updates.push(input)
+      stored = { ...input.appMetadata }
       return Promise.resolve()
     },
-    verifyCurrentPassword: (_email, password) => Promise.resolve(password === PASSWORD),
   })
-  assertEquals((await handleAccountSetup(post({ password: PASSWORD }), confirmed)).status, 200)
-  assertEquals(confirmed.updates[2].appMetadata.setup_required, false)
+  assertEquals((await handleAccountSetup(post({ password: PASSWORD }), shared)).status, 200)
+  const repeat = await handleAccountSetup(post({ password: 'different-password' }), shared)
+  assertEquals(repeat.status, 409)
+  assertEquals(shared.updates.length, 1)
+  assertEquals(shared.updates[0].password, PASSWORD)
+  assertEquals(stored.setup_required, false)
+})
+
+Deno.test('cutoff and connect failures stay generic and log only a category', async () => {
+  const logs: string[] = []
+  const original = console.log
+  console.log = (...args: unknown[]) => {
+    logs.push(args.map(String).join(' '))
+  }
+  const secret = 'postgres://postgres.johneswnplneghptizho:pw-not-real@aws-0-us-east-2.pooler.supabase.com:5432/postgres'
+  try {
+    const cutoff = deps({
+      databaseCutoff: () => Promise.reject(new SetupError(503, 'The password update could not be finished.', 'cutoff')),
+    })
+    const cutoffResponse = await handleAccountSetup(post({ password: PASSWORD }), cutoff)
+    assertEquals(cutoffResponse.status, 503)
+    assertEquals(await cutoffResponse.json(), { error: 'The password update could not be finished.' })
+    assertEquals(cutoff.updates, [])
+
+    const connect = deps({
+      exclusive: () => Promise.reject(new SetupError(503, 'The password update could not be finished.', 'connect')),
+    })
+    const connectResponse = await handleAccountSetup(post({ password: PASSWORD }), connect)
+    assertEquals(connectResponse.status, 503)
+    assertEquals(await connectResponse.json(), { error: 'The password update could not be finished.' })
+    assertEquals(connect.updates, [])
+
+    const leaked = deps({
+      exclusive: () => Promise.reject(new Error(`connect failed ${secret} Authorization Bearer token`)),
+    })
+    const leakedResponse = await handleAccountSetup(post({ password: PASSWORD }), leaked)
+    assertEquals(leakedResponse.status, 500)
+    assertEquals(await leakedResponse.json(), { error: 'Could not update the password.' })
+
+    const logged = logs.join('\n')
+    assertEquals(logged.includes('"category":"cutoff"'), true)
+    assertEquals(logged.includes('"category":"connect"'), true)
+    assertEquals(logged.includes(PASSWORD), false)
+    assertEquals(logged.includes(secret), false)
+    assertEquals(logged.includes('Bearer'), false)
+    assertEquals(logged.includes('connect failed'), false)
+  } finally {
+    console.log = original
+  }
 })

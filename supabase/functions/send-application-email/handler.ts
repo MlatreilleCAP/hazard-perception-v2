@@ -176,6 +176,7 @@ export async function handleApplicationEmail(
       templateKey: prepared.template.key,
       locale: prepared.locale,
       toEmail: caller.email,
+      fromEmail: prepared.settings.fromEmail,
       subject,
       idempotencyKey,
       variables: values,
