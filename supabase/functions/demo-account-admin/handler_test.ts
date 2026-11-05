@@ -690,6 +690,7 @@ Deno.test('email setup sends one link request to the created address and returns
       deliverSetup: (input) => {
         sends += 1
         assertEquals(input.recipientEmail, NEW_EMAIL)
+        assertEquals(input.expiresAt, '2027-06-15T00:00:00.000Z')
         assertEquals('password' in input, false)
         return Promise.resolve({ outcome: 'accepted', resendId: 're_setup' })
       },

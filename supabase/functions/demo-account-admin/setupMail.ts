@@ -52,10 +52,31 @@ export function isRecoveryVerifyLink(link: string, supabaseUrl: string): boolean
     && verify.searchParams.has('token')
 }
 
-export function buildSetupMessage(actionLink: string): { subject: string; html: string; text: string } {
+/** Matches public.demo_expires_on: "March 31, 2026" in UTC. */
+export function formatDemoExpiresOn(expiresAt: string | null | undefined): string | null {
+  if (!expiresAt?.trim()) return null
+  const date = new Date(expiresAt)
+  if (Number.isNaN(date.getTime())) return null
+  const formatted = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date)
+  return formatted || null
+}
+
+export function buildSetupMessage(
+  actionLink: string,
+  expiresAt?: string | null,
+): { subject: string; html: string; text: string } {
+  const expiresOn = formatDemoExpiresOn(expiresAt)
+  const body = expiresOn
+    ? `Your Inroads demo account has been created. Your demo access expires on ${expiresOn}. To get started, click the button below to create your password.`
+    : 'Your Inroads demo account has been created. To get started, click the button below to create your password.'
   const rendered = renderEmailLayout({
     heading: 'Set up your account',
-    body: 'Your Inroads demo account has been created. To get started, click the button below to create your password.',
+    body,
     buttonLabel: 'Set Up Account',
     actionUrl: actionLink,
     footerMessage:
@@ -77,6 +98,7 @@ export async function sendSetupEmail(
     profileId: string
     recipientEmail: string
     actionLink: string
+    expiresAt?: string | null
   },
   fetchImpl: typeof fetch = fetch,
 ): Promise<SetupDeliveryResult> {
@@ -84,7 +106,7 @@ export async function sendSetupEmail(
   if (!input.apiKey.trim() || !EMAIL.test(recipient) || !isRecoveryVerifyLink(input.actionLink, input.supabaseUrl)) {
     return { outcome: 'failed', resendId: null }
   }
-  const message = buildSetupMessage(input.actionLink)
+  const message = buildSetupMessage(input.actionLink, input.expiresAt)
   let response: Response
   try {
     response = await fetchImpl(RESEND_ENDPOINT, {

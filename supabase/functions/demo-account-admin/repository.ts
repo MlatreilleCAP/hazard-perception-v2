@@ -303,6 +303,7 @@ export function createDemoAdminDeps(authorization: string | null): DemoAdminDeps
         profileId: input.profileId,
         recipientEmail: input.recipientEmail,
         actionLink,
+        expiresAt: input.expiresAt,
       })
     },
 

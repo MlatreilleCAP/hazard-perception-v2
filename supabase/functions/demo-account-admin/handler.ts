@@ -58,7 +58,11 @@ export interface DemoAdminDeps {
   ): Promise<{ profileId: string; email: string }>
   deleteAuthUser(profileId: string): Promise<void>
   createdWelcomeEnabled(organizationId: string): Promise<boolean>
-  deliverSetup(input: { profileId: string; recipientEmail: string }): Promise<SetupDeliveryResult>
+  deliverSetup(input: {
+    profileId: string
+    recipientEmail: string
+    expiresAt?: string | null
+  }): Promise<SetupDeliveryResult>
   recordSetupDelivery(input: {
     profileId: string
     organizationId: string
@@ -396,6 +400,7 @@ async function deliverAccountSetup(
       delivery = await deps.deliverSetup({
         profileId: result.profileId,
         recipientEmail: createdEmail,
+        expiresAt: result.expiresAt,
       })
     } catch {
       delivery = { outcome: 'uncertain', resendId: null }

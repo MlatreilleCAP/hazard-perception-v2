@@ -6,6 +6,7 @@ import {
   SETUP_SUBJECT,
   buildSetupMessage,
   classifyResendResponse,
+  formatDemoExpiresOn,
   isRecoveryVerifyLink,
   sendSetupEmail,
   setupIdempotencyKey,
@@ -37,9 +38,18 @@ Deno.test('the setup message contains the verify button and no generated passwor
   assertEquals(message.text.includes(LINK), true)
   assertEquals(message.html.includes(PASSWORD), false)
   assertEquals(message.text.includes(PASSWORD), false)
+  assertEquals(message.html.includes('Your demo access expires on'), false)
   assertEquals(isRecoveryVerifyLink(LINK, API), true)
   assertEquals(isRecoveryVerifyLink('https://evil.example/auth/v1/verify?token=x&type=recovery&redirect_to=' + SETUP_REDIRECT, API), false)
   assertEquals(setupIdempotencyKey(PROFILE).includes('token'), false)
+})
+
+Deno.test('the setup message includes the demo expiry date when provided', () => {
+  assertEquals(formatDemoExpiresOn('2027-06-15T00:00:00.000Z'), 'June 15, 2027')
+  assertEquals(formatDemoExpiresOn('not-a-date'), null)
+  const message = buildSetupMessage(LINK, '2027-06-15T00:00:00.000Z')
+  assertEquals(message.html.includes('Your demo access expires on June 15, 2027.'), true)
+  assertEquals(message.text.includes('Your demo access expires on June 15, 2027.'), true)
 })
 
 Deno.test('one accepted send goes only to the new user and does not retry', async () => {
@@ -50,6 +60,7 @@ Deno.test('one accepted send goes only to the new user and does not retry', asyn
     profileId: PROFILE,
     recipientEmail: 'Person@Example.com',
     actionLink: LINK,
+    expiresAt: '2027-06-15T00:00:00.000Z',
   }, (url, init) => {
     calls.push({ url: String(url), body: String(init?.body) })
     return Promise.resolve(new Response(JSON.stringify({ id: 're_setup' }), { status: 200 }))
@@ -61,6 +72,7 @@ Deno.test('one accepted send goes only to the new user and does not retry', asyn
   assertEquals(body.from, SETUP_FROM)
   assertEquals(body.to, ['person@example.com'])
   assertEquals(body.subject, SETUP_SUBJECT)
+  assertEquals(body.html.includes('Your demo access expires on June 15, 2027.'), true)
   assertEquals(calls[0].body.includes(PASSWORD), false)
 })
 
