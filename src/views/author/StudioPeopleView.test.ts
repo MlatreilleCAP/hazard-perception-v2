@@ -63,6 +63,9 @@ describe('Studio people and demo accounts', () => {
         role: 'demo',
         previousRole: 'author',
         deactivatedAt: null,
+        createdAt: null,
+        createdBy: null,
+        lastSignInAt: null,
       },
     ])
   })
@@ -158,6 +161,8 @@ describe('Studio people and demo accounts', () => {
       previousRole: 'demo',
       deactivatedAt: null,
       createdAt: '2026-11-04T01:00:00.000Z',
+      createdBy: null,
+      lastSignInAt: null,
     }
     vi.mocked(listStudioPeople)
       .mockResolvedValueOnce(people)
@@ -177,6 +182,8 @@ describe('Studio people and demo accounts', () => {
           previousRole: 'author',
           deactivatedAt: null,
           createdAt: null,
+          createdBy: null,
+          lastSignInAt: null,
         },
       ])
       .mockResolvedValue([createdAccount])

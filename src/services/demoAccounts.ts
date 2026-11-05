@@ -21,6 +21,7 @@ export type DemoAccountRecord = {
   deactivatedAt: string | null
   createdAt: string | null
   createdBy: string | null
+  lastSignInAt: string | null
 }
 
 export type DemoAccountEventRecord = {
@@ -145,6 +146,9 @@ export async function listDemoAccounts(
       createdAt: typeof record.created_at === 'string' ? record.created_at : null,
       createdBy: typeof record.created_by_email === 'string' && record.created_by_email.trim()
         ? record.created_by_email.trim()
+        : null,
+      lastSignInAt: typeof record.last_sign_in_at === 'string' && record.last_sign_in_at.trim()
+        ? record.last_sign_in_at
         : null,
     }
   })

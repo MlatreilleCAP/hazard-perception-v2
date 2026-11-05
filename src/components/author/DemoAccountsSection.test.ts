@@ -36,6 +36,7 @@ const existing = {
   deactivatedAt: null,
   createdAt: '2026-11-01T15:00:00.000Z',
   createdBy: 'admin@example.com',
+  lastSignInAt: '2026-11-04T18:30:00.000Z',
 }
 
 async function mountSection() {
@@ -76,6 +77,7 @@ describe('DemoAccountsSection', () => {
     const history = wrapper.findAll('button').find((button) => button.text() === 'History')
     await history?.trigger('click')
     await flushPromises()
+    expect(wrapper.text()).toContain('Last signed in')
     expect(wrapper.text()).toContain('Created')
     expect(wrapper.text()).toContain('admin@example.com')
     expect(wrapper.text()).toContain('Initial demo')
@@ -266,6 +268,8 @@ describe('DemoAccountsSection', () => {
         previousRole: '',
         deactivatedAt: null,
         createdAt: '2026-11-03T22:00:00.000Z',
+        createdBy: null,
+        lastSignInAt: null,
       },
     ])
     vi.mocked(provisionDemoAccount).mockResolvedValue({
@@ -305,6 +309,8 @@ describe('DemoAccountsSection', () => {
           previousRole: '',
           deactivatedAt: null,
           createdAt: '2026-11-03T22:00:00.000Z',
+          createdBy: null,
+          lastSignInAt: null,
         },
       ])
       .mockResolvedValueOnce([

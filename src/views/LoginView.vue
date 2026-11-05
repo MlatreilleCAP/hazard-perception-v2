@@ -49,7 +49,7 @@ const title = computed(() => (mode.value === 'recover' ? 'Reset your password' :
 const subtitle = computed(() =>
   mode.value === 'recover'
     ? "Enter your email address and we'll send you a link to reset your password."
-    : 'Sign in to save progress and continue training.',
+    : 'Sign in to access the demo.',
 )
 const submitLabel = computed(() => (loading.value ? 'Please wait…' : 'Sign in'))
 const resetLabel = computed(() => (loading.value ? 'Sending…' : 'Send reset link'))

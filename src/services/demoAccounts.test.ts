@@ -98,6 +98,7 @@ describe('demo account administration', () => {
           organization_slug: 'alertdriving',
           status: 'setup_incomplete',
           created_at: '2026-11-03T22:00:00.000Z',
+          last_sign_in_at: '2026-11-04T12:00:00.000Z',
           initialPassword: 'one-time-secret',
           claim_token: 'claim-token-value',
         }],
@@ -110,6 +111,7 @@ describe('demo account administration', () => {
         email: 'held@example.com',
         status: 'setup_incomplete',
         createdAt: '2026-11-03T22:00:00.000Z',
+        lastSignInAt: '2026-11-04T12:00:00.000Z',
       }),
     ])
     expect(JSON.stringify(rows)).not.toContain('one-time-secret')

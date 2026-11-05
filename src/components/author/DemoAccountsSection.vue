@@ -71,6 +71,7 @@ const deleteError = ref<string | null>(null)
 const deleteDialog = ref<HTMLElement | null>(null)
 
 const historyProfileId = ref<string | null>(null)
+const historyLastSignInAt = ref<string | null>(null)
 const history = ref<DemoAccountEventRecord[]>([])
 const historyLoading = ref(false)
 const historyError = ref<string | null>(null)
@@ -120,6 +121,7 @@ async function load(): Promise<void> {
 
 async function onOrganizationChange(): Promise<void> {
   historyProfileId.value = null
+  historyLastSignInAt.value = null
   history.value = []
   await load()
 }
@@ -345,6 +347,7 @@ async function submitDelete(): Promise<void> {
     await deleteCreatedDemoUser(account.profileId)
     if (historyProfileId.value === account.profileId) {
       historyProfileId.value = null
+      historyLastSignInAt.value = null
       history.value = []
     }
     deleteTarget.value = null
@@ -359,6 +362,7 @@ async function submitDelete(): Promise<void> {
 
 async function openHistory(account: DemoAccountRecord): Promise<void> {
   historyProfileId.value = account.profileId
+  historyLastSignInAt.value = account.lastSignInAt
   historyLoading.value = true
   historyError.value = null
   history.value = []
@@ -369,6 +373,11 @@ async function openHistory(account: DemoAccountRecord): Promise<void> {
   } finally {
     historyLoading.value = false
   }
+}
+
+function lastSignInLabel(iso: string | null): string {
+  if (!iso) return 'Never signed in'
+  return `Last signed in ${formatDemoTimestamp(iso)}`
 }
 
 function statusOf(account: DemoAccountRecord): string {
@@ -518,6 +527,7 @@ function retryHold(account: DemoAccountRecord): void {
       aria-labelledby="demo-history-title"
     >
       <h3 id="demo-history-title">History</h3>
+      <p class="author-list-sub">{{ lastSignInLabel(historyLastSignInAt) }}</p>
       <p v-if="historyLoading" class="author-muted">Loading history…</p>
       <p v-else-if="historyError" class="auth-error" role="alert">{{ historyError }}</p>
       <p v-else-if="history.length === 0" class="author-muted">No lifecycle events yet.</p>
