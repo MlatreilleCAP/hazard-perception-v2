@@ -33,6 +33,8 @@ export interface AnticipateDefinition {
   instructionText: string
   /** Pill label on the Video 1 instruction card. Empty uses "Anticipate". */
   instructionPill: string
+  /** Desktop-only instruction copy from lesson.xlsx. Unused in this demo player. */
+  instructionDesktopText: string
   /** Shown once over the paused first frame of Video 2. Empty skips the overlay. */
   secondInstructionText: string
   /** Pill label on the Video 2 instruction card. Empty uses "Anticipate". */
@@ -57,6 +59,7 @@ export function createDefaultAnticipateDefinition(): AnticipateDefinition {
     version: 1,
     instructionText: DEFAULT_ANTICIPATE_INSTRUCTION,
     instructionPill: DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
+    instructionDesktopText: '',
     secondInstructionText: '',
     secondInstructionPill: DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
     segments: [createEmptyAnticipateSegment()],
@@ -109,6 +112,10 @@ export function normalizeAnticipateDefinition(
       typeof definition.instructionPill === 'string'
         ? definition.instructionPill
         : DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
+    instructionDesktopText:
+      typeof definition.instructionDesktopText === 'string'
+        ? definition.instructionDesktopText
+        : '',
     secondInstructionText:
       typeof definition.secondInstructionText === 'string'
         ? definition.secondInstructionText
@@ -131,6 +138,7 @@ export function buildPersistableAnticipateDefinition(
   const instructionText = definition.instructionText ?? ''
   const instructionPill =
     definition.instructionPill ?? DEFAULT_ANTICIPATE_INSTRUCTION_PILL
+  const instructionDesktopText = definition.instructionDesktopText ?? ''
   const secondInstructionText = definition.secondInstructionText ?? ''
   const secondInstructionPill =
     definition.secondInstructionPill ?? DEFAULT_ANTICIPATE_INSTRUCTION_PILL
@@ -141,6 +149,7 @@ export function buildPersistableAnticipateDefinition(
       version: 1,
       instructionText,
       instructionPill,
+      instructionDesktopText,
       secondInstructionText: '',
       secondInstructionPill: DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
       segments: [segment1],
@@ -155,6 +164,7 @@ export function buildPersistableAnticipateDefinition(
       version: 1,
       instructionText,
       instructionPill,
+      instructionDesktopText,
       secondInstructionText,
       secondInstructionPill,
       segments: [segment1, segment2],
@@ -168,6 +178,7 @@ export function buildPersistableAnticipateDefinition(
     version: 1,
     instructionText,
     instructionPill,
+    instructionDesktopText,
     secondInstructionText,
     secondInstructionPill,
     segments: [segment1, segment2, { ...segment3, questions: emptyQuestionBank() }],

@@ -140,6 +140,7 @@ export type CopySection = (typeof COPY_SECTIONS)[number]
 export const COPY_FIELDS = [
   'instruction',
   'instruction_pill',
+  'instruction_desktop',
   'maneuver',
   'roadway',
   'traffic_density',

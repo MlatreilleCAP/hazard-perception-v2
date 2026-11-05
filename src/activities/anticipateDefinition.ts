@@ -53,6 +53,10 @@ export function readAnticipateDefinition(
       typeof anticipate.instructionPill === 'string'
         ? anticipate.instructionPill
         : DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
+    instructionDesktopText:
+      typeof anticipate.instructionDesktopText === 'string'
+        ? anticipate.instructionDesktopText
+        : '',
     secondInstructionText:
       typeof anticipate.secondInstructionText === 'string'
         ? anticipate.secondInstructionText

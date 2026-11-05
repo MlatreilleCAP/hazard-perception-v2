@@ -39,6 +39,7 @@ export type ImportWorkbookContent = {
   observe: {
     instruction: string
     instructionPill: string
+    instructionDesktop: string
     maneuver: string
     roadway: string
     trafficDensity: string
@@ -61,6 +62,7 @@ export type ImportWorkbookContent = {
   process: {
     instruction: string
     instructionPill: string
+    instructionDesktop: string
     secondInstruction: string
     secondInstructionPill: string
     secondScoreThreshold: string
@@ -68,6 +70,7 @@ export type ImportWorkbookContent = {
   anticipate: {
     instruction: string
     instructionPill: string
+    instructionDesktop: string
     secondInstruction: string
     secondInstructionPill: string
     secondScoreThreshold: string
@@ -154,6 +157,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
       missed1Attempt: 'You attempted once, but time ran out before you found it.',
       missed2Attempt: 'You tried twice and time ran out.',
       noClicksRemain: 'No attempts remain',
+      instructionDesktop: '',
       secondInstruction: "Let's sharpen a couple of Observe skills that can help keep you safe. ",
       secondInstructionPill: 'Observe Coaching',
     },
@@ -161,6 +165,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
       instruction:
         "You're about to watch a short driving video one time with no replay or side-to-side scanning options. \n\nAssess what's happening, what's changing, and why it matters in the scenario. \n\nRight after, you'll answer three quick questions about what you saw. You'll get feedback after each question.",
       instructionPill: 'Process',
+      instructionDesktop: '',
       secondInstruction: "Let's look at a couple of points that can strengthen your Process skills. ",
       secondInstructionPill: 'Process Coaching',
       secondScoreThreshold: '100',
@@ -169,6 +174,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
       instruction:
         "You are going to watch another video clip. There is no side-to-side scanning option. \n\nAt some point, it'll freeze. That's your moment to anticipate what happens next. \n\nAfter the freeze, you need to answer three quick questions. After each question, you'll see if you got it right, and why.",
       instructionPill: 'Anticipate',
+      instructionDesktop: '',
       secondInstruction:
         'Additional coaching is required, based on your performance ins the anticipate challenge.',
       secondInstructionPill: 'Additional Anticipate Coaching',
@@ -452,6 +458,15 @@ function activityTextRows(
   )
   rows.push(
     activityRow(
+      'Observe Instruction Desktop',
+      'Instruction',
+      english.observe.instructionDesktop,
+      'Desktop only; unused in this demo',
+      upload.observe.instructionDesktop,
+    ),
+  )
+  rows.push(
+    activityRow(
       'Observe instruction',
       'Example button',
       english.exampleButtonLabel,
@@ -563,6 +578,15 @@ function activityTextRows(
     upload.buttonLabel,
     'Always',
   )
+  rows.push(
+    activityRow(
+      'Process Instruction Desktop',
+      'Instruction',
+      english.process.instructionDesktop,
+      'Desktop only; unused in this demo',
+      upload.process.instructionDesktop,
+    ),
+  )
   pushQuestionRows(rows, upload, english, 'process', 1)
   instructionRows(
     rows,
@@ -587,6 +611,15 @@ function activityTextRows(
     english.buttonLabel,
     upload.buttonLabel,
     'Always',
+  )
+  rows.push(
+    activityRow(
+      'Anticipate Instruction Desktop',
+      'Instruction',
+      english.anticipate.instructionDesktop,
+      'Desktop only; unused in this demo',
+      upload.anticipate.instructionDesktop,
+    ),
   )
   pushQuestionRows(rows, upload, english, 'anticipate', 1)
   instructionRows(

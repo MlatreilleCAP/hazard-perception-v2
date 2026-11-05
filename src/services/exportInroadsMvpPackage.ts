@@ -383,6 +383,7 @@ function workbookContentFromParts(
     observe: {
       instruction: see.instructionText,
       instructionPill: filledOrDefault(see.instructionPill, DEFAULT_SEE_INSTRUCTION_PILL),
+      instructionDesktop: see.instructionDesktopText,
       maneuver: firstFilled(see.maneuver, hazard?.maneuver),
       roadway: firstFilled(see.roadway, hazard?.roadway),
       trafficDensity: firstFilled(see.trafficDensity, hazard?.trafficDensity),
@@ -408,6 +409,7 @@ function workbookContentFromParts(
     process: {
       instruction: process.instructionText,
       instructionPill: filledOrDefault(process.instructionPill, DEFAULT_PROCESS_INSTRUCTION_PILL),
+      instructionDesktop: process.instructionDesktopText,
       secondInstruction: process.secondInstructionText,
       secondInstructionPill: filledOrDefault(
         process.secondInstructionPill,
@@ -421,6 +423,7 @@ function workbookContentFromParts(
         anticipate.instructionPill,
         DEFAULT_ANTICIPATE_INSTRUCTION_PILL,
       ),
+      instructionDesktop: anticipate.instructionDesktopText,
       secondInstruction: anticipate.secondInstructionText,
       secondInstructionPill: filledOrDefault(
         anticipate.secondInstructionPill,

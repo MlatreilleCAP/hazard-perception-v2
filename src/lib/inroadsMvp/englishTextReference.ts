@@ -99,6 +99,7 @@ export function observeEnglishGroups(see: SeeDefinition): EnglishTextGroup[] {
     group('Instruction', [
       row('Pill label', see.instructionPill),
       row('Instruction text', see.instructionText),
+      row('Instruction desktop', see.instructionDesktopText),
     ]),
     group('Clip intro', [
       row('Maneuver', see.maneuver),
@@ -141,6 +142,7 @@ function clipEnglishGroups(
     group(`${videoLabel} 1 instruction`, [
       row('Pill label', definition.instructionPill),
       row('Instruction text', definition.instructionText),
+      row('Instruction desktop', definition.instructionDesktopText),
     ]),
     ...questionGroups(`${videoLabel} 1`, definition.segments[0]?.questions),
     second

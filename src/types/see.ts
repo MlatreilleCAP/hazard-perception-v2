@@ -203,6 +203,8 @@ export interface SeeDefinition {
   instructionText: string
   /** Pill label on the scenario instruction card. Empty uses "Observe". */
   instructionPill: string
+  /** Desktop-only instruction copy from lesson.xlsx. Unused in this demo player. */
+  instructionDesktopText: string
   /** Plays after the instruction card and before the scenario video. */
   introAudio: MediaRef | null
   maneuver: string
@@ -439,6 +441,7 @@ export function createDefaultSeeDefinition(): SeeDefinition {
     media: null,
     instructionText: DEFAULT_SEE_INSTRUCTION,
     instructionPill: DEFAULT_SEE_INSTRUCTION_PILL,
+    instructionDesktopText: '',
     introAudio: null,
     maneuver: '',
     roadway: '',
@@ -555,6 +558,10 @@ export function normalizeSeeDefinition(definition: SeeDefinition): SeeDefinition
       typeof definition.instructionPill === 'string'
         ? definition.instructionPill
         : DEFAULT_SEE_INSTRUCTION_PILL,
+    instructionDesktopText:
+      typeof definition.instructionDesktopText === 'string'
+        ? definition.instructionDesktopText
+        : '',
     introAudio: readMediaRef(definition.introAudio) ?? readMediaRef(first?.introAudio),
     ...summary,
     hazards: hazards.sort((a, b) => a.startTime - b.startTime),

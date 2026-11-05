@@ -53,6 +53,10 @@ export function readProcessDefinition(
       typeof process.instructionPill === 'string'
         ? process.instructionPill
         : DEFAULT_PROCESS_INSTRUCTION_PILL,
+    instructionDesktopText:
+      typeof process.instructionDesktopText === 'string'
+        ? process.instructionDesktopText
+        : '',
     secondInstructionText:
       typeof process.secondInstructionText === 'string'
         ? process.secondInstructionText

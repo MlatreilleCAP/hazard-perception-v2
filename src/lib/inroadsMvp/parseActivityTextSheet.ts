@@ -223,6 +223,15 @@ function applyInstruction(
   const name = screen.toLowerCase()
   const field = headerKey(element)
   const coaching = name.includes('coaching')
+  // Screens like "Observe Instruction Desktop" / "Anticipate instructions Desktop"
+  const desktop = /\bdesktop\b/.test(name) || field === 'instruction_desktop'
+  if (desktop) {
+    if (field === 'instruction' || field === 'instructions' || field === 'instruction_desktop') {
+      setCopy(copy, section, 'instruction_desktop', value)
+      return true
+    }
+    return false
+  }
   if (field === 'pill') {
     setCopy(copy, section, coaching ? 'second_instruction_pill' : 'instruction_pill', value)
     return true
