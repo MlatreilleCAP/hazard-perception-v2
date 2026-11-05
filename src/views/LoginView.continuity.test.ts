@@ -6,7 +6,6 @@ import LoginView from '@/views/LoginView.vue'
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: () => ({
     signIn: vi.fn(),
-    signInWithGoogle: vi.fn(),
     requestPasswordReset: vi.fn(),
   }),
 }))
@@ -26,10 +25,12 @@ async function mountLogin(path: string) {
 }
 
 describe('existing sign-in choices', () => {
-  it('keeps Google sign-in and forgot password on the sign-in page', async () => {
+  it('keeps email sign-in and forgot password, without Google', async () => {
     const wrapper = await mountLogin('/login')
-    expect(wrapper.text()).toContain('Continue with Google')
+    expect(wrapper.text()).not.toContain('Continue with Google')
+    expect(wrapper.text()).not.toContain('or email')
     expect(wrapper.text()).toContain('Forgot password?')
+    expect(wrapper.text()).toContain('Sign in')
   })
 
   it('opens password recovery from the sign-in page', async () => {
