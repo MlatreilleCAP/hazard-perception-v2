@@ -404,6 +404,10 @@ verify_jwt = false
 [functions.send-application-email]
 verify_jwt = true
 
+# Public landing-page demo request form. Sends to sales@alertdriving.com via Resend. No user JWT.
+[functions.demo-request]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # SEND_EMAIL_HOOK_SECRET = "env(SEND_EMAIL_HOOK_SECRET)"
 # RESEND_API_KEY = "env(RESEND_API_KEY)"

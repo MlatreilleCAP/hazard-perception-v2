@@ -273,10 +273,59 @@
   font-weight: 600;
   color: var(--landing-slate);
   text-decoration: none;
+  cursor: pointer;
 }
 
 .landing-demo-button:hover {
   background: #fff5f9;
+}
+
+.landing-demo-request-backdrop {
+  z-index: 60;
+}
+
+.landing-demo-request {
+  font-family: var(--font-poppins);
+}
+
+.landing-demo-request .demo-field input,
+.landing-demo-request .demo-field textarea {
+  border: 1px solid #d8dbe3;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.landing-demo-request .demo-field input:focus,
+.landing-demo-request .demo-field textarea:focus {
+  outline: none;
+  border-color: rgb(112 117 145 / 55%);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(255 107 181 / 12%);
+}
+
+.landing-demo-request-honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.demo-dialog.landing-demo-request .demo-account-actions .author-pill.author-pill-primary {
+  border: none;
+  background: linear-gradient(90deg, #ff6bb5, #707591);
+  color: #fff;
+  box-shadow: none;
+}
+
+.demo-dialog.landing-demo-request .demo-account-actions .author-pill.author-pill-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.demo-dialog.landing-demo-request .demo-account-actions .author-pill.author-pill-white {
+  border: 1.5px solid rgb(112 117 145 / 40%);
+  color: var(--landing-slate);
 }
 
 .landing-sizzle {

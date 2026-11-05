@@ -1,13 +1,16 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { LANDING_FEATURES, LANDING_NAV_LINKS } from '@/app/landingFeatures'
 import { ACCESS_PENDING_MESSAGE } from '@/lib/auth/accessPending'
 import DemoCatalog from '@/components/landing/DemoCatalog.vue'
+import DemoRequestDialog from '@/components/landing/DemoRequestDialog.vue'
 import FeatureVisual from '@/components/landing/FeatureVisual.vue'
 import { useAuthStore } from '@/stores/authStore'
 
 const auth = useAuthStore()
 const router = useRouter()
+const demoRequestOpen = ref(false)
 
 async function signOut(): Promise<void> {
   await auth.signOut()
@@ -69,9 +72,9 @@ async function signOut(): Promise<void> {
         </p>
 
         <div class="landing-hero-actions landing-fade" style="--delay: 800ms">
-          <RouterLink to="/login?next=/" class="landing-demo-button">
+          <button type="button" class="landing-demo-button" @click="demoRequestOpen = true">
             Request Demo
-          </RouterLink>
+          </button>
         </div>
 
         <div id="how-it-works" class="landing-sizzle landing-fade" style="--delay: 1000ms">
@@ -142,5 +145,7 @@ async function signOut(): Promise<void> {
         <p>AlertDriving Driver Coaching</p>
       </div>
     </footer>
+
+    <DemoRequestDialog v-model:open="demoRequestOpen" />
   </div>
 </template>
