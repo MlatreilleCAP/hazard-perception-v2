@@ -98,6 +98,14 @@ const instructionText = computed({
   },
 })
 
+const instructionDesktopText = computed({
+  get: () => anticipate.value?.instructionDesktopText ?? '',
+  set: (value: string) => {
+    if (!anticipate.value) return
+    anticipate.value = { ...anticipate.value, instructionDesktopText: value }
+  },
+})
+
 const instructionPill = computed({
   get: () => anticipate.value?.instructionPill ?? 'Anticipate',
   set: (value: string) => {
@@ -436,6 +444,20 @@ defineExpose({ save })
             id="anticipate-instruction"
             v-model="instructionText"
             label="Instruction text"
+            multiline
+            :rows="3"
+          />
+        </FieldPair>
+        <FieldPair
+          :enabled="!!english"
+          label="Desktop instruction text"
+          :value="english?.instructionDesktopText"
+          multiline
+        >
+          <AuthorField
+            id="anticipate-instruction-desktop"
+            v-model="instructionDesktopText"
+            label="Desktop instruction text"
             multiline
             :rows="3"
           />

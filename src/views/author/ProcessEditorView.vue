@@ -98,6 +98,14 @@ const instructionText = computed({
   },
 })
 
+const instructionDesktopText = computed({
+  get: () => process.value?.instructionDesktopText ?? '',
+  set: (value: string) => {
+    if (!process.value) return
+    process.value = { ...process.value, instructionDesktopText: value }
+  },
+})
+
 const instructionPill = computed({
   get: () => process.value?.instructionPill ?? 'Process',
   set: (value: string) => {
@@ -436,6 +444,20 @@ defineExpose({ save })
             id="process-instruction"
             v-model="instructionText"
             label="Instruction text"
+            multiline
+            :rows="3"
+          />
+        </FieldPair>
+        <FieldPair
+          :enabled="!!english"
+          label="Desktop instruction text"
+          :value="english?.instructionDesktopText"
+          multiline
+        >
+          <AuthorField
+            id="process-instruction-desktop"
+            v-model="instructionDesktopText"
+            label="Desktop instruction text"
             multiline
             :rows="3"
           />

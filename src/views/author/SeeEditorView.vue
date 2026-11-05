@@ -130,6 +130,14 @@ const instructionText = computed({
   },
 })
 
+const instructionDesktopText = computed({
+  get: () => see.value?.instructionDesktopText ?? '',
+  set: (value: string) => {
+    if (!see.value) return
+    see.value = { ...see.value, instructionDesktopText: value }
+  },
+})
+
 const instructionPill = computed({
   get: () => see.value?.instructionPill ?? 'Observe',
   set: (value: string) => {
@@ -440,6 +448,20 @@ defineExpose({ save })
             id="see-instruction"
             v-model="instructionText"
             label="Instruction text"
+            multiline
+            :rows="1"
+          />
+        </FieldPair>
+        <FieldPair
+          :enabled="!!english"
+          label="Desktop instruction text"
+          :value="english?.instructionDesktopText"
+          multiline
+        >
+          <AuthorField
+            id="see-instruction-desktop"
+            v-model="instructionDesktopText"
+            label="Desktop instruction text"
             multiline
             :rows="1"
           />
