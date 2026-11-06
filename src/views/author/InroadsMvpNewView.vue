@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
-import { WORKBOOK_FILE_ACCEPT } from '@/lib/inroadsMvp/packageSpec'
+import { isWorkbookName, WORKBOOK_FILE_ACCEPT } from '@/lib/inroadsMvp/packageSpec'
 import {
   importInroadsMvpWorkbooks,
   type BulkWorkbookImportFailure,
@@ -12,15 +12,44 @@ import { useActivityStore } from '@/stores/activityStore'
 
 const router = useRouter()
 const activities = useActivityStore()
-const fileInput = ref<HTMLInputElement | null>(null)
+const selected = ref<File[]>([])
+const dragging = ref(false)
 const uploading = ref(false)
 const progress = ref<string | null>(null)
 const results = ref<BulkWorkbookImportResult[]>([])
 const failures = ref<BulkWorkbookImportFailure[]>([])
 
-function chooseFile(): void {
+function addFiles(incoming: File[]): void {
+  if (uploading.value || incoming.length === 0) return
+  const next = [...selected.value]
+  const rejected: BulkWorkbookImportFailure[] = []
+  for (const file of incoming) {
+    if (!isWorkbookName(file.name)) {
+      rejected.push({ fileName: file.name, message: 'Choose a .xls or .xlsx file.' })
+      continue
+    }
+    const index = next.findIndex((item) => item.name === file.name)
+    if (index >= 0) next.splice(index, 1, file)
+    else next.push(file)
+  }
+  selected.value = next
+  if (rejected.length > 0) failures.value = rejected
+}
+
+function onFile(event: Event): void {
+  const input = event.target as HTMLInputElement
+  addFiles(Array.from(input.files ?? []))
+  input.value = ''
+}
+
+function onDrop(event: DragEvent): void {
+  dragging.value = false
+  addFiles(Array.from(event.dataTransfer?.files ?? []))
+}
+
+function removeFile(index: number): void {
   if (uploading.value) return
-  fileInput.value?.click()
+  selected.value = selected.value.filter((_, itemIndex) => itemIndex !== index)
 }
 
 function actionLabel(action: BulkWorkbookImportResult['action']): string {
@@ -35,10 +64,8 @@ function lessonToOpen(imported: BulkWorkbookImportResult[]): string {
   return imported.find((item) => item.language === 'English')?.lessonId ?? imported[0]?.lessonId ?? ''
 }
 
-async function onFile(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files ?? [])
-  input.value = ''
+async function importSelected(): Promise<void> {
+  const files = [...selected.value]
   if (files.length === 0 || uploading.value) return
 
   uploading.value = true
@@ -52,6 +79,7 @@ async function onFile(event: Event): Promise<void> {
     })
     results.value = report.results
     failures.value = report.failures
+    if (report.failures.length === 0) selected.value = []
     await activities.refreshList()
     const nextId = report.failures.length === 0 ? lessonToOpen(report.results) : ''
     if (nextId) {
@@ -94,22 +122,46 @@ async function onFile(event: Event): Promise<void> {
       </div>
 
       <p class="author-muted">
-        Upload one or more lesson spreadsheets. Each lesson is named from the title and country,
-        for example Lane Changes - Poland. Files for the same lesson are added as languages. End
-        each file name with the language, for example Lane Changes_Poland_English.xlsx.
+        Add every spreadsheet for the lessons you want to create. Files with the same title and
+        country become one lesson, and each file is a language. End the file name with the
+        language, for example Lane Changes_Poland_English.xlsx.
       </p>
 
-      <div class="author-actions inroads-import-panel">
-        <input
-          ref="fileInput"
-          type="file"
-          multiple
-          :accept="WORKBOOK_FILE_ACCEPT"
-          :disabled="uploading"
-          @change="onFile"
-        />
-        <AuthorPillButton variant="primary" :disabled="uploading" @click="chooseFile">
-          {{ uploading ? 'Uploading…' : 'Upload xls files' }}
+      <div
+        class="author-panel bulk-import"
+        :class="{ 'is-dragging': dragging }"
+        @dragover.prevent="dragging = true"
+        @dragleave="dragging = false"
+        @drop.prevent="onDrop"
+      >
+        <label class="bulk-add">
+          <span class="author-pill author-pill-primary">Add spreadsheets</span>
+          <input
+            type="file"
+            multiple
+            :accept="WORKBOOK_FILE_ACCEPT"
+            :disabled="uploading"
+            @change="onFile"
+          />
+        </label>
+        <p class="author-muted">
+          The file dialog may highlight one file at a time. Select another with Add spreadsheets,
+          or drop several files here.
+        </p>
+
+        <ul v-if="selected.length" class="bulk-file-list">
+          <li v-for="(file, index) in selected" :key="file.name">
+            <span>{{ file.name }}</span>
+            <button type="button" :disabled="uploading" @click="removeFile(index)">Remove</button>
+          </li>
+        </ul>
+
+        <AuthorPillButton
+          variant="primary"
+          :disabled="uploading || selected.length === 0"
+          @click="importSelected"
+        >
+          {{ uploading ? 'Uploading…' : selected.length > 1 ? `Import ${selected.length} files` : 'Import' }}
         </AuthorPillButton>
       </div>
 
@@ -130,3 +182,59 @@ async function onFile(event: Event): Promise<void> {
     </div>
   </div>
 </template>
+
+<style scoped>
+.bulk-import {
+  align-items: flex-start;
+}
+
+.bulk-import.is-dragging {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.bulk-add {
+  position: relative;
+  display: inline-flex;
+}
+
+.bulk-add input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.bulk-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bulk-file-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.bulk-file-list button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--editor-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.bulk-file-list button:disabled {
+  cursor: default;
+}
+</style>
