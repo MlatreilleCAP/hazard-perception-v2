@@ -17,6 +17,7 @@ import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { reviewerAssignee } from '@/lib/lesson/queueAssignment'
 import { duplicateIntroductionVersion } from '@/services/createIntroduction'
+import { markDraftLanguageVariantsAvailable } from '@/services/publishInroadsMvp'
 import { useStudioAccess } from '@/composables/useStudioAccess'
 import { contentReadonlyMessage } from '@/lib/auth/roles'
 import { useActivityStore } from '@/stores/activityStore'
@@ -251,6 +252,7 @@ async function createVersion(nextLanguage: string): Promise<void> {
   creatingVersion.value = true
   try {
     const nextId = await duplicateIntroductionVersion(activityId.value, languageName)
+    await markDraftLanguageVariantsAvailable(nextId)
     await activities.refreshList()
     await router.push(`/studio/stand-alone-video/${nextId}`)
   } catch (cause) {
@@ -442,6 +444,7 @@ async function submitVideo(
   submitting.value = true
   try {
     if (!(await saveIntro())) return
+    if (status === 'available') await markDraftLanguageVariantsAvailable(activityId.value)
     saveMessage.value =
       status === 'available'
         ? 'Marked available'

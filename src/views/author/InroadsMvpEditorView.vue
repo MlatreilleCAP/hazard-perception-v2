@@ -29,7 +29,10 @@ import {
   lessonQueueStatus,
   lessonQueueStatusLabel,
 } from '@/types/inroadsMvp'
-import { publishInroadsMvpLesson } from '@/services/publishInroadsMvp'
+import {
+  markDraftLanguageVariantsAvailable,
+  publishInroadsMvpLesson,
+} from '@/services/publishInroadsMvp'
 import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { useStudioAccess } from '@/composables/useStudioAccess'
@@ -575,6 +578,7 @@ async function createVersion(nextLanguage: string): Promise<void> {
   creatingVersion.value = true
   try {
     const nextId = await duplicateInroadsMvpVersion(activityId.value, languageName)
+    await markDraftLanguageVariantsAvailable(nextId)
     await activities.refreshList()
     await router.push({
       path: `/studio/inroads-mvp/${nextId}`,
@@ -906,6 +910,7 @@ async function submitLesson(
   publishing.value = true
   try {
     if (!(await saveLesson())) return
+    if (status === 'available') await markDraftLanguageVariantsAvailable(activityId.value)
     saveMessage.value =
       status === 'available'
         ? 'Marked available'

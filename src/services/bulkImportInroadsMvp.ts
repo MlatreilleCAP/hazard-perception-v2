@@ -11,6 +11,7 @@ import { parseImportWorkbook } from '@/lib/inroadsMvp/parseImportPackage'
 import { canonicalizeLessonLanguage, isWorkbookName } from '@/lib/inroadsMvp/packageSpec'
 import { createBlankInroadsMvp, duplicateInroadsMvpVersion } from '@/services/createInroadsMvp'
 import { replaceInroadsMvpWorkbook } from '@/services/inroadsMvpImport'
+import { markDraftLanguageVariantsAvailable } from '@/services/publishInroadsMvp'
 import { inroadsMvpSiblingIds, removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import type { ActivitySummary } from '@/types/activity'
 
@@ -192,9 +193,12 @@ export async function importInroadsMvpWorkbooks(
     const ordered = [...group].sort(
       (left, right) => (rank.get(left.lesson) ?? 0) - (rank.get(right.lesson) ?? 0),
     )
+    let lessonId = ''
     for (const item of ordered) {
       try {
-        results.push(await importOneWorkbook(item, versions, onProgress))
+        const result = await importOneWorkbook(item, versions, onProgress)
+        results.push(result)
+        lessonId = result.lessonId
       } catch (cause) {
         failures.push({
           fileName: item.lesson.fileName,
@@ -202,6 +206,7 @@ export async function importInroadsMvpWorkbooks(
         })
       }
     }
+    if (lessonId) await markDraftLanguageVariantsAvailable(lessonId)
   }
 
   return { results, failures }

@@ -19,6 +19,8 @@ import {
 import { exportIntroductionAssetsZip } from '@/services/exportIntroductionPackage'
 import { exportLessonTemplateZip } from '@/services/exportInroadsMvpPackage'
 import {
+  markAllDraftLanguageVariantsAvailable,
+  markDraftLanguageVariantsAvailable,
   publishInroadsMvpLesson,
   setLessonQueuePlacement,
   setLessonReviewNotes,
@@ -429,6 +431,19 @@ async function placeCard(
   ])
   try {
     await setLessonQueuePlacement(id, status, assignee, undefined, queueOrder)
+    if (status === 'available') {
+      try {
+        const marked = await markDraftLanguageVariantsAvailable(id)
+        const extras = (
+          await Promise.all(marked.map((markedId) => availableCard(markedId)))
+        ).filter((card): card is QueueCard => card != null)
+        if (extras.length > 0) {
+          cards.value = sortCards([...cards.value, ...extras])
+        }
+      } catch {
+        // The moved lesson is already available. Sibling updates can retry on the next visit.
+      }
+    }
   } catch (cause) {
     cards.value = sortCards([...cards.value.filter((item) => item.id !== id), previous])
     actionError.value = cause instanceof Error ? cause.message : 'Failed to update the lesson'
@@ -447,9 +462,40 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onDocumentKeyDown)
 })
 
+async function availableCard(id: string): Promise<QueueCard | null> {
+  const definition = await services.persistence.getById(id)
+  if (!definition) return null
+  const lesson = isInroadsMvpActivity(definition.metadata.tags)
+  const mvp = lesson ? readInroadsMvpDefinition(definition) : null
+  const intro =
+    !lesson && isIntroductionActivity(definition.metadata.tags)
+      ? readIntroductionDefinition(definition)
+      : null
+  const parsed = mvp ?? intro
+  if (!parsed) return null
+  return {
+    id,
+    kind: lesson ? 'lesson' : 'video',
+    title: definition.metadata.title.trim(),
+    country: parsed.country.trim(),
+    language: parsed.language.trim(),
+    status: 'available',
+    assigneeId: '',
+    assigneeName: '',
+    reviewNotes: parsed.reviewNotes.trim(),
+    addedAt: addedAtFrom(definition.metadata.createdAt),
+    queueOrder: readQueueOrder(parsed.queueOrder),
+  }
+}
+
 onMounted(async () => {
   loading.value = true
   await Promise.all([activities.refreshList(), identity.load()])
+  try {
+    await markAllDraftLanguageVariantsAvailable()
+  } catch {
+    // Show the queue even if a draft language could not be updated.
+  }
   const lessons = activities.summaries.filter((item) => isInroadsMvpActivity(item.tags))
   const videos = activities.summaries.filter((item) => isIntroductionActivity(item.tags))
   const loaded = await Promise.all([

@@ -8,10 +8,14 @@ import {
 } from '@/activities/introductionDefinition'
 import { canonicalActivityId } from '@/app/id'
 import { services } from '@/app/container'
+import { draftLanguageVariantIds } from '@/lib/inroadsMvp/languageQueueStatus'
+import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
 import { loadActivityOrThrow } from '@/services/createInroadsMvp'
+import { inroadsMvpSiblingIds } from '@/services/removeInroadsMvp'
 import { isIntroductionActivity } from '@/types/introduction'
 import {
   isInroadsMvpActivity,
+  lessonQueueStatus,
   type InroadsMvpSectionId,
   type LessonReviewStatus,
 } from '@/types/inroadsMvp'
@@ -88,6 +92,62 @@ export async function unpublishInroadsMvpLesson(parentId: string): Promise<void>
     await services.persistence.unpublish(id)
   }
   await services.persistence.unpublish(lessonId)
+}
+
+function siblingIdsFor(
+  tags: string[],
+  title: string,
+  summaries: Awaited<ReturnType<typeof services.persistence.list>>,
+): string[] {
+  if (isIntroductionActivity(tags)) {
+    const key = lessonVersionKey(title)
+    return summaries
+      .filter(
+        (item) => isIntroductionActivity(item.tags) && lessonVersionKey(item.title) === key,
+      )
+      .map((item) => item.id)
+  }
+  return inroadsMvpSiblingIds(title, summaries)
+}
+
+/** Puts every draft language of a lesson into Available when one language is already there. */
+export async function markDraftLanguageVariantsAvailable(parentId: string): Promise<string[]> {
+  const id = canonicalActivityId(parentId)
+  if (!id) return []
+  const parent = await loadActivityOrThrow(id)
+  const summaries = await services.persistence.list('authoring')
+  const siblingIds = siblingIdsFor(parent.metadata.tags, parent.metadata.title, summaries)
+  const introduction = isIntroductionActivity(parent.metadata.tags)
+  const variants: Array<{ id: string; status: LessonReviewStatus }> = []
+  for (const siblingId of siblingIds) {
+    const summary = summaries.find((item) => item.id === siblingId)
+    const activity = await services.persistence.getById(siblingId)
+    if (!summary || !activity) continue
+    const status = introduction
+      ? lessonQueueStatus(readIntroductionDefinition(activity).reviewStatus, summary.published)
+      : lessonQueueStatus(readInroadsMvpDefinition(activity)?.reviewStatus, summary.published)
+    variants.push({ id: siblingId, status })
+  }
+  const marked: string[] = []
+  for (const draftId of draftLanguageVariantIds(variants)) {
+    await setLessonQueuePlacement(draftId, 'available', null)
+    marked.push(draftId)
+  }
+  return marked
+}
+
+export async function markAllDraftLanguageVariantsAvailable(): Promise<void> {
+  const summaries = await services.persistence.list('authoring')
+  const seen = new Set<string>()
+  for (const item of summaries) {
+    const lesson = isInroadsMvpActivity(item.tags)
+    const video = isIntroductionActivity(item.tags)
+    if (!lesson && !video) continue
+    const key = `${lesson ? 'lesson' : 'video'}:${lessonVersionKey(item.title)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    await markDraftLanguageVariantsAvailable(item.id)
+  }
 }
 
 export async function setLessonReviewStatus(
