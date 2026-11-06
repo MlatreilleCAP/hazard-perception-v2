@@ -10,6 +10,8 @@ import { canonicalActivityId } from '@/app/id'
 import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { downloadBlob } from '@/lib/inroadsMvp/buildImportTemplate'
+import { draftLanguageVariantIds } from '@/lib/inroadsMvp/languageQueueStatus'
+import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
 import {
   APPROVER_NAME,
   MANAGING_EDITOR_NAME,
@@ -18,8 +20,8 @@ import {
 } from '@/lib/lesson/queueAssignment'
 import { exportIntroductionAssetsZip } from '@/services/exportIntroductionPackage'
 import { exportLessonTemplateZip } from '@/services/exportInroadsMvpPackage'
+import { listQueueSnapshots } from '@/services/queueSnapshots'
 import {
-  markAllDraftLanguageVariantsAvailable,
   markDraftLanguageVariantsAvailable,
   publishInroadsMvpLesson,
   setLessonQueuePlacement,
@@ -561,66 +563,130 @@ async function availableCard(id: string): Promise<QueueCard | null> {
   }
 }
 
+const QUEUE_LOAD_LIMIT = 8
+
+async function mapPool<T, R>(
+  items: readonly T[],
+  limit: number,
+  map: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor
+      cursor += 1
+      const item = items[index]
+      if (item === undefined) return
+      results[index] = await map(item)
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
+function cardFromSnapshot(
+  id: string,
+  kind: QueueCard['kind'],
+  published: boolean,
+  fallbackTitle: string,
+  snapshot: {
+    createdAt: string
+    country: string
+    language: string
+    reviewStatus: QueueCard['status'] | undefined
+    assigneeId: string
+    assigneeName: string
+    reviewNotes: string
+    queueOrder: number | null
+  } | undefined,
+): QueueCard {
+  return {
+    id,
+    kind,
+    title: fallbackTitle,
+    country: snapshot?.country ?? '',
+    language: snapshot?.language ?? '',
+    status: lessonQueueStatus(snapshot?.reviewStatus, published),
+    assigneeId: snapshot?.assigneeId ?? '',
+    assigneeName: snapshot?.assigneeName ?? '',
+    reviewNotes: snapshot?.reviewNotes ?? '',
+    addedAt: addedAtFrom(snapshot?.createdAt),
+    queueOrder: snapshot?.queueOrder ?? null,
+  }
+}
+
+function visibleOnQueue(card: QueueCard): boolean {
+  return isBoardStatus(card.status) || isOnPublishedTab(card.status)
+}
+
+/** Draft languages of a lesson already in Available join the board without another full scan. */
+async function promoteLoadedDrafts(loaded: QueueCard[]): Promise<void> {
+  const groups = new Map<string, QueueCard[]>()
+  for (const card of loaded) {
+    const key = `${card.kind}:${lessonVersionKey(card.title)}`
+    const group = groups.get(key)
+    if (group) group.push(card)
+    else groups.set(key, [card])
+  }
+  const drafts: QueueCard[] = []
+  for (const group of groups.values()) {
+    const ids = new Set(
+      draftLanguageVariantIds(group.map((card) => ({ id: card.id, status: card.status }))),
+    )
+    for (const card of group) {
+      if (ids.has(card.id)) drafts.push(card)
+    }
+  }
+  if (drafts.length === 0) return
+  const promoted: QueueCard[] = []
+  await mapPool(drafts, QUEUE_LOAD_LIMIT, async (card) => {
+    try {
+      await setLessonQueuePlacement(card.id, 'available', null)
+      promoted.push({ ...card, status: 'available', assigneeId: '', assigneeName: '' })
+    } catch {
+      // The board is already visible. A failed draft can retry on the next visit.
+    }
+  })
+  if (promoted.length === 0) return
+  const ids = new Set(promoted.map((card) => card.id))
+  cards.value = sortCards([...cards.value.filter((card) => !ids.has(card.id)), ...promoted])
+}
+
 onMounted(async () => {
   loading.value = true
-  await Promise.all([activities.refreshList(), identity.load()])
   try {
-    await markAllDraftLanguageVariantsAvailable()
-  } catch {
-    // Show the queue even if a draft language could not be updated.
+    await Promise.all([activities.refreshList(), identity.load()])
+    const jobs = [
+      ...activities.summaries
+        .filter((item) => isInroadsMvpActivity(item.tags))
+        .map((item) => ({
+          id: item.id,
+          kind: 'lesson' as const,
+          published: item.published,
+          title: item.title,
+        })),
+      ...activities.summaries
+        .filter((item) => isIntroductionActivity(item.tags))
+        .map((item) => ({
+          id: item.id,
+          kind: 'video' as const,
+          published: item.published,
+          title: item.title,
+        })),
+    ]
+    const snapshots = await listQueueSnapshots(jobs.map((job) => job.id))
+    const loaded = jobs.map((job) =>
+      cardFromSnapshot(job.id, job.kind, job.published, job.title, snapshots.get(job.id)),
+    )
+    cards.value = sortCards(loaded.filter(visibleOnQueue))
+    loading.value = false
+    await promoteLoadedDrafts(loaded)
+  } catch (cause) {
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to load the queue'
+  } finally {
+    loading.value = false
   }
-  const lessons = activities.summaries.filter((item) => isInroadsMvpActivity(item.tags))
-  const videos = activities.summaries.filter((item) => isIntroductionActivity(item.tags))
-  const loaded = await Promise.all([
-    ...lessons.map(async (item): Promise<QueueCard | null> => {
-      try {
-        const definition = await services.persistence.getById(item.id)
-        const mvp = definition ? readInroadsMvpDefinition(definition) : null
-        const status = lessonQueueStatus(mvp?.reviewStatus, item.published)
-        if (!isBoardStatus(status) && !isOnPublishedTab(status)) return null
-        return {
-          id: item.id,
-          kind: 'lesson',
-          title: definition?.metadata.title.trim() || item.title,
-          country: mvp?.country.trim() ?? '',
-          language: mvp?.language.trim() ?? '',
-          status,
-          assigneeId: mvp?.assigneeId ?? '',
-          assigneeName: mvp?.assigneeName ?? '',
-          reviewNotes: mvp?.reviewNotes.trim() ?? '',
-          addedAt: addedAtFrom(definition?.metadata.createdAt),
-          queueOrder: readQueueOrder(mvp?.queueOrder),
-        }
-      } catch {
-        return null
-      }
-    }),
-    ...videos.map(async (item): Promise<QueueCard | null> => {
-      try {
-        const definition = await services.persistence.getById(item.id)
-        const intro = definition ? readIntroductionDefinition(definition) : null
-        const status = lessonQueueStatus(intro?.reviewStatus, item.published)
-        if (!isBoardStatus(status) && !isOnPublishedTab(status)) return null
-        return {
-          id: item.id,
-          kind: 'video',
-          title: definition?.metadata.title.trim() || item.title,
-          country: intro?.country.trim() ?? '',
-          language: intro?.language.trim() ?? '',
-          status,
-          assigneeId: intro?.assigneeId ?? '',
-          assigneeName: intro?.assigneeName ?? '',
-          reviewNotes: intro?.reviewNotes.trim() ?? '',
-          addedAt: addedAtFrom(definition?.metadata.createdAt),
-          queueOrder: readQueueOrder(intro?.queueOrder),
-        }
-      } catch {
-        return null
-      }
-    }),
-  ])
-  cards.value = sortCards(loaded.filter((card): card is QueueCard => card != null))
-  loading.value = false
 })
 
 function onDocumentPointerDown(event: PointerEvent): void {

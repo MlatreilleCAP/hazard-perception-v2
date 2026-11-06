@@ -136,20 +136,6 @@ export async function markDraftLanguageVariantsAvailable(parentId: string): Prom
   return marked
 }
 
-export async function markAllDraftLanguageVariantsAvailable(): Promise<void> {
-  const summaries = await services.persistence.list('authoring')
-  const seen = new Set<string>()
-  for (const item of summaries) {
-    const lesson = isInroadsMvpActivity(item.tags)
-    const video = isIntroductionActivity(item.tags)
-    if (!lesson && !video) continue
-    const key = `${lesson ? 'lesson' : 'video'}:${lessonVersionKey(item.title)}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    await markDraftLanguageVariantsAvailable(item.id)
-  }
-}
-
 export async function setLessonReviewStatus(
   parentId: string,
   status: LessonReviewStatus,
