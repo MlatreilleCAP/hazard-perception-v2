@@ -3,6 +3,7 @@ import {
   RESEND_ENDPOINT,
   SETUP_FROM,
   SETUP_REDIRECT,
+  SETUP_REPLY_TO,
   SETUP_SUBJECT,
   buildSetupMessage,
   classifyResendResponse,
@@ -71,6 +72,7 @@ Deno.test('one accepted send goes only to the new user and does not retry', asyn
   const body = JSON.parse(calls[0].body)
   assertEquals(body.from, SETUP_FROM)
   assertEquals(body.to, ['person@example.com'])
+  assertEquals(body.reply_to, SETUP_REPLY_TO)
   assertEquals(body.subject, SETUP_SUBJECT)
   assertEquals(body.html.includes('Your demo access expires on June 15, 2027.'), true)
   assertEquals(calls[0].body.includes(PASSWORD), false)

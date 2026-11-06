@@ -3,6 +3,7 @@ import { renderEmailLayout } from '../auth-send-email/layout.ts'
 export const SETUP_REDIRECT = 'https://inroads.alertdriving.com/setup-account'
 export const SETUP_SUBJECT = 'Welcome to Inroads — Set Up Your Account'
 export const SETUP_FROM = 'AlertDriving <demo@auth.alertdriving.com>'
+export const SETUP_REPLY_TO = 'sales@alertdriving.com'
 export const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 export const RESEND_TIMEOUT_MS = 15_000
 export const SETUP_USER_AGENT = 'inroads-demo-setup/1.0'
@@ -120,6 +121,7 @@ export async function sendSetupEmail(
       body: JSON.stringify({
         from: SETUP_FROM,
         to: [recipient],
+        reply_to: SETUP_REPLY_TO,
         subject: message.subject,
         html: message.html,
         text: message.text,
