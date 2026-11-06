@@ -557,15 +557,22 @@ onBeforeUnmount(() => {
       :cover-src="titlePageCover"
       @start="beginFromTitle"
     />
-    <ProcessVideoStage
-      v-else-if="phase === 'intro' && introSrc"
-      class="lesson-intro-cover"
-      :src="introSrc"
-      :captions-media-id="introCaptionsMediaId || undefined"
-      instruction-text=""
-      @ready="onSegmentReady"
-      @ended="onIntroEnded"
-    />
+    <div v-else-if="phase === 'intro' && introSrc" class="lesson-intro-cover">
+      <ProcessVideoStage
+        :src="introSrc"
+        :captions-media-id="introCaptionsMediaId || undefined"
+        instruction-text=""
+        @ready="onSegmentReady"
+        @ended="onIntroEnded"
+      />
+      <button
+        type="button"
+        class="lesson-intro-skip"
+        @click="onIntroEnded"
+      >
+        Skip
+      </button>
+    </div>
     <template v-else-if="phase === 'playing' && sectionDefinition && currentItem">
       <SeeExperience
         v-if="currentItem.kind === 'see'"
