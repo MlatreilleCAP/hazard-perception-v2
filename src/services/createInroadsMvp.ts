@@ -20,6 +20,7 @@ export async function createBlankInroadsMvp(
   title: string,
   description = '',
   country = '',
+  language = '',
 ): Promise<string> {
   const base = title.trim() || 'Inroads MVP'
 
@@ -43,6 +44,7 @@ export async function createBlankInroadsMvp(
       ? writeInroadsMvpDefinition(mvp, {
           ...definition,
           country: canonicalizeLessonCountry(country),
+          language: canonicalizeLessonLanguage(language) || definition.language,
         })
       : mvp,
   )
