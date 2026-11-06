@@ -96,7 +96,7 @@ async function signOut(): Promise<void> {
       <section id="demos" class="landing-demos">
         <div class="landing-demos-intro">
           <h2>
-            Explore Every
+            Experience the
             <span class="landing-gradient">Demo</span>
           </h2>
           <p>
