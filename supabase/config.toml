@@ -165,6 +165,9 @@ additional_redirect_urls = [
   "http://localhost:5173/auth/callback",
   "http://127.0.0.1:5173",
   "http://127.0.0.1:5173/auth/callback",
+  "http://localhost:5173/setup-account",
+  "http://127.0.0.1:5173/setup-account",
+  "https://inroads.alertdriving.com/setup-account",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
@@ -403,6 +406,26 @@ verify_jwt = false
 # Application email. Callers must present a user JWT. This does not send Auth mail.
 [functions.send-application-email]
 verify_jwt = true
+
+# Dispatcher. Callers present EMAIL_DISPATCH_SECRET. No user JWT and no scheduler.
+[functions.dispatch-email-jobs]
+verify_jwt = false
+
+# Resend delivery webhooks. Svix signature with RESEND_WEBHOOK_SECRET. No user JWT.
+[functions.resend-webhook]
+verify_jwt = false
+
+# Demo lifecycle administration. Callers present a user JWT. The service role stays in this function.
+[functions.demo-account-admin]
+verify_jwt = true
+
+# Own-user completion of an emailed account-setup link. Callers present a user JWT.
+[functions.complete-account-setup]
+verify_jwt = true
+
+# Demo expiry, Auth actions, and Auth reconciliation. Separate secret from email dispatch.
+[functions.demo-lifecycle-worker]
+verify_jwt = false
 
 # Public landing-page demo request form. Sends to sales@alertdriving.com via Resend. No user JWT.
 [functions.demo-request]
