@@ -91,7 +91,7 @@ export const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
-      meta: { layout: 'landing', title: 'Driver Coaching Demo' },
+      meta: { layout: 'landing', title: 'Inroads by AlertDriving' },
     },
     {
       path: '/architecture',
