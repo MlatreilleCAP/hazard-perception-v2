@@ -223,6 +223,79 @@ function sortCards(items: QueueCard[]): QueueCard[] {
   })
 }
 
+type AvailableGroup = {
+  key: string
+  label: string
+  cards: QueueCard[]
+}
+
+type QueueEntry =
+  | { kind: 'header'; key: string; label: string; count: number; country: string }
+  | { kind: 'card'; key: string; card: QueueCard; grouped: boolean }
+
+const closedCountries = ref(new Set<string>())
+
+function countryKey(country: string): string {
+  return country.trim().toLowerCase() || '__none__'
+}
+
+function countryLabel(country: string): string {
+  return country.trim() || 'No country'
+}
+
+function availableGroups(items: QueueCard[]): AvailableGroup[] {
+  const groups: AvailableGroup[] = []
+  for (const card of sortAvailableCards(items)) {
+    const key = countryKey(card.country)
+    const current = groups[groups.length - 1]
+    if (current && current.key === key) current.cards.push(card)
+    else groups.push({ key, label: countryLabel(card.country), cards: [card] })
+  }
+  return groups
+}
+
+function countryOpen(key: string): boolean {
+  return !closedCountries.value.has(key)
+}
+
+function toggleCountry(key: string): void {
+  const next = new Set(closedCountries.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  closedCountries.value = next
+}
+
+function cardEntries(entry: QueueEntry): QueueCard[] {
+  return entry.kind === 'card' ? [entry.card] : []
+}
+
+function entriesFor(status: BoardStatus): QueueEntry[] {
+  const items = cardsFor(status)
+  if (status !== 'available') {
+    return items.map((card) => ({ kind: 'card', key: card.id, card, grouped: false }))
+  }
+  const entries: QueueEntry[] = []
+  for (const group of availableGroups(items)) {
+    if (group.cards.length < 2) {
+      const card = group.cards[0]
+      if (card) entries.push({ kind: 'card', key: card.id, card, grouped: false })
+      continue
+    }
+    entries.push({
+      kind: 'header',
+      key: `country-${group.key}`,
+      label: group.label,
+      count: group.cards.length,
+      country: group.key,
+    })
+    if (!countryOpen(group.key)) continue
+    for (const card of group.cards) {
+      entries.push({ kind: 'card', key: card.id, card, grouped: true })
+    }
+  }
+  return entries
+}
+
 /** Available stays grouped by country (the locale under the title), then title and language. */
 function sortAvailableCards(items: QueueCard[]): QueueCard[] {
   return [...items].sort((left, right) => {
@@ -767,12 +840,35 @@ async function clearNote(card: QueueCard): Promise<void> {
             {{ column.label }}
           </h2>
           <div class="queue-column-cards">
+            <template v-for="entry in entriesFor(column.status)" :key="entry.key">
+            <button
+              v-if="entry.kind === 'header'"
+              type="button"
+              class="queue-country"
+              :aria-expanded="countryOpen(entry.country)"
+              @click="toggleCountry(entry.country)"
+            >
+              <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                <path
+                  d="M4.5 6.5 8 10l3.5-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>{{ entry.label }}</span>
+              <span class="queue-country-count">{{ entry.count }}</span>
+            </button>
+            <template v-else>
             <article
-              v-for="card in cardsFor(column.status)"
+              v-for="card in cardEntries(entry)"
               :key="card.id"
               class="queue-card"
               :aria-label="card.title"
               :class="{
+                'is-grouped': entry.kind === 'card' && entry.grouped,
                 'is-available': column.status === 'available',
                 'is-dragging': draggingId === card.id,
                 'is-open': reviewMenuId === card.id || noteCardId === card.id,
@@ -901,6 +997,8 @@ async function clearNote(card: QueueCard): Promise<void> {
                 </button>
               </div>
             </article>
+            </template>
+            </template>
           </div>
         </section>
       </div>
