@@ -278,11 +278,6 @@ function entriesFor(status: BoardStatus): QueueEntry[] {
   }
   const entries: QueueEntry[] = []
   for (const group of availableGroups(items)) {
-    if (group.cards.length < 2) {
-      const card = group.cards[0]
-      if (card) entries.push({ kind: 'card', key: card.id, card, grouped: false })
-      continue
-    }
     entries.push({
       kind: 'header',
       key: `country-${group.key}`,
