@@ -10,6 +10,8 @@ import './app/player.css'
 import './app/shell.css'
 import '@/app/container'
 
+document.title = 'Inroads by AlertDriving'
+
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)

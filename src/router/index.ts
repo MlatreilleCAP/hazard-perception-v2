@@ -491,6 +491,6 @@ router.beforeEach(async (to) => {
 })
 
 router.afterEach((to) => {
-  const title = typeof to.meta.title === 'string' ? to.meta.title : 'Hazard Perception'
+  const title = typeof to.meta.title === 'string' ? to.meta.title : 'Inroads by AlertDriving'
   document.title = title
 })
