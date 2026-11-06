@@ -235,7 +235,7 @@ type QueueEntry =
   | { kind: 'header'; key: string; label: string; count: number; country: string }
   | { kind: 'card'; key: string; card: QueueCard; grouped: boolean }
 
-const closedCountries = ref(new Set<string>())
+const openCountries = ref(new Set<string>())
 
 function countryKey(country: string): string {
   return country.trim().toLowerCase() || '__none__'
@@ -257,14 +257,14 @@ function availableGroups(items: QueueCard[]): AvailableGroup[] {
 }
 
 function countryOpen(key: string): boolean {
-  return !closedCountries.value.has(key)
+  return openCountries.value.has(key)
 }
 
 function toggleCountry(key: string): void {
-  const next = new Set(closedCountries.value)
+  const next = new Set(openCountries.value)
   if (next.has(key)) next.delete(key)
   else next.add(key)
-  closedCountries.value = next
+  openCountries.value = next
 }
 
 function cardEntries(entry: QueueEntry): QueueCard[] {
