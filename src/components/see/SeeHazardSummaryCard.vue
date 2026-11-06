@@ -29,7 +29,7 @@ const rows = computed(() => [
     class="see-hazard-summary-card"
     role="dialog"
     aria-label="Hazard summary"
-    :style="cardHeight ? { height: `${cardHeight}px` } : undefined"
+    :style="cardHeight ? { minHeight: `${cardHeight}px` } : undefined"
   >
     <div
       class="see-hazard-summary-progress"
