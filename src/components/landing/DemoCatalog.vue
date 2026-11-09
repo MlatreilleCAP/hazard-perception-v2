@@ -5,8 +5,10 @@ import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { catalogCoverAt } from '@/app/catalogCovers'
 import { services } from '@/app/container'
 import { canonicalizeLessonCountry, canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
+import { DEFAULT_DEMO_COUNTRY, startingDemoCountry } from '@/lib/demo/preferredCountry'
 import { DEFAULT_LESSON_BUTTON_LABEL } from '@/lib/lesson/buttonLabel'
 import { lessonVersionKey, previewCardTitle } from '@/lib/inroadsMvp/lessonVersions'
+import { loadOwnPreferredCountry } from '@/services/demoAccounts'
 import { useActivityStore } from '@/stores/activityStore'
 import { useAuthStore } from '@/stores/authStore'
 import type { ActivitySummary } from '@/types/activity'
@@ -33,8 +35,9 @@ const localeById = ref(
 const coverUrlByMediaId = ref(new Map<string, string>())
 const selectedByGroup = ref<Record<string, string>>({})
 const userSelectedByGroup = ref<Record<string, boolean>>({})
-const DEFAULT_DEMO_COUNTRY = 'United States'
 const selectedCountry = ref(DEFAULT_DEMO_COUNTRY)
+const preferredCountry = ref('')
+const countryTouched = ref(false)
 
 const published = computed(() =>
   activities.summaries.filter(
@@ -117,14 +120,17 @@ const visibleGroups = computed(() => {
     .filter((group) => group.versions.length > 0)
 })
 
-watch(countries, (list) => {
-  if (list.includes(selectedCountry.value)) return
-  if (list.includes(DEFAULT_DEMO_COUNTRY)) {
-    selectedCountry.value = DEFAULT_DEMO_COUNTRY
-    return
-  }
-  if (list[0]) selectedCountry.value = list[0]
-})
+function syncSelectedCountry(): void {
+  selectedCountry.value = startingDemoCountry({
+    preferred: preferredCountry.value,
+    published: countries.value,
+    current: selectedCountry.value,
+    touched: countryTouched.value,
+  })
+}
+
+watch(countries, syncSelectedCountry)
+watch(preferredCountry, syncSelectedCountry)
 
 async function loadLocales(items: ActivitySummary[]): Promise<void> {
   const next = new Map<
@@ -230,13 +236,27 @@ function syncGroupSelection(groups: DemoLessonGroup[]): void {
   selectedByGroup.value = next
 }
 
+let catalogUserId = ''
+
 async function refreshCatalog(): Promise<void> {
   if (!auth.isSignedIn) return
+  const profileId = auth.userId ?? ''
+  if (catalogUserId !== profileId) {
+    catalogUserId = profileId
+    countryTouched.value = false
+    preferredCountry.value = ''
+    selectedCountry.value = DEFAULT_DEMO_COUNTRY
+  }
   catalogLoading.value = true
   try {
+    const preferredRequest = profileId
+      ? loadOwnPreferredCountry(profileId)
+      : Promise.resolve(null)
     await activities.refreshList('catalog')
     await loadLocales(published.value)
+    preferredCountry.value = (await preferredRequest) ?? ''
     syncGroupSelection(demoGroups.value)
+    syncSelectedCountry()
   } finally {
     catalogLoading.value = false
   }
@@ -300,6 +320,7 @@ function setSelected(groupKey: string, id: string): void {
       v-model="selectedCountry"
       class="demo-country-field demo-country-select"
       aria-label="Country"
+      @change="countryTouched = true"
     >
       <option v-for="country in countries" :key="country" :value="country">
         {{ country }}

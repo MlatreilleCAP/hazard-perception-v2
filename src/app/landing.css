@@ -363,10 +363,8 @@
 
 .landing-demos {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: 24px;
-  row-gap: 32px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 16px;
   max-width: 72rem;
   margin: 0 auto;
   padding: 64px 16px;
@@ -1022,22 +1020,14 @@
 
 .catalog-section {
   grid-column: 1 / -1;
+  margin-top: 16px;
 }
 
 .demo-country-field {
   max-width: 100%;
+  margin-top: 10px;
   margin-bottom: 0;
-  justify-self: end;
-}
-
-@media (max-width: 639px) {
-  .landing-demos {
-    grid-template-columns: 1fr;
-  }
-
-  .demo-country-field {
-    justify-self: start;
-  }
+  justify-self: start;
 }
 
 .demo-language-select,

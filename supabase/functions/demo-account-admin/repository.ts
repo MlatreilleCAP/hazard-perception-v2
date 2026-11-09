@@ -371,6 +371,14 @@ export function createDemoAdminDeps(authorization: string | null): DemoAdminDeps
       return data
     },
 
+    async setPreferredCountry(profileId, country) {
+      const { error } = await service
+        .from('demo_accounts')
+        .update({ preferred_country: country })
+        .eq('profile_id', profileId)
+      if (error) throw new DemoAdminError(500, 'The preferred country could not be saved.')
+    },
+
     async releaseProvision(email) {
       const { error } = await service.rpc('demo_provision_release', { p_email: email })
       if (error) throw new DemoAdminError(500, 'The demo account could not be created.')

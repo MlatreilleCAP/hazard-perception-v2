@@ -84,6 +84,7 @@ function deps(overrides: Partial<DemoAdminDeps> = {}): DemoAdminDeps & {
     deliverSetup: () => Promise.reject(new Error('setup delivery should not run')),
     recordSetupDelivery: () => Promise.resolve(),
     lockProvision: () => Promise.resolve(PROFILE),
+    setPreferredCountry: () => Promise.resolve(),
     releaseProvision: () => Promise.resolve(),
     abandonProvision: () => Promise.resolve(),
     prepareCreatedUserDelete: () => Promise.resolve(),
@@ -654,6 +655,30 @@ function provisionBody(extra: Record<string, unknown> = {}): Record<string, unkn
     ...extra,
   }
 }
+
+Deno.test('provision stores the preferred country after the account starts', async () => {
+  const saved: Array<{ profileId: string; country: string }> = []
+  const response = await handleDemoAdmin(post(provisionBody({ preferredCountry: 'Italy' })), deps({
+    setPreferredCountry: (profileId, country) => {
+      saved.push({ profileId, country })
+      return Promise.resolve()
+    },
+  }))
+  assertEquals(response.status, 200)
+  assertEquals(saved, [{ profileId: PROFILE, country: 'Italy' }])
+})
+
+Deno.test('provision rejects an invalid preferred country before creating the account', async () => {
+  let started = false
+  const response = await handleDemoAdmin(post(provisionBody({ preferredCountry: 'x'.repeat(81) })), deps({
+    start: () => {
+      started = true
+      return Promise.resolve(lifecycle())
+    },
+  }))
+  assertEquals(response.status, 400)
+  assertEquals(started, false)
+})
 
 Deno.test('manual provision does not send mail or change the response shape', async () => {
   let setupRequired = true

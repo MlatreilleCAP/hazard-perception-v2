@@ -187,6 +187,7 @@ export type ProvisionInput = {
   displayName: string | null
   organizationId: string
   expiresAt: string
+  preferredCountry?: string
   emailSetup?: boolean
 }
 
@@ -220,6 +221,19 @@ export async function createSystemUser(
   }
 }
 
+export async function loadOwnPreferredCountry(profileId: string): Promise<string | null> {
+  const client = getSupabase()
+  if (!client || !profileId) return null
+  const { data, error } = await client
+    .from('demo_accounts')
+    .select('preferred_country')
+    .eq('profile_id', profileId)
+    .maybeSingle()
+  if (error || !data) return null
+  const country = data.preferred_country
+  return typeof country === 'string' && country.trim() ? country.trim() : null
+}
+
 export async function provisionDemoAccount(
   input: ProvisionInput,
   gateway = browserDemoGateway(),
@@ -231,6 +245,7 @@ export async function provisionDemoAccount(
     expiresAt: input.expiresAt,
   }
   if (input.displayName) body.displayName = input.displayName
+  if (input.preferredCountry) body.preferredCountry = input.preferredCountry
   if (input.emailSetup) body.emailSetup = true
   assertNoSecretFields(body)
   const { data, error } = await gateway.invoke(body)

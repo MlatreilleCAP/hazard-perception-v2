@@ -127,6 +127,7 @@ describe('DemoAccountsSection', () => {
       email: 'new.person@example.com',
       displayName: 'New Person',
       organizationId: 'org-1',
+      preferredCountry: 'United States',
     }))
     const request = vi.mocked(provisionDemoAccount).mock.calls[0][0]
     expect(request).not.toHaveProperty('startsAt')
@@ -140,6 +141,28 @@ describe('DemoAccountsSection', () => {
     expect(wrapper.text()).not.toContain(password)
     const stored = vi.mocked(Storage.prototype.setItem).mock.calls.flat().join(' ')
     expect(stored).not.toContain(password)
+  })
+
+  it('sends the preferred country chosen on the new demo form', async () => {
+    vi.mocked(provisionDemoAccount).mockResolvedValue({
+      profileId: 'profile-2',
+      status: 'active',
+      expiresAt: '2030-06-01T13:30:00.000Z',
+      initialPassword: null,
+      setupDelivery: 'accepted',
+    })
+    const wrapper = await mountSection()
+    await wrapper.findAll('button').find((button) => button.text() === 'New Demo')?.trigger('click')
+    await wrapper.get('input[type="email"]').setValue('italy.person@example.com')
+    await wrapper.get('form select').setValue('Italy')
+    await wrapper.get('input[type="datetime-local"]').setValue('2030-06-01T09:30')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(provisionDemoAccount).toHaveBeenCalledWith(expect.objectContaining({
+      email: 'italy.person@example.com',
+      preferredCountry: 'Italy',
+    }))
   })
 
   it('copies the password from the button click and does not store it', async () => {

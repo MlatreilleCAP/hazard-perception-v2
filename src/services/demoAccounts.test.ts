@@ -52,6 +52,24 @@ describe('demo account administration', () => {
     expect(body).not.toHaveProperty('emailSetup')
   })
 
+  it('sends a preferred country when the form chooses one', async () => {
+    const invoke = vi.fn(async () => ({
+      data: { profileId: 'profile-1', status: 'active', expiresAt: '2030-01-01T00:00:00Z' },
+      error: null,
+    }))
+    await provisionDemoAccount({
+      email: 'person@example.com',
+      displayName: null,
+      organizationId: 'org-1',
+      expiresAt: '2030-01-01T00:00:00Z',
+      preferredCountry: 'Italy',
+    }, gateway({ invoke }))
+
+    expect(invoke).toHaveBeenCalledWith(expect.objectContaining({
+      preferredCountry: 'Italy',
+    }))
+  })
+
   it('drops a password that arrives with an accepted or uncertain setup email', async () => {
     for (const setupDelivery of ['accepted', 'uncertain'] as const) {
       const result = await provisionDemoAccount({

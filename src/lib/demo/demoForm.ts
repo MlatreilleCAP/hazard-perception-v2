@@ -1,4 +1,5 @@
 import { isEmailAddress } from '@/lib/auth/credentials'
+import { LESSON_COUNTRY_OPTIONS } from '@/lib/inroadsMvp/lessonCountries'
 
 export function expiryIsoFromLocal(value: string, now = Date.now()): string | null {
   if (!value.trim()) return null
@@ -10,6 +11,7 @@ export function expiryIsoFromLocal(value: string, now = Date.now()): string | nu
 export function demoFormError(input: {
   email: string
   displayName: string
+  preferredCountry: string
   expiresAtLocal: string
   existingEmails: readonly string[]
   now?: number
@@ -21,6 +23,9 @@ export function demoFormError(input: {
   }
   const name = input.displayName.trim()
   if (name.length > 80) return 'The display name must be 80 characters or fewer.'
+  const country = input.preferredCountry.trim()
+  const countries: readonly string[] = LESSON_COUNTRY_OPTIONS
+  if (!countries.includes(country)) return 'Choose a country.'
   if (!expiryIsoFromLocal(input.expiresAtLocal, input.now)) return 'Choose an expiry in the future.'
   return null
 }

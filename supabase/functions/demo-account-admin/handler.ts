@@ -73,6 +73,7 @@ export interface DemoAdminDeps {
     idempotencyKey: string
   }): Promise<void>
   lockProvision(email: string, displayName: string | null): Promise<string>
+  setPreferredCountry(profileId: string, country: string): Promise<void>
   releaseProvision(email: string): Promise<void>
   abandonProvision(email: string): Promise<void>
   prepareCreatedUserDelete(actorId: string, profileId: string): Promise<void>
@@ -153,6 +154,14 @@ function displayName(value: unknown): string | null {
   const name = value.trim()
   if (name.length < 1 || name.length > 80) throw new DemoAdminError(400, 'The display name is not valid.')
   return name
+}
+
+function preferredCountry(value: unknown): string | null {
+  if (value == null || value === '') return null
+  if (typeof value !== 'string') throw new DemoAdminError(400, 'Choose a country.')
+  const country = value.trim()
+  if (country.length < 1 || country.length > 80) throw new DemoAdminError(400, 'Choose a country.')
+  return country
 }
 
 function generateInitialPassword(): string {
@@ -279,6 +288,7 @@ async function provisionDemoAccount(
   const email = emailAddress(body.email)
   const expiresAt = timestamp(body.expiresAt, 'An expiry')
   const name = displayName(body.displayName ?? body.display_name)
+  const country = preferredCountry(body.preferredCountry ?? body.preferred_country)
 
   if (emailSetup) {
     let welcomeEnabled = true
@@ -349,6 +359,17 @@ async function provisionDemoAccount(
     result = await deps.start(caller.userId, profileId, organizationId, null, expiresAt)
   } catch {
     return failProvision(deps, email, createdNow, profileId)
+  }
+
+  if (country) {
+    try {
+      await deps.setPreferredCountry(result.profileId, country)
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: 'demo_preferred_country_failed',
+        message: error instanceof Error ? error.message : 'unknown',
+      }))
+    }
   }
 
   try {

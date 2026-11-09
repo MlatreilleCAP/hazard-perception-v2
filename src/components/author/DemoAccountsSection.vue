@@ -4,6 +4,8 @@ import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import { formatDemoTimestamp } from '@/lib/demo/accessMessage'
 import { demoFormError, displayDemoStatus, eventLabel, expiryIsoFromLocal } from '@/lib/demo/demoForm'
 import { isSetupIncomplete } from '@/lib/demo/provisionState'
+import { DEFAULT_DEMO_COUNTRY } from '@/lib/demo/preferredCountry'
+import { LESSON_COUNTRY_OPTIONS } from '@/lib/inroadsMvp/packageSpec'
 import {
   deactivateDemoAccount,
   deleteCreatedDemoUser,
@@ -43,6 +45,7 @@ const busy = ref(false)
 const createOpen = ref(false)
 const email = ref('')
 const displayName = ref('')
+const preferredCountry = ref(DEFAULT_DEMO_COUNTRY)
 const expiresAtLocal = ref('')
 const dialogError = ref<string | null>(null)
 const createDialog = ref<HTMLElement | null>(null)
@@ -54,7 +57,12 @@ const passwordCopied = ref(false)
 const copyBlocked = ref(false)
 const passwordDialog = ref<HTMLElement | null>(null)
 
-const incomplete = ref<{ email: string; displayName: string; expiresAtLocal: string } | null>(null)
+const incomplete = ref<{
+  email: string
+  displayName: string
+  preferredCountry: string
+  expiresAtLocal: string
+} | null>(null)
 
 const extendTarget = ref<DemoAccountRecord | null>(null)
 const extendExpiry = ref('')
@@ -156,10 +164,16 @@ function onDialogKeydown(event: KeyboardEvent, root: HTMLElement | null): void {
   }
 }
 
-async function openCreate(prefill?: { email: string; displayName: string; expiresAtLocal: string }): Promise<void> {
+async function openCreate(prefill?: {
+  email: string
+  displayName: string
+  preferredCountry?: string
+  expiresAtLocal: string
+}): Promise<void> {
   rememberFocus()
   email.value = prefill?.email ?? ''
   displayName.value = prefill?.displayName ?? ''
+  preferredCountry.value = prefill?.preferredCountry || DEFAULT_DEMO_COUNTRY
   expiresAtLocal.value = prefill?.expiresAtLocal ?? defaultExpiry()
   dialogError.value = null
   createOpen.value = true
@@ -202,6 +216,7 @@ async function submitCreate(): Promise<void> {
   const validation = demoFormError({
     email: email.value,
     displayName: displayName.value,
+    preferredCountry: preferredCountry.value,
     expiresAtLocal: expiresAtLocal.value,
     existingEmails: blockingEmails.value,
   })
@@ -217,6 +232,7 @@ async function submitCreate(): Promise<void> {
   busy.value = true
   const requestedEmail = email.value.trim().toLowerCase()
   const requestedName = displayName.value.trim()
+  const requestedCountry = preferredCountry.value.trim()
   const requestedExpiry = expiresAtLocal.value
   try {
     const result = await provisionDemoAccount({
@@ -224,6 +240,7 @@ async function submitCreate(): Promise<void> {
       displayName: requestedName || null,
       organizationId: organizationId.value,
       expiresAt,
+      preferredCountry: requestedCountry,
       emailSetup: true,
     })
     createOpen.value = false
@@ -249,6 +266,7 @@ async function submitCreate(): Promise<void> {
       incomplete.value = {
         email: requestedEmail,
         displayName: requestedName,
+        preferredCountry: requestedCountry,
         expiresAtLocal: requestedExpiry,
       }
     }
@@ -564,6 +582,14 @@ function retryHold(account: DemoAccountRecord): void {
           <label class="demo-field">
             <span>Display name (optional)</span>
             <input v-model="displayName" type="text" maxlength="80" autocomplete="off" />
+          </label>
+          <label class="demo-field">
+            <span>Preferred country</span>
+            <select v-model="preferredCountry" required>
+              <option v-for="country in LESSON_COUNTRY_OPTIONS" :key="country" :value="country">
+                {{ country }}
+              </option>
+            </select>
           </label>
           <label class="demo-field">
             <span>Expiry</span>
