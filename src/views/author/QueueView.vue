@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { readIntroductionDefinition } from '@/activities/introductionDefinition'
 import availableIcon from '@/assets/queue/available.svg'
+import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import inProgressIcon from '@/assets/queue/in-progress.svg'
 import reviewIcon from '@/assets/queue/review.svg'
 import { canonicalActivityId } from '@/app/id'
@@ -1068,14 +1069,14 @@ async function clearNote(card: QueueCard): Promise<void> {
         <div class="author-list-card-head">
           <h2>Published</h2>
           <span class="author-count">{{ visiblePublishedCards.length }}</span>
-          <label class="queue-type-filter">
-            <span>Type</span>
-            <select v-model="publishedType" aria-label="Type">
-              <option v-for="option in PUBLISHED_TYPES" :key="option.id" :value="option.id">
-                {{ option.label }}
-              </option>
-            </select>
-          </label>
+          <AuthorSelectField
+            id="queue-published-type"
+            class="queue-type-filter"
+            :model-value="publishedType"
+            label="Type"
+            :options="PUBLISHED_TYPES.map((option) => ({ value: option.id, label: option.label }))"
+            @update:model-value="publishedType = $event as PublishedType"
+          />
         </div>
         <div v-if="visiblePublishedCards.length === 0" class="author-list-empty">
           <p class="author-muted">{{ publishedEmptyMessage() }}</p>

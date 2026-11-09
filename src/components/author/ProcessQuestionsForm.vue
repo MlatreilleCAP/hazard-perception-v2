@@ -81,6 +81,16 @@ function snapshot(): ProcessQuestionBank {
 
 defineExpose({ snapshot })
 
+const ADD_QUESTION_OPTIONS = [
+  { value: 'severity', label: 'Severity question' },
+  { value: 'theory', label: 'Theory question' },
+] as const
+
+function onAddQuestion(value: string): void {
+  if (value !== 'severity' && value !== 'theory') return
+  addQuestion(value)
+}
+
 function addQuestion(kind: ProcessQuestionKind | ''): void {
   if (!kind) return
   const question =
@@ -164,18 +174,16 @@ function englishAnswerLabel(questionIndex: number, answerIndex: number): string 
   <section class="author-stack-sm">
     <AuthorSectionHeader :title="title">
       <template #action>
-        <label :for="`${segmentId}-add-question`" class="sr-only">Add question</label>
-        <select
+        <AuthorSelectField
           :id="`${segmentId}-add-question`"
           :key="addSelectKey"
-          class="question-add"
-          :value="addKind"
-          @change="addQuestion(($event.target as HTMLSelectElement).value as ProcessQuestionKind | '')"
-        >
-          <option value="">Add question</option>
-          <option value="severity">Severity question</option>
-          <option value="theory">Theory question</option>
-        </select>
+          class="author-select-inline"
+          :model-value="addKind"
+          label="Add question"
+          placeholder="Select"
+          :options="ADD_QUESTION_OPTIONS"
+          @update:model-value="onAddQuestion"
+        />
       </template>
     </AuthorSectionHeader>
 

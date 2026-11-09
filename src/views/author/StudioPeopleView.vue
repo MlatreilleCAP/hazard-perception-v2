@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
+import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import DemoAccountsSection from '@/components/author/DemoAccountsSection.vue'
 import { GUARD_TOGGLE_REASON, isLifecycleRoleGuard, studioToggleReason } from '@/lib/demo/studioToggle'
 import { deleteCreatedDemoUser, createSystemUser, listAdminOrganizations, type DemoOrganization } from '@/services/demoAccounts'
@@ -479,21 +480,23 @@ async function toggleEditOthers(person: StudioPerson): Promise<void> {
               <span>Display name (optional)</span>
               <input v-model="createName" type="text" maxlength="80" autocomplete="off" />
             </label>
-            <label v-if="organizations.length > 1" class="demo-field">
-              <span>Organization</span>
-              <select v-model="organizationId">
-                <option v-for="organization in organizations" :key="organization.id" :value="organization.id">
-                  {{ organization.name }}
-                </option>
-              </select>
-            </label>
-            <label class="demo-field">
-              <span>Role</span>
-              <select v-model="createRole">
-                <option value="author">Author</option>
-                <option value="sales">Sales</option>
-              </select>
-            </label>
+            <AuthorSelectField
+              v-if="organizations.length > 1"
+              id="system-user-organization"
+              v-model="organizationId"
+              label="Organization"
+              :options="organizations.map((organization) => ({ value: organization.id, label: organization.name }))"
+            />
+            <AuthorSelectField
+              id="system-user-role"
+              :model-value="createRole"
+              label="Role"
+              :options="[
+                { value: 'author', label: 'Author' },
+                { value: 'sales', label: 'Sales' },
+              ]"
+              @update:model-value="createRole = $event === 'sales' ? 'sales' : 'author'"
+            />
             <p v-if="createError" class="auth-error" role="alert">{{ createError }}</p>
             <div class="demo-account-actions">
               <button type="button" class="author-pill" :disabled="creating" @click="closeCreateUser">

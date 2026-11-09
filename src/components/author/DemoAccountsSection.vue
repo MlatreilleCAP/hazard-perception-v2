@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
+import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import { formatDemoTimestamp } from '@/lib/demo/accessMessage'
 import { demoFormError, displayDemoStatus, eventLabel, expiryIsoFromLocal } from '@/lib/demo/demoForm'
 import { isSetupIncomplete } from '@/lib/demo/provisionState'
@@ -37,6 +38,12 @@ const emit = defineEmits<{
 
 const organizations = ref<DemoOrganization[]>([])
 const organizationId = ref('')
+const organizationOptions = computed(() =>
+  organizations.value.map((organization) => ({ value: organization.id, label: organization.name })),
+)
+const countryOptions = computed(() =>
+  LESSON_COUNTRY_OPTIONS.map((country) => ({ value: country, label: country })),
+)
 const accounts = ref<DemoAccountRecord[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
@@ -465,14 +472,14 @@ function retryHold(account: DemoAccountRecord): void {
       </AuthorPillButton>
     </Teleport>
 
-    <label v-if="organizations.length > 1" class="demo-field">
-      <span>Organization</span>
-      <select v-model="organizationId" @change="onOrganizationChange">
-        <option v-for="organization in organizations" :key="organization.id" :value="organization.id">
-          {{ organization.name }}
-        </option>
-      </select>
-    </label>
+    <AuthorSelectField
+      v-if="organizations.length > 1"
+      id="demo-organization"
+      v-model="organizationId"
+      label="Organization"
+      :options="organizationOptions"
+      @update:model-value="onOrganizationChange"
+    />
 
     <p v-if="error" class="auth-error" role="alert">{{ error }}</p>
     <p v-if="loading" class="author-muted">Loading demo accounts…</p>
@@ -583,14 +590,13 @@ function retryHold(account: DemoAccountRecord): void {
             <span>Display name (optional)</span>
             <input v-model="displayName" type="text" maxlength="80" autocomplete="off" />
           </label>
-          <label class="demo-field">
-            <span>Preferred country</span>
-            <select v-model="preferredCountry" required>
-              <option v-for="country in LESSON_COUNTRY_OPTIONS" :key="country" :value="country">
-                {{ country }}
-              </option>
-            </select>
-          </label>
+          <AuthorSelectField
+            id="demo-preferred-country"
+            v-model="preferredCountry"
+            label="Preferred country"
+            :options="countryOptions"
+            searchable
+          />
           <label class="demo-field">
             <span>Expiry</span>
             <input v-model="expiresAtLocal" type="datetime-local" required />

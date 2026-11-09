@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import EmailSectionNav from '@/components/author/email/EmailSectionNav.vue'
+import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import { useEmailAccess } from '@/composables/useEmailAccess'
 import { listEmailMessages } from '@/services/emailManagement'
 import type { EmailMessageRecord, EmailMessageStatus } from '@/types/email'
@@ -106,20 +107,25 @@ function formatWhen(value: string | null): string {
           <span>Search</span>
           <input v-model="query" type="search" placeholder="Recipient, template, or subject" />
         </label>
-        <label class="email-field">
-          <span>Status</span>
-          <select v-model="status">
-            <option value="all">All</option>
-            <option v-for="item in STATUSES" :key="item" :value="item">{{ item }}</option>
-          </select>
-        </label>
-        <label class="email-field">
-          <span>Template</span>
-          <select v-model="templateKey">
-            <option value="all">All</option>
-            <option v-for="key in templateOptions" :key="key" :value="key">{{ key }}</option>
-          </select>
-        </label>
+        <AuthorSelectField
+          id="email-activity-status"
+          :model-value="status"
+          label="Status"
+          :options="[
+            { value: 'all', label: 'All' },
+            ...STATUSES.map((item) => ({ value: item, label: item })),
+          ]"
+          @update:model-value="status = $event as EmailMessageStatus | 'all'"
+        />
+        <AuthorSelectField
+          id="email-activity-template"
+          v-model="templateKey"
+          label="Template"
+          :options="[
+            { value: 'all', label: 'All' },
+            ...templateOptions.map((key) => ({ value: key, label: key })),
+          ]"
+        />
         <label class="email-field">
           <span>From</span>
           <input v-model="fromDate" type="date" />

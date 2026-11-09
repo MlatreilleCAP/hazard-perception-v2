@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { services } from '@/app/container'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
+import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import ProcessVideoStage from '@/components/process/ProcessVideoStage.vue'
 import {
   formatMediaSize,
@@ -276,18 +277,14 @@ function clear(): void {
             autocomplete="off"
           />
         </label>
-        <label class="media-library-picker-filter">
-          <span class="sr-only">Sort</span>
-          <select v-model="librarySort">
-            <option
-              v-for="option in LIBRARY_SORT_OPTIONS"
-              :key="option.value"
-              :value="option.value"
-            >
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
+        <AuthorSelectField
+          id="media-library-sort"
+          class="media-library-picker-filter"
+          :model-value="librarySort"
+          label="Sort"
+          :options="LIBRARY_SORT_OPTIONS"
+          @update:model-value="librarySort = $event as LibrarySort"
+        />
       </div>
       <div class="media-library-results">
         <p v-if="libraryLoading" class="author-muted">Loading media…</p>

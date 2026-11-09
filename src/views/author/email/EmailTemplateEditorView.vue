@@ -5,6 +5,7 @@ import { useEmailAccess } from '@/composables/useEmailAccess'
 import EmailPreviewFrame from '@/components/author/email/EmailPreviewFrame.vue'
 import EmailSectionNav from '@/components/author/email/EmailSectionNav.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
+import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import {
   isEmailLocale,
   isVariableKey,
@@ -442,12 +443,13 @@ function formatWhen(value: string | null): string {
           </form>
 
           <div class="email-locale-bar">
-            <label class="email-field">
-              <span>Locale</span>
-              <select :value="locale" @change="selectLocale(($event.target as HTMLSelectElement).value)">
-                <option v-for="item in locales" :key="item" :value="item">{{ item }}</option>
-              </select>
-            </label>
+            <AuthorSelectField
+              id="email-template-locale"
+              :model-value="locale"
+              label="Locale"
+              :options="locales.map((item) => ({ value: item, label: item }))"
+              @update:model-value="selectLocale"
+            />
             <label class="email-field">
               <span>Add locale</span>
               <input v-model="localeDraft" placeholder="fr-CA" spellcheck="false" @keydown.enter.prevent="addLocale" />

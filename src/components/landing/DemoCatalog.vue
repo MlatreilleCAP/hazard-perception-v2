@@ -9,6 +9,7 @@ import { DEFAULT_DEMO_COUNTRY, startingDemoCountry } from '@/lib/demo/preferredC
 import { DEFAULT_LESSON_BUTTON_LABEL } from '@/lib/lesson/buttonLabel'
 import { lessonVersionKey, previewCardTitle } from '@/lib/inroadsMvp/lessonVersions'
 import { loadOwnPreferredCountry } from '@/services/demoAccounts'
+import DemoPillSelect from '@/components/landing/DemoPillSelect.vue'
 import { useActivityStore } from '@/stores/activityStore'
 import { useAuthStore } from '@/stores/authStore'
 import type { ActivitySummary } from '@/types/activity'
@@ -314,18 +315,15 @@ function setSelected(groupKey: string, id: string): void {
 
 <template>
   <div class="demo-catalog">
-    <select
+    <DemoPillSelect
       v-if="auth.isSignedIn && !catalogLoading && countries.length > 0"
       id="demo-country"
       v-model="selectedCountry"
-      class="demo-country-field demo-country-select"
-      aria-label="Country"
-      @change="countryTouched = true"
-    >
-      <option v-for="country in countries" :key="country" :value="country">
-        {{ country }}
-      </option>
-    </select>
+      class="demo-country-field"
+      label="Country"
+      :options="countries.map((country) => ({ value: country, label: country }))"
+      @update:model-value="countryTouched = true"
+    />
     <section class="catalog-section" aria-label="All demos">
       <div
         v-if="!auth.isSignedIn"
@@ -373,22 +371,15 @@ function setSelected(groupKey: string, id: string): void {
                   {{ descriptionFor(selectedId(group.key)) }}
                 </p>
               </div>
-              <label
+              <DemoPillSelect
                 v-if="group.versions.length > 1"
+                :id="`demo-language-${group.key}`"
                 class="demo-language-field"
-                :for="`demo-language-${group.key}`"
-              >
-                <select
-                  :id="`demo-language-${group.key}`"
-                  class="demo-language-select"
-                  :value="selectedId(group.key)"
-                  @change="setSelected(group.key, ($event.target as HTMLSelectElement).value)"
-                >
-                  <option v-for="version in group.versions" :key="version.id" :value="version.id">
-                    {{ version.language }}
-                  </option>
-                </select>
-              </label>
+                :model-value="selectedId(group.key)"
+                label="Language"
+                :options="group.versions.map((version) => ({ value: version.id, label: version.language }))"
+                @update:model-value="setSelected(group.key, $event)"
+              />
               <div class="activity-card-action">
                 <RouterLink
                   :to="startTo(selectedId(group.key))"

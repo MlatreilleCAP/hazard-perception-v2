@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import EmailSectionNav from '@/components/author/email/EmailSectionNav.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
+import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import { useEmailAccess } from '@/composables/useEmailAccess'
 import { isTemplateKey } from '@/lib/email/templateDocument'
 import { createApplicationTemplate, deleteApplicationTemplate, listEmailTemplates } from '@/services/emailManagement'
@@ -172,16 +173,19 @@ async function removeTemplate(template: EmailTemplateSummary): Promise<void> {
           <span>Search</span>
           <input v-model="query" type="search" placeholder="Name or key" />
         </label>
-        <label class="email-field">
-          <span>Status</span>
-          <select v-model="status">
-            <option value="all">All</option>
-            <option value="published">Published</option>
-            <option value="draft">Draft</option>
-            <option value="archived">Archived</option>
-            <option value="auth">Auth managed</option>
-          </select>
-        </label>
+        <AuthorSelectField
+          id="email-template-status"
+          :model-value="status"
+          label="Status"
+          :options="[
+            { value: 'all', label: 'All' },
+            { value: 'published', label: 'Published' },
+            { value: 'draft', label: 'Draft' },
+            { value: 'archived', label: 'Archived' },
+            { value: 'auth', label: 'Auth managed' },
+          ]"
+          @update:model-value="status = $event as StatusFilter"
+        />
       </div>
 
       <p v-if="error" class="auth-error" role="alert">{{ error }}</p>

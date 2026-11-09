@@ -8,6 +8,7 @@ import {
 import AuthorField from '@/components/author/AuthorField.vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
+import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
 import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
@@ -168,6 +169,22 @@ function setIntroShowOnFirstVisitOnly(value: boolean): void {
   if (!lesson.value) return
   lesson.value = { ...lesson.value, introShowOnFirstVisitOnly: value }
   saveMessage.value = null
+}
+
+function sectionItemOptions(kind: LessonCompositionItemKind) {
+  const options: Array<{ value: string; label: string }> = []
+  const selected = selectedOption(kind)
+  const catalog = filteredCatalog(kind)
+  if (selected && !catalog.some((item) => item.id === selected.id)) {
+    options.push({ value: selected.id, label: `${selected.title} (unavailable)` })
+  }
+  for (const option of catalog) {
+    options.push({
+      value: option.id,
+      label: option.published ? option.title : `${option.title} · Draft`,
+    })
+  }
+  return options
 }
 
 function selectSectionItem(kind: LessonCompositionItemKind, refId: string): void {
@@ -471,43 +488,14 @@ async function remove(): Promise<void> {
                   label="Search"
                   :placeholder="`Filter ${section.label.toLowerCase()}…`"
                 />
-                <label class="author-field" :for="`${activityId}-${section.kind}-ref`">
-                  <span style="min-width: 0; flex: 1">
-                    <span class="author-field-label">Item</span>
-                    <select
-                      :id="`${activityId}-${section.kind}-ref`"
-                      class="author-field-control"
-                      :value="sectionPicks[section.kind].selectedRefId"
-                      @change="
-                        selectSectionItem(
-                          section.kind,
-                          ($event.target as HTMLSelectElement).value,
-                        )
-                      "
-                    >
-                      <option value="">Select {{ section.label.toLowerCase() }}</option>
-                      <option
-                        v-if="
-                          selectedOption(section.kind) &&
-                          !filteredCatalog(section.kind).some(
-                            (item) => item.id === selectedOption(section.kind)?.id,
-                          )
-                        "
-                        :value="selectedOption(section.kind)?.id"
-                      >
-                        {{ selectedOption(section.kind)?.title }} (unavailable)
-                      </option>
-                      <option
-                        v-for="option in filteredCatalog(section.kind)"
-                        :key="option.id"
-                        :value="option.id"
-                      >
-                        {{ option.title }}
-                        {{ option.published ? '' : ' · Draft' }}
-                      </option>
-                    </select>
-                  </span>
-                </label>
+                <AuthorSelectField
+                  :id="`${activityId}-${section.kind}-ref`"
+                  :model-value="sectionPicks[section.kind].selectedRefId"
+                  label="Item"
+                  :placeholder="`Select ${section.label.toLowerCase()}`"
+                  :options="sectionItemOptions(section.kind)"
+                  @update:model-value="selectSectionItem(section.kind, $event)"
+                />
               </div>
               <p v-if="filteredCatalog(section.kind).length === 0" class="author-muted">
                 No {{ section.label }} scenarios yet.
