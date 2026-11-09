@@ -73,7 +73,7 @@ export interface DemoAdminDeps {
     idempotencyKey: string
   }): Promise<void>
   lockProvision(email: string, displayName: string | null): Promise<string>
-  setPreferredCountry(profileId: string, country: string): Promise<void>
+  setPreferredCountry(profileId: string, country: string, organizationId?: string): Promise<void>
   releaseProvision(email: string): Promise<void>
   abandonProvision(email: string): Promise<void>
   prepareCreatedUserDelete(actorId: string, profileId: string): Promise<void>
@@ -513,6 +513,22 @@ async function applyReturnedAction(
   return recorded
 }
 
+async function setPreferredCountry(
+  deps: DemoAdminDeps,
+  caller: AdminCaller,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const profileId = uuid(body.profileId, 'A profile')
+  const organizationId = uuid(body.organizationId, 'An organization')
+  if (!await deps.memberOf(caller, organizationId)) {
+    throw new DemoAdminError(403, 'Administrator access is required.')
+  }
+  const country = preferredCountry(body.preferredCountry ?? body.preferred_country)
+  if (!country) throw new DemoAdminError(400, 'Choose a country.')
+  await deps.setPreferredCountry(profileId, country, organizationId)
+  return Response.json({ profileId, preferredCountry: country })
+}
+
 export async function handleDemoAdmin(
   request: Request,
   deps: DemoAdminDeps,
@@ -542,6 +558,9 @@ export async function handleDemoAdmin(
     if (body.operation === 'delete') {
       return finish(await deleteCreatedUser(deps, caller, body))
     }
+    if (body.operation === 'set-preferred-country') {
+      return finish(await setPreferredCountry(deps, caller, body))
+    }
     const profileId = uuid(body.profileId, 'A profile')
 
     let result: LifecycleResult
@@ -561,7 +580,7 @@ export async function handleDemoAdmin(
       }
       result = await deps.deactivate(caller.userId, profileId, reason?.trim() ?? null)
     } else {
-      throw new DemoAdminError(400, 'Choose start, extend, deactivate, provision, delete, or create-system-user.')
+      throw new DemoAdminError(400, 'Choose start, extend, deactivate, provision, delete, create-system-user, or set-preferred-country.')
     }
 
     const auth = await applyReturnedAction(deps, result)

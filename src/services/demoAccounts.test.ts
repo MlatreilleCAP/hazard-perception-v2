@@ -5,6 +5,7 @@ import {
   extendDemoAccount,
   listDemoAccounts,
   provisionDemoAccount,
+  updateDemoPreferredCountry,
   type DemoGateway,
 } from '@/services/demoAccounts'
 
@@ -68,6 +69,22 @@ describe('demo account administration', () => {
     expect(invoke).toHaveBeenCalledWith(expect.objectContaining({
       preferredCountry: 'Italy',
     }))
+  })
+
+  it('saves a preferred country on an existing demo account', async () => {
+    const invoke = vi.fn(async () => ({ data: { profileId: 'profile-1' }, error: null }))
+    await updateDemoPreferredCountry({
+      profileId: 'profile-1',
+      organizationId: 'org-1',
+      preferredCountry: 'Italy',
+    }, gateway({ invoke }))
+
+    expect(invoke).toHaveBeenCalledWith({
+      operation: 'set-preferred-country',
+      profileId: 'profile-1',
+      organizationId: 'org-1',
+      preferredCountry: 'Italy',
+    })
   })
 
   it('drops a password that arrives with an accepted or uncertain setup email', async () => {

@@ -617,7 +617,7 @@ Deno.test('validation and server errors from the production origin include CORS 
   }), deps())
   assertEquals(invalid.status, 400)
   assertCors(invalid, PRODUCTION_ORIGIN)
-  assertEquals(await invalid.json(), { error: 'Choose start, extend, deactivate, provision, delete, or create-system-user.' })
+  assertEquals(await invalid.json(), { error: 'Choose start, extend, deactivate, provision, delete, create-system-user, or set-preferred-country.' })
 
   const failed = await handleDemoAdmin(browserRequest('POST', PRODUCTION_ORIGIN, {
     operation: 'extend',
@@ -655,6 +655,42 @@ function provisionBody(extra: Record<string, unknown> = {}): Record<string, unkn
     ...extra,
   }
 }
+
+Deno.test('an administrator can set the preferred country on an existing demo account', async () => {
+  const saved: Array<{ profileId: string; country: string; organizationId?: string }> = []
+  const response = await handleDemoAdmin(post({
+    operation: 'set-preferred-country',
+    profileId: PROFILE,
+    organizationId: ORG,
+    preferredCountry: 'Italy',
+  }), deps({
+    setPreferredCountry: (profileId, country, organizationId) => {
+      saved.push({ profileId, country, organizationId })
+      return Promise.resolve()
+    },
+  }))
+  assertEquals(response.status, 200)
+  assertEquals(saved, [{ profileId: PROFILE, country: 'Italy', organizationId: ORG }])
+  assertEquals(await response.json(), { profileId: PROFILE, preferredCountry: 'Italy' })
+})
+
+Deno.test('setting a preferred country requires membership in that organization', async () => {
+  let saved = false
+  const response = await handleDemoAdmin(post({
+    operation: 'set-preferred-country',
+    profileId: PROFILE,
+    organizationId: ORG,
+    preferredCountry: 'Italy',
+  }), deps({
+    memberOf: () => Promise.resolve(false),
+    setPreferredCountry: () => {
+      saved = true
+      return Promise.resolve()
+    },
+  }))
+  assertEquals(response.status, 403)
+  assertEquals(saved, false)
+})
 
 Deno.test('provision stores the preferred country after the account starts', async () => {
   const saved: Array<{ profileId: string; country: string }> = []

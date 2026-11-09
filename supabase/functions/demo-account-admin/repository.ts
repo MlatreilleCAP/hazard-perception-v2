@@ -371,12 +371,17 @@ export function createDemoAdminDeps(authorization: string | null): DemoAdminDeps
       return data
     },
 
-    async setPreferredCountry(profileId, country) {
-      const { error } = await service
+    async setPreferredCountry(profileId, country, organizationId) {
+      let update = service
         .from('demo_accounts')
         .update({ preferred_country: country })
         .eq('profile_id', profileId)
+      if (organizationId) update = update.eq('organization_id', organizationId)
+      const { data, error } = await update.select('profile_id')
       if (error) throw new DemoAdminError(500, 'The preferred country could not be saved.')
+      if (organizationId && (!data || data.length === 0)) {
+        throw new DemoAdminError(404, 'The demo account was not found.')
+      }
     },
 
     async releaseProvision(email) {

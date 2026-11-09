@@ -14,6 +14,7 @@ export function demoFormError(input: {
   preferredCountry: string
   expiresAtLocal: string
   existingEmails: readonly string[]
+  countries?: readonly string[]
   now?: number
 }): string | null {
   const email = input.email.trim().toLowerCase()
@@ -24,7 +25,7 @@ export function demoFormError(input: {
   const name = input.displayName.trim()
   if (name.length > 80) return 'The display name must be 80 characters or fewer.'
   const country = input.preferredCountry.trim()
-  const countries: readonly string[] = LESSON_COUNTRY_OPTIONS
+  const countries: readonly string[] = input.countries ?? LESSON_COUNTRY_OPTIONS
   if (!countries.includes(country)) return 'Choose a country.'
   if (!expiryIsoFromLocal(input.expiresAtLocal, input.now)) return 'Choose an expiry in the future.'
   return null

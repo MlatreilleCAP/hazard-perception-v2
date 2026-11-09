@@ -5,7 +5,11 @@ import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { catalogCoverAt } from '@/app/catalogCovers'
 import { services } from '@/app/container'
 import { canonicalizeLessonCountry, canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
-import { DEFAULT_DEMO_COUNTRY, startingDemoCountry } from '@/lib/demo/preferredCountry'
+import {
+  DEFAULT_DEMO_COUNTRY,
+  publishedDemoCountryNames,
+  startingDemoCountry,
+} from '@/lib/demo/preferredCountry'
 import { DEFAULT_LESSON_BUTTON_LABEL } from '@/lib/lesson/buttonLabel'
 import { lessonVersionKey, previewCardTitle } from '@/lib/inroadsMvp/lessonVersions'
 import { loadOwnPreferredCountry } from '@/services/demoAccounts'
@@ -96,18 +100,11 @@ const demoGroups = computed((): DemoLessonGroup[] => {
   })
 })
 
-const countries = computed(() => {
-  const names = new Set<string>()
-  for (const item of published.value) {
-    const country = canonicalizeLessonCountry(localeById.value.get(item.id)?.country ?? '')
-    if (country) names.add(country)
-  }
-  return [...names].sort((left, right) => {
-    if (left === DEFAULT_DEMO_COUNTRY) return -1
-    if (right === DEFAULT_DEMO_COUNTRY) return 1
-    return left.localeCompare(right)
-  })
-})
+const countries = computed(() =>
+  publishedDemoCountryNames(
+    published.value.map((item) => localeById.value.get(item.id)?.country ?? ''),
+  ),
+)
 
 const visibleGroups = computed(() => {
   const country = canonicalizeLessonCountry(selectedCountry.value)

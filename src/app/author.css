@@ -1349,7 +1349,19 @@ fieldset.author-stack {
 
 .demo-account-row {
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+.demo-account-row .users-row-main {
+  flex: 1 1 280px;
+  min-width: 240px;
+}
+
+.demo-account-country {
+  width: 240px;
+  max-width: 100%;
+  margin-top: 12px;
 }
 
 .demo-account-main {

@@ -222,16 +222,43 @@ export async function createSystemUser(
 }
 
 export async function loadOwnPreferredCountry(profileId: string): Promise<string | null> {
+  const countries = await loadPreferredCountries([profileId])
+  return countries[profileId] ?? null
+}
+
+export async function loadPreferredCountries(
+  profileIds: string[],
+): Promise<Record<string, string>> {
   const client = getSupabase()
-  if (!client || !profileId) return null
+  const ids = profileIds.filter((id) => id.trim())
+  if (!client || ids.length === 0) return {}
   const { data, error } = await client
     .from('demo_accounts')
-    .select('preferred_country')
-    .eq('profile_id', profileId)
-    .maybeSingle()
-  if (error || !data) return null
-  const country = data.preferred_country
-  return typeof country === 'string' && country.trim() ? country.trim() : null
+    .select('profile_id, preferred_country')
+    .in('profile_id', ids)
+  if (error || !data) return {}
+  const countries: Record<string, string> = {}
+  for (const row of data) {
+    const id = typeof row.profile_id === 'string' ? row.profile_id : ''
+    const country = row.preferred_country
+    if (id && typeof country === 'string' && country.trim()) countries[id] = country.trim()
+  }
+  return countries
+}
+
+export async function updateDemoPreferredCountry(
+  input: { profileId: string; organizationId: string; preferredCountry: string },
+  gateway = browserDemoGateway(),
+): Promise<void> {
+  const body = {
+    operation: 'set-preferred-country',
+    profileId: input.profileId,
+    organizationId: input.organizationId,
+    preferredCountry: input.preferredCountry,
+  }
+  assertNoSecretFields(body)
+  const { error } = await gateway.invoke(body)
+  if (error) throw new Error(await invokeError(error))
 }
 
 export async function provisionDemoAccount(

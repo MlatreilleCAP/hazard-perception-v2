@@ -5,7 +5,7 @@ import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import { formatDemoTimestamp } from '@/lib/demo/accessMessage'
 import { demoFormError, displayDemoStatus, eventLabel, expiryIsoFromLocal } from '@/lib/demo/demoForm'
 import { isSetupIncomplete } from '@/lib/demo/provisionState'
-import { DEFAULT_DEMO_COUNTRY } from '@/lib/demo/preferredCountry'
+import { DEFAULT_DEMO_COUNTRY, startingDemoCountry } from '@/lib/demo/preferredCountry'
 import { LESSON_COUNTRY_OPTIONS } from '@/lib/inroadsMvp/packageSpec'
 import {
   deactivateDemoAccount,
@@ -14,11 +14,14 @@ import {
   listAdminOrganizations,
   listDemoAccountEvents,
   listDemoAccounts,
+  loadPreferredCountries,
   provisionDemoAccount,
+  updateDemoPreferredCountry,
   type DemoAccountEventRecord,
   type DemoAccountRecord,
   type DemoOrganization,
 } from '@/services/demoAccounts'
+import { loadPublishedDemoCountries } from '@/services/publishedDemoCountries'
 
 const props = withDefaults(defineProps<{
   reloadToken?: number
@@ -44,7 +47,12 @@ const organizationOptions = computed(() =>
 const countryOptions = computed(() =>
   LESSON_COUNTRY_OPTIONS.map((country) => ({ value: country, label: country })),
 )
+const publishedCountries = ref<string[]>([])
+const newDemoCountryOptions = computed(() =>
+  publishedCountries.value.map((country) => ({ value: country, label: country })),
+)
 const accounts = ref<DemoAccountRecord[]>([])
+const preferredByProfile = ref<Record<string, string>>({})
 const loading = ref(true)
 const error = ref<string | null>(null)
 const busy = ref(false)
@@ -126,8 +134,17 @@ async function load(): Promise<void> {
       organizationId.value = organizations.value[0]?.id ?? ''
     }
     accounts.value = organizationId.value ? await listDemoAccounts(organizationId.value) : []
+    preferredByProfile.value = await loadPreferredCountries(
+      accounts.value.map((account) => account.profileId),
+    )
+    try {
+      publishedCountries.value = await loadPublishedDemoCountries()
+    } catch {
+      publishedCountries.value = []
+    }
   } catch (cause) {
     accounts.value = []
+    preferredByProfile.value = {}
     error.value = cause instanceof Error ? cause.message : 'Demo accounts could not be loaded.'
   } finally {
     loading.value = false
@@ -180,7 +197,7 @@ async function openCreate(prefill?: {
   rememberFocus()
   email.value = prefill?.email ?? ''
   displayName.value = prefill?.displayName ?? ''
-  preferredCountry.value = prefill?.preferredCountry || DEFAULT_DEMO_COUNTRY
+  preferredCountry.value = defaultPublishedCountry(prefill?.preferredCountry)
   expiresAtLocal.value = prefill?.expiresAtLocal ?? defaultExpiry()
   dialogError.value = null
   createOpen.value = true
@@ -224,6 +241,7 @@ async function submitCreate(): Promise<void> {
     email: email.value,
     displayName: displayName.value,
     preferredCountry: preferredCountry.value,
+    countries: publishedCountries.value,
     expiresAtLocal: expiresAtLocal.value,
     existingEmails: blockingEmails.value,
   })
@@ -438,6 +456,43 @@ function accountSummary(account: DemoAccountRecord): string {
   return parts.join(' · ')
 }
 
+function defaultPublishedCountry(preferred = ''): string {
+  return startingDemoCountry({
+    preferred,
+    published: publishedCountries.value,
+    current: DEFAULT_DEMO_COUNTRY,
+    touched: false,
+  })
+}
+
+function countryFor(profileId: string): string {
+  return preferredByProfile.value[profileId] || DEFAULT_DEMO_COUNTRY
+}
+
+async function saveCountry(account: DemoAccountRecord, country: string): Promise<void> {
+  const next = country.trim()
+  if (!next || next === countryFor(account.profileId) || busy.value) return
+  const previous = preferredByProfile.value[account.profileId]
+  preferredByProfile.value = { ...preferredByProfile.value, [account.profileId]: next }
+  busy.value = true
+  error.value = null
+  try {
+    await updateDemoPreferredCountry({
+      profileId: account.profileId,
+      organizationId: account.organizationId,
+      preferredCountry: next,
+    })
+  } catch (cause) {
+    const restored = { ...preferredByProfile.value }
+    if (previous) restored[account.profileId] = previous
+    else delete restored[account.profileId]
+    preferredByProfile.value = restored
+    error.value = cause instanceof Error ? cause.message : 'The preferred country could not be saved.'
+  } finally {
+    busy.value = false
+  }
+}
+
 function retryHold(account: DemoAccountRecord): void {
   void openCreate({
     email: account.email,
@@ -506,6 +561,15 @@ function retryHold(account: DemoAccountRecord): void {
         <div class="users-row-main">
           <p class="users-email">{{ account.email }}</p>
           <p class="author-list-sub">{{ accountSummary(account) }}</p>
+          <AuthorSelectField
+            :id="`demo-account-country-${account.profileId}`"
+            class="demo-account-country"
+            label="Country"
+            :model-value="countryFor(account.profileId)"
+            :options="countryOptions"
+            :disabled="busy"
+            @update:model-value="saveCountry(account, $event)"
+          />
         </div>
         <div class="demo-account-actions">
           <AuthorPillButton
@@ -594,7 +658,7 @@ function retryHold(account: DemoAccountRecord): void {
             id="demo-preferred-country"
             v-model="preferredCountry"
             label="Preferred country"
-            :options="countryOptions"
+            :options="newDemoCountryOptions"
             searchable
           />
           <label class="demo-field">

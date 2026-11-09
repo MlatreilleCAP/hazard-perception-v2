@@ -8,17 +8,26 @@ import {
   listAdminOrganizations,
   listDemoAccountEvents,
   listDemoAccounts,
+  loadPreferredCountries,
   provisionDemoAccount,
+  updateDemoPreferredCountry,
 } from '@/services/demoAccounts'
+import { loadPublishedDemoCountries } from '@/services/publishedDemoCountries'
 
 vi.mock('@/services/demoAccounts', () => ({
   listAdminOrganizations: vi.fn(),
   listDemoAccounts: vi.fn(),
   listDemoAccountEvents: vi.fn(),
+  loadPreferredCountries: vi.fn(async () => ({})),
   provisionDemoAccount: vi.fn(),
+  updateDemoPreferredCountry: vi.fn(),
   extendDemoAccount: vi.fn(),
   deactivateDemoAccount: vi.fn(),
   deleteCreatedDemoUser: vi.fn(),
+}))
+
+vi.mock('@/services/publishedDemoCountries', () => ({
+  loadPublishedDemoCountries: vi.fn(async () => ['United States', 'Italy']),
 }))
 
 const organization = { id: 'org-1', name: 'AlertDriving', slug: 'alertdriving' }
@@ -63,7 +72,10 @@ describe('DemoAccountsSection', () => {
         createdAt: '2026-11-01T15:00:00.000Z',
       },
     ])
+    vi.mocked(loadPreferredCountries).mockResolvedValue({})
+    vi.mocked(loadPublishedDemoCountries).mockResolvedValue(['United States', 'Italy'])
     vi.mocked(provisionDemoAccount).mockReset()
+    vi.mocked(updateDemoPreferredCountry).mockReset()
     vi.mocked(extendDemoAccount).mockReset()
     vi.mocked(deactivateDemoAccount).mockReset()
     vi.spyOn(Storage.prototype, 'setItem')
@@ -143,6 +155,20 @@ describe('DemoAccountsSection', () => {
     expect(stored).not.toContain(password)
   })
 
+  it('saves a new country on an existing demo account', async () => {
+    vi.mocked(updateDemoPreferredCountry).mockResolvedValue()
+    const wrapper = await mountSection()
+    await wrapper.get('#demo-account-country-profile-1').trigger('click')
+    await wrapper.findAll('[role="option"]').find((option) => option.text() === 'Italy')?.trigger('click')
+    await flushPromises()
+
+    expect(updateDemoPreferredCountry).toHaveBeenCalledWith({
+      profileId: 'profile-1',
+      organizationId: 'org-1',
+      preferredCountry: 'Italy',
+    })
+  })
+
   it('sends the preferred country chosen on the new demo form', async () => {
     vi.mocked(provisionDemoAccount).mockResolvedValue({
       profileId: 'profile-2',
@@ -155,7 +181,9 @@ describe('DemoAccountsSection', () => {
     await wrapper.findAll('button').find((button) => button.text() === 'New Demo')?.trigger('click')
     await wrapper.get('input[type="email"]').setValue('italy.person@example.com')
     await wrapper.get('#demo-preferred-country').trigger('click')
-    await wrapper.findAll('[role="option"]').find((option) => option.text() === 'Italy')?.trigger('click')
+    const options = wrapper.findAll('[aria-labelledby="demo-preferred-country"] [role="option"]')
+    expect(options.map((option) => option.text())).toEqual(['United States', 'Italy'])
+    await options.find((option) => option.text() === 'Italy')?.trigger('click')
     await wrapper.get('input[type="datetime-local"]').setValue('2030-06-01T09:30')
     await wrapper.get('form').trigger('submit')
     await flushPromises()

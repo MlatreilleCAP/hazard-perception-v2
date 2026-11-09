@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_DEMO_COUNTRY, startingDemoCountry } from '@/lib/demo/preferredCountry'
+import {
+  DEFAULT_DEMO_COUNTRY,
+  publishedDemoCountryNames,
+  startingDemoCountry,
+} from '@/lib/demo/preferredCountry'
+
+describe('publishedDemoCountryNames', () => {
+  it('keeps each published country once and puts United States first', () => {
+    expect(publishedDemoCountryNames(['Italy', 'italy', '', 'United States', 'Italy'])).toEqual([
+      'United States',
+      'Italy',
+    ])
+  })
+})
 
 describe('startingDemoCountry', () => {
   it('opens on the saved country when that country has a published lesson', () => {
