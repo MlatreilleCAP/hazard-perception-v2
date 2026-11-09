@@ -238,10 +238,6 @@ function coverFor(group: DemoLessonGroup, index: number): string {
   return catalogCoverAt(index)
 }
 
-function glyph(title: string): string {
-  return title.trim().charAt(0).toUpperCase() || 'A'
-}
-
 function startTo(id: string) {
   return { path: '/player', query: { activity: id } }
 }
@@ -294,7 +290,6 @@ function setSelected(groupKey: string, id: string): void {
           <article class="activity-card">
             <div class="activity-card-cover">
               <img :src="coverFor(group, index)" alt="" />
-              <div class="activity-glyph" aria-hidden="true">{{ glyph(cardTitle(selectedId(group.key), group.title)) }}</div>
             </div>
             <div class="activity-card-body">
               <div v-if="countryFor(selectedId(group.key))" class="activity-card-meta">
