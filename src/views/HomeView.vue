@@ -99,9 +99,6 @@ async function signOut(): Promise<void> {
             Experience the
             <span class="landing-gradient">Demo</span>
           </h2>
-          <p>
-            Interactive activities that incorporates hazard perception, situational awareness and targeted coaching in one place.
-          </p>
         </div>
         <p v-if="auth.role === 'unprovisioned'" class="landing-lede" role="status">
           {{ ACCESS_PENDING_MESSAGE }}

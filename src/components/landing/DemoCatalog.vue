@@ -4,7 +4,7 @@ import { RouterLink } from 'vue-router'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { catalogCoverAt } from '@/app/catalogCovers'
 import { services } from '@/app/container'
-import { canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
+import { canonicalizeLessonCountry, canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
 import { DEFAULT_LESSON_BUTTON_LABEL } from '@/lib/lesson/buttonLabel'
 import { lessonVersionKey, previewCardTitle } from '@/lib/inroadsMvp/lessonVersions'
 import { useActivityStore } from '@/stores/activityStore'
@@ -33,6 +33,8 @@ const localeById = ref(
 const coverUrlByMediaId = ref(new Map<string, string>())
 const selectedByGroup = ref<Record<string, string>>({})
 const userSelectedByGroup = ref<Record<string, boolean>>({})
+const DEFAULT_DEMO_COUNTRY = 'United States'
+const selectedCountry = ref(DEFAULT_DEMO_COUNTRY)
 
 const published = computed(() =>
   activities.summaries.filter(
@@ -88,6 +90,40 @@ const demoGroups = computed((): DemoLessonGroup[] => {
       versions,
     }
   })
+})
+
+const countries = computed(() => {
+  const names = new Set<string>()
+  for (const item of published.value) {
+    const country = canonicalizeLessonCountry(localeById.value.get(item.id)?.country ?? '')
+    if (country) names.add(country)
+  }
+  return [...names].sort((left, right) => {
+    if (left === DEFAULT_DEMO_COUNTRY) return -1
+    if (right === DEFAULT_DEMO_COUNTRY) return 1
+    return left.localeCompare(right)
+  })
+})
+
+const visibleGroups = computed(() => {
+  const country = canonicalizeLessonCountry(selectedCountry.value)
+  return demoGroups.value
+    .map((group) => ({
+      ...group,
+      versions: group.versions.filter(
+        (version) => canonicalizeLessonCountry(countryFor(version.id)) === country,
+      ),
+    }))
+    .filter((group) => group.versions.length > 0)
+})
+
+watch(countries, (list) => {
+  if (list.includes(selectedCountry.value)) return
+  if (list.includes(DEFAULT_DEMO_COUNTRY)) {
+    selectedCountry.value = DEFAULT_DEMO_COUNTRY
+    return
+  }
+  if (list[0]) selectedCountry.value = list[0]
 })
 
 async function loadLocales(items: ActivitySummary[]): Promise<void> {
@@ -243,7 +279,11 @@ function startTo(id: string) {
 }
 
 function selectedId(groupKey: string): string {
-  return selectedByGroup.value[groupKey] ?? ''
+  const group = visibleGroups.value.find((item) => item.key === groupKey)
+  const current = selectedByGroup.value[groupKey] ?? ''
+  if (group?.versions.some((version) => version.id === current)) return current
+  const english = group?.versions.find((version) => isEnglishLanguage(version.language))
+  return english?.id ?? group?.versions[0]?.id ?? ''
 }
 
 function setSelected(groupKey: string, id: string): void {
@@ -255,6 +295,19 @@ function setSelected(groupKey: string, id: string): void {
 <template>
   <div class="demo-catalog">
     <section class="catalog-section" aria-label="All demos">
+      <label
+        v-if="auth.isSignedIn && !catalogLoading && countries.length > 0"
+        class="demo-country-field"
+        for="demo-country"
+      >
+        <span class="demo-country-label">Country</span>
+        <select id="demo-country" v-model="selectedCountry" class="demo-country-select">
+          <option v-for="country in countries" :key="country" :value="country">
+            {{ country }}
+          </option>
+        </select>
+      </label>
+
       <div
         v-if="!auth.isSignedIn"
         class="catalog-empty"
@@ -276,7 +329,7 @@ function setSelected(groupKey: string, id: string): void {
       </div>
 
       <div
-        v-else-if="demoGroups.length === 0"
+        v-else-if="visibleGroups.length === 0"
         class="catalog-empty"
         role="status"
       >
@@ -286,7 +339,7 @@ function setSelected(groupKey: string, id: string): void {
       </div>
 
       <ul v-else class="catalog-grid">
-        <li v-for="(group, index) in demoGroups" :key="group.key">
+        <li v-for="(group, index) in visibleGroups" :key="group.key">
           <article class="activity-card">
             <div class="activity-card-cover">
               <img :src="coverFor(group, index)" alt="" />

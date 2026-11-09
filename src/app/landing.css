@@ -1013,7 +1013,22 @@
   margin-top: 12px;
 }
 
-.demo-language-select {
+.demo-country-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+  margin-bottom: 24px;
+}
+
+.demo-country-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--editor-ink);
+}
+
+.demo-language-select,
+.demo-country-select {
   width: 100%;
   height: 37px;
   border: 1px solid var(--landing-line);
@@ -1032,7 +1047,8 @@
   background-repeat: no-repeat;
 }
 
-.demo-language-select:focus {
+.demo-language-select:focus,
+.demo-country-select:focus {
   outline: 2px solid rgb(255 107 181 / 35%);
   outline-offset: 1px;
 }
