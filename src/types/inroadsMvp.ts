@@ -78,6 +78,10 @@ export type InroadsMvpDefinition = {
   assigneeId: string
   /** Name shown on the queue card for the current holder. */
   assigneeName: string
+  /** User who first had this lesson in progress. Restored when it is sent back. */
+  progressAssigneeId: string
+  /** Name from the original in-progress holder. Restored when it is sent back. */
+  progressAssigneeName: string
   /** Manual position in a queue column. Unset cards sort by the date they were added. */
   queueOrder: number | null
   /** Name on the project management board. Independent of the English lesson title. */
@@ -168,6 +172,8 @@ export function createDefaultInroadsMvpDefinition(
     reviewNotes: '',
     assigneeId: '',
     assigneeName: '',
+    progressAssigneeId: '',
+    progressAssigneeName: '',
     queueOrder: null,
     projectTitle: '',
     lessonTitle: '',
@@ -216,6 +222,8 @@ export function cloneInroadsMvpDefinition(
     reviewNotes: definition.reviewNotes.trim(),
     assigneeId: definition.assigneeId.trim(),
     assigneeName: definition.assigneeName.trim(),
+    progressAssigneeId: (definition.progressAssigneeId ?? '').trim(),
+    progressAssigneeName: (definition.progressAssigneeName ?? '').trim(),
     queueOrder: readQueueOrder(definition.queueOrder),
     projectTitle: definition.projectTitle.trim(),
     lessonTitle: definition.lessonTitle.trim(),
@@ -295,6 +303,10 @@ export function normalizeInroadsMvpDefinition(
     reviewNotes: typeof raw.reviewNotes === 'string' ? raw.reviewNotes.trim() : '',
     assigneeId: typeof raw.assigneeId === 'string' ? raw.assigneeId.trim() : '',
     assigneeName: typeof raw.assigneeName === 'string' ? raw.assigneeName.trim() : '',
+    progressAssigneeId:
+      typeof raw.progressAssigneeId === 'string' ? raw.progressAssigneeId.trim() : '',
+    progressAssigneeName:
+      typeof raw.progressAssigneeName === 'string' ? raw.progressAssigneeName.trim() : '',
     queueOrder: readQueueOrder(raw.queueOrder),
     projectTitle: typeof raw.projectTitle === 'string' ? raw.projectTitle.trim() : '',
     lessonTitle: typeof raw.lessonTitle === 'string' ? raw.lessonTitle.trim() : '',

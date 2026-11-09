@@ -100,7 +100,13 @@ export async function duplicateInroadsMvpVersion(
     reviewNotes: '',
     queueOrder: null,
     ...(creatingLanguage
-      ? { reviewStatus: 'available' as const, assigneeId: '', assigneeName: '' }
+      ? {
+          reviewStatus: 'available' as const,
+          assigneeId: '',
+          assigneeName: '',
+          progressAssigneeId: '',
+          progressAssigneeName: '',
+        }
       : {}),
   })
   const saved = await services.persistence.save(next)

@@ -20,6 +20,10 @@ export type IntroductionDefinition = {
   assigneeId: string
   /** Name shown on the queue card for the current holder. */
   assigneeName: string
+  /** User who first had this video in progress. Restored when it is sent back. */
+  progressAssigneeId: string
+  /** Name from the original in-progress holder. Restored when it is sent back. */
+  progressAssigneeName: string
   /** Reviewer notes shown on the queue card after changes are requested. */
   reviewNotes: string
   /** Manual position in a queue column. Unset cards sort by the date they were added. */
@@ -52,6 +56,8 @@ export function createDefaultIntroductionDefinition(): IntroductionDefinition {
     version: 1,
     assigneeId: '',
     assigneeName: '',
+    progressAssigneeId: '',
+    progressAssigneeName: '',
     reviewNotes: '',
     queueOrder: null,
     videoTitle: '',
@@ -72,6 +78,8 @@ export function cloneIntroductionDefinition(
     reviewStatus: readLessonReviewStatus(definition.reviewStatus),
     assigneeId: definition.assigneeId.trim(),
     assigneeName: definition.assigneeName.trim(),
+    progressAssigneeId: (definition.progressAssigneeId ?? '').trim(),
+    progressAssigneeName: (definition.progressAssigneeName ?? '').trim(),
     reviewNotes: definition.reviewNotes.trim(),
     queueOrder: readQueueOrder(definition.queueOrder),
     videoTitle: definition.videoTitle.trim(),
@@ -98,6 +106,10 @@ export function normalizeIntroductionDefinition(
     reviewStatus: readLessonReviewStatus(raw?.reviewStatus),
     assigneeId: typeof raw?.assigneeId === 'string' ? raw.assigneeId.trim() : '',
     assigneeName: typeof raw?.assigneeName === 'string' ? raw.assigneeName.trim() : '',
+    progressAssigneeId:
+      typeof raw?.progressAssigneeId === 'string' ? raw.progressAssigneeId.trim() : '',
+    progressAssigneeName:
+      typeof raw?.progressAssigneeName === 'string' ? raw.progressAssigneeName.trim() : '',
     reviewNotes: typeof raw?.reviewNotes === 'string' ? raw.reviewNotes.trim() : '',
     queueOrder: readQueueOrder(raw?.queueOrder),
     videoTitle: typeof raw?.videoTitle === 'string' ? raw.videoTitle.trim() : '',

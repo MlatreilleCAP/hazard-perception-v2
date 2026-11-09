@@ -3,8 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { readIntroductionDefinition } from '@/activities/introductionDefinition'
-import availableIcon from '@/assets/queue/available.svg'
 import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
+import availableIcon from '@/assets/queue/available.svg'
 import inProgressIcon from '@/assets/queue/in-progress.svg'
 import reviewIcon from '@/assets/queue/review.svg'
 import { canonicalActivityId } from '@/app/id'
@@ -17,6 +17,7 @@ import {
   APPROVER_NAME,
   MANAGING_EDITOR_NAME,
   approverAssignee,
+  nextQueueHolders,
   reviewerAssignee,
 } from '@/lib/lesson/queueAssignment'
 import { exportIntroductionAssetsZip } from '@/services/exportIntroductionPackage'
@@ -50,6 +51,8 @@ type QueueCard = {
   status: LessonReviewStatus
   assigneeId: string
   assigneeName: string
+  progressAssigneeId: string
+  progressAssigneeName: string
   reviewNotes: string
   addedAt: number
   queueOrder: number | null
@@ -195,11 +198,6 @@ const changesCard = computed(
 const canClearNotes = computed(() => identity.canApprove.value)
 const canRepublish = computed(() => identity.canApprove.value)
 
-function editorAssignee(card: QueueCard): { id: string; name: string } | null {
-  if (!card.assigneeId && !card.assigneeName) return null
-  return { id: card.assigneeId, name: card.assigneeName }
-}
-
 function placementFor(status: BoardStatus | 'approved'): { id: string; name: string } | null {
   const actor = {
     id: identity.userId.value ?? '',
@@ -321,18 +319,37 @@ function addedAtFrom(createdAt: string | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function assigneeFor(
-  card: QueueCard,
+function holdersForMove(
+  previous: QueueCard,
   status: BoardStatus | 'approved',
-): { id: string; name: string } | null {
-  if (status === 'review') return editorAssignee(card) ?? placementFor(status)
-  return placementFor(status)
+): {
+  assignee: { id: string; name: string } | null
+  progressAssignee: { id: string; name: string } | null
+} {
+  const moved = nextQueueHolders({
+    fromStatus: previous.status,
+    toStatus: status,
+    assignee: { id: previous.assigneeId, name: previous.assigneeName },
+    progressAssignee: {
+      id: previous.progressAssigneeId,
+      name: previous.progressAssigneeName,
+    },
+    actor: {
+      id: identity.userId.value ?? '',
+      name: identity.name.value || 'Unassigned',
+    },
+  })
+  let assignee = moved.assignee
+  if (!assignee && (status === 'review' || status === 'approval' || status === 'approved')) {
+    assignee = placementFor(status)
+  }
+  return { assignee, progressAssignee: moved.progressAssignee }
 }
 
 async function moveCard(
   id: string,
   status: BoardStatus | 'approved',
-  options?: { reviewNotes?: string; assignee?: { id: string; name: string } | null },
+  options?: { reviewNotes?: string },
 ): Promise<boolean> {
   const previous = cards.value.find((item) => item.id === id)
   if (!previous || previous.status === status || updatingId.value) return false
@@ -347,8 +364,7 @@ async function moveCard(
   updatingId.value = id
   actionError.value = null
   reviewMenuId.value = null
-  const assignee =
-    options && 'assignee' in options ? (options.assignee ?? null) : assigneeFor(previous, status)
+  const { assignee, progressAssignee } = holdersForMove(previous, status)
   const reviewNotes =
     options?.reviewNotes !== undefined ? options.reviewNotes.trim() : previous.reviewNotes
   const without = cards.value.filter((item) => item.id !== id)
@@ -359,11 +375,20 @@ async function moveCard(
       status,
       assigneeId: assignee?.id ?? '',
       assigneeName: assignee?.name ?? '',
+      progressAssigneeId: progressAssignee?.id ?? '',
+      progressAssigneeName: progressAssignee?.name ?? '',
       reviewNotes,
     },
   ])
   try {
-    await setLessonQueuePlacement(id, status, assignee, options?.reviewNotes)
+    await setLessonQueuePlacement(
+      id,
+      status,
+      assignee,
+      options?.reviewNotes,
+      undefined,
+      progressAssignee,
+    )
     return true
   } catch (cause) {
     cards.value = sortCards([...cards.value.filter((item) => item.id !== id), previous])
@@ -480,12 +505,19 @@ async function placeCard(
     if (sameNeighbors) return
   }
   const queueOrder = orderBetween(before, after)
-  const assignee =
+  const { assignee, progressAssignee } =
     status === previous.status
-      ? previous.assigneeId || previous.assigneeName
-        ? { id: previous.assigneeId, name: previous.assigneeName }
-        : null
-      : assigneeFor(previous, status)
+      ? {
+          assignee:
+            previous.assigneeId || previous.assigneeName
+              ? { id: previous.assigneeId, name: previous.assigneeName }
+              : null,
+          progressAssignee:
+            previous.progressAssigneeId || previous.progressAssigneeName
+              ? { id: previous.progressAssigneeId, name: previous.progressAssigneeName }
+              : null,
+        }
+      : holdersForMove(previous, status)
   updatingId.value = id
   actionError.value = null
   reviewMenuId.value = null
@@ -497,11 +529,13 @@ async function placeCard(
       status,
       assigneeId: assignee?.id ?? '',
       assigneeName: assignee?.name ?? '',
+      progressAssigneeId: progressAssignee?.id ?? '',
+      progressAssigneeName: progressAssignee?.name ?? '',
       queueOrder,
     },
   ])
   try {
-    await setLessonQueuePlacement(id, status, assignee, undefined, queueOrder)
+    await setLessonQueuePlacement(id, status, assignee, undefined, queueOrder, progressAssignee)
     if (status === 'available') {
       try {
         const marked = await markDraftLanguageVariantsAvailable(id)
@@ -553,6 +587,8 @@ async function availableCard(id: string): Promise<QueueCard | null> {
     status: 'available',
     assigneeId: '',
     assigneeName: '',
+    progressAssigneeId: '',
+    progressAssigneeName: '',
     reviewNotes: parsed.reviewNotes.trim(),
     addedAt: addedAtFrom(definition.metadata.createdAt),
     queueOrder: readQueueOrder(parsed.queueOrder),
@@ -593,6 +629,8 @@ function cardFromSnapshot(
     reviewStatus: QueueCard['status'] | undefined
     assigneeId: string
     assigneeName: string
+    progressAssigneeId: string
+    progressAssigneeName: string
     reviewNotes: string
     queueOrder: number | null
   } | undefined,
@@ -606,6 +644,8 @@ function cardFromSnapshot(
     status: lessonQueueStatus(snapshot?.reviewStatus, published),
     assigneeId: snapshot?.assigneeId ?? '',
     assigneeName: snapshot?.assigneeName ?? '',
+    progressAssigneeId: snapshot?.progressAssigneeId ?? '',
+    progressAssigneeName: snapshot?.progressAssigneeName ?? '',
     reviewNotes: snapshot?.reviewNotes ?? '',
     addedAt: addedAtFrom(snapshot?.createdAt),
     queueOrder: snapshot?.queueOrder ?? null,
@@ -638,8 +678,15 @@ async function promoteLoadedDrafts(loaded: QueueCard[]): Promise<void> {
   const promoted: QueueCard[] = []
   await mapPool(drafts, QUEUE_LOAD_LIMIT, async (card) => {
     try {
-      await setLessonQueuePlacement(card.id, 'available', null)
-      promoted.push({ ...card, status: 'available', assigneeId: '', assigneeName: '' })
+      await setLessonQueuePlacement(card.id, 'available', null, undefined, undefined, null)
+      promoted.push({
+        ...card,
+        status: 'available',
+        assigneeId: '',
+        assigneeName: '',
+        progressAssigneeId: '',
+        progressAssigneeName: '',
+      })
     } catch {
       // The board is already visible. A failed draft can retry on the next visit.
     }
@@ -755,10 +802,17 @@ async function unpublish(card: QueueCard): Promise<void> {
     } else {
       await unpublishInroadsMvpLesson(card.id)
     }
-    await setLessonQueuePlacement(card.id, 'available', null)
+    await setLessonQueuePlacement(card.id, 'available', null, undefined, undefined, null)
     cards.value = cards.value.map((item) =>
       item.id === card.id
-        ? { ...item, status: 'available', assigneeId: '', assigneeName: '' }
+        ? {
+            ...item,
+            status: 'available',
+            assigneeId: '',
+            assigneeName: '',
+            progressAssigneeId: '',
+            progressAssigneeName: '',
+          }
         : item,
     )
     await activities.refreshList()
@@ -827,7 +881,6 @@ async function submitChanges(): Promise<void> {
   if (!card || !note) return
   const saved = await moveCard(card.id, 'in_progress', {
     reviewNotes: note,
-    assignee: editorAssignee(card),
   })
   if (!saved) return
   changesForId.value = null

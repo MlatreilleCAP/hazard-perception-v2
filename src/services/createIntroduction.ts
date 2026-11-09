@@ -47,6 +47,8 @@ export async function duplicateIntroductionVersion(
     reviewStatus: 'available',
     assigneeId: '',
     assigneeName: '',
+    progressAssigneeId: '',
+    progressAssigneeName: '',
     reviewNotes: '',
     queueOrder: null,
   })

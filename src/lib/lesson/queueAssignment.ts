@@ -28,6 +28,51 @@ export function canEditPublishedContent(name: string, email: string): boolean {
 
 type QueueActor = { id: string; name: string; email: string }
 
+export type QueueHolder = { id: string; name: string }
+
+function namedHolder(
+  holder: { id?: string | null; name?: string | null } | null | undefined,
+): QueueHolder | null {
+  const id = holder?.id?.trim() ?? ''
+  const name = holder?.name?.trim() ?? ''
+  if (!id && !name) return null
+  return { id, name }
+}
+
+/**
+ * The person who first had the lesson in progress stays on the card when it
+ * returns there from review or approval. Later column holders do not replace
+ * that name.
+ */
+export function nextQueueHolders(input: {
+  fromStatus: string | undefined
+  toStatus: string
+  assignee: QueueHolder | null
+  progressAssignee: QueueHolder | null
+  actor: QueueHolder | null
+}): { assignee: QueueHolder | null; progressAssignee: QueueHolder | null } {
+  const progress = namedHolder(input.progressAssignee)
+  const current = namedHolder(input.assignee)
+  const actor = namedHolder(input.actor)
+  const from = input.fromStatus ?? ''
+  const to = input.toStatus
+
+  if (to === 'available') return { assignee: null, progressAssignee: null }
+
+  if (to === 'in_progress' && (from === 'review' || from === 'approval' || from === 'approved')) {
+    const restored = progress ?? current
+    return { assignee: restored, progressAssignee: progress ?? restored }
+  }
+
+  if (to === 'in_progress') {
+    const assignee = from === 'in_progress' ? (current ?? actor) : actor
+    return { assignee, progressAssignee: progress ?? assignee }
+  }
+
+  const remembered = progress ?? (from === 'in_progress' || from === 'review' ? current : null)
+  return { assignee: current, progressAssignee: remembered }
+}
+
 /** Review stays with Steven, even when someone else submits the lesson. */
 export function reviewerAssignee(actor: QueueActor): { id: string; name: string } {
   return {

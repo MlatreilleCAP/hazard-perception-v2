@@ -17,6 +17,8 @@ export type QueueSnapshot = {
   reviewStatus: LessonReviewStatus | undefined
   assigneeId: string
   assigneeName: string
+  progressAssigneeId: string
+  progressAssigneeName: string
   reviewNotes: string
   queueOrder: number | null
 }
@@ -36,6 +38,8 @@ export function readQueueSnapshot(raw: unknown, createdAt: string): QueueSnapsho
     reviewStatus: readLessonReviewStatus(value.reviewStatus),
     assigneeId: text(value.assigneeId),
     assigneeName: text(value.assigneeName),
+    progressAssigneeId: text(value.progressAssigneeId),
+    progressAssigneeName: text(value.progressAssigneeName),
     reviewNotes: text(value.reviewNotes),
     queueOrder: readQueueOrder(value.queueOrder),
   }

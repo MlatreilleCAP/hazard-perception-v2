@@ -36,7 +36,7 @@ import {
 import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { useStudioAccess } from '@/composables/useStudioAccess'
-import { reviewerAssignee } from '@/lib/lesson/queueAssignment'
+import { nextQueueHolders, reviewerAssignee } from '@/lib/lesson/queueAssignment'
 import { contentReadonlyMessage } from '@/lib/auth/roles'
 import { useActivityStore } from '@/stores/activityStore'
 import {
@@ -897,15 +897,31 @@ async function submitLesson(
     name: identity.name.value,
     email: identity.email.value ?? '',
   })
+  const held = nextQueueHolders({
+    fromStatus: mvp.value.reviewStatus,
+    toStatus: status,
+    assignee: { id: mvp.value.assigneeId, name: mvp.value.assigneeName },
+    progressAssignee: {
+      id: mvp.value.progressAssigneeId,
+      name: mvp.value.progressAssigneeName,
+    },
+    actor: { id: identity.userId.value ?? '', name: identity.name.value },
+  })
   const assignee =
-    status === 'in_progress'
-      ? { assigneeId: identity.userId.value ?? '', assigneeName: identity.name.value }
-      : status === 'review'
-        ? mvp.value.assigneeId || mvp.value.assigneeName
-          ? { assigneeId: mvp.value.assigneeId, assigneeName: mvp.value.assigneeName }
-          : { assigneeId: reviewer.id, assigneeName: reviewer.name }
-        : { assigneeId: '', assigneeName: '' }
-  mvp.value = { ...mvp.value, reviewStatus: status, ...assignee }
+    status === 'review' && !held.assignee
+      ? { id: reviewer.id, name: reviewer.name }
+      : {
+          id: held.assignee?.id ?? '',
+          name: held.assignee?.name ?? '',
+        }
+  mvp.value = {
+    ...mvp.value,
+    reviewStatus: status,
+    assigneeId: assignee.id,
+    assigneeName: assignee.name,
+    progressAssigneeId: held.progressAssignee?.id ?? '',
+    progressAssigneeName: held.progressAssignee?.name ?? '',
+  }
   busyLabel.value = 'Submitting…'
   publishing.value = true
   try {

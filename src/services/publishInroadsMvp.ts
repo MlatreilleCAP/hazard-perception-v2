@@ -149,6 +149,7 @@ export async function setLessonQueuePlacement(
   assignee: { id: string; name: string } | null,
   reviewNotes?: string,
   queueOrder?: number,
+  progressAssignee?: { id: string; name: string } | null,
 ): Promise<void> {
   const id = canonicalActivityId(parentId)
   if (!id) {
@@ -159,6 +160,13 @@ export async function setLessonQueuePlacement(
   const assigneeName = assignee?.name.trim() ?? ''
   const notes = reviewNotes === undefined ? undefined : reviewNotes.trim()
   const order = queueOrder === undefined ? undefined : queueOrder
+  const progressFields =
+    progressAssignee === undefined
+      ? {}
+      : {
+          progressAssigneeId: progressAssignee?.id.trim() ?? '',
+          progressAssigneeName: progressAssignee?.name.trim() ?? '',
+        }
   if (isIntroductionActivity(parent.metadata.tags)) {
     const intro = readIntroductionDefinition(parent)
     const next = writeIntroductionDefinition(parent, {
@@ -166,6 +174,7 @@ export async function setLessonQueuePlacement(
       reviewStatus: status,
       assigneeId,
       assigneeName,
+      ...progressFields,
       ...(notes === undefined ? {} : { reviewNotes: notes }),
       ...(order === undefined ? {} : { queueOrder: order }),
     })
@@ -180,6 +189,7 @@ export async function setLessonQueuePlacement(
     reviewStatus: status,
     assigneeId,
     assigneeName,
+    ...progressFields,
     ...(notes === undefined ? {} : { reviewNotes: notes }),
     ...(order === undefined ? {} : { queueOrder: order }),
   })

@@ -15,7 +15,7 @@ import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import { canonicalActivityId } from '@/app/id'
 import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
-import { reviewerAssignee } from '@/lib/lesson/queueAssignment'
+import { nextQueueHolders, reviewerAssignee } from '@/lib/lesson/queueAssignment'
 import { duplicateIntroductionVersion } from '@/services/createIntroduction'
 import { markDraftLanguageVariantsAvailable } from '@/services/publishInroadsMvp'
 import { useStudioAccess } from '@/composables/useStudioAccess'
@@ -429,18 +429,31 @@ async function submitVideo(
     name: identity.name.value,
     email: identity.email.value ?? '',
   })
+  const held = nextQueueHolders({
+    fromStatus: introduction.value.reviewStatus,
+    toStatus: status,
+    assignee: { id: introduction.value.assigneeId, name: introduction.value.assigneeName },
+    progressAssignee: {
+      id: introduction.value.progressAssigneeId,
+      name: introduction.value.progressAssigneeName,
+    },
+    actor: { id: identity.userId.value ?? '', name: identity.name.value },
+  })
   const assignee =
-    status === 'in_progress'
-      ? { assigneeId: identity.userId.value ?? '', assigneeName: identity.name.value }
-      : status === 'review'
-        ? introduction.value.assigneeId || introduction.value.assigneeName
-          ? {
-              assigneeId: introduction.value.assigneeId,
-              assigneeName: introduction.value.assigneeName,
-            }
-          : { assigneeId: reviewer.id, assigneeName: reviewer.name }
-        : { assigneeId: '', assigneeName: '' }
-  introduction.value = { ...introduction.value, reviewStatus: status, ...assignee }
+    status === 'review' && !held.assignee
+      ? { id: reviewer.id, name: reviewer.name }
+      : {
+          id: held.assignee?.id ?? '',
+          name: held.assignee?.name ?? '',
+        }
+  introduction.value = {
+    ...introduction.value,
+    reviewStatus: status,
+    assigneeId: assignee.id,
+    assigneeName: assignee.name,
+    progressAssigneeId: held.progressAssignee?.id ?? '',
+    progressAssigneeName: held.progressAssignee?.name ?? '',
+  }
   submitting.value = true
   try {
     if (!(await saveIntro())) return
