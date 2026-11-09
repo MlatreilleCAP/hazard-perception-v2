@@ -865,15 +865,6 @@
   gap: 32px;
 }
 
-.catalog-kicker {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--editor-quiet);
-}
-
 .catalog-empty {
   display: flex;
   min-height: 220px;
@@ -904,7 +895,7 @@
 .catalog-grid {
   display: grid;
   gap: 20px;
-  margin: 16px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }

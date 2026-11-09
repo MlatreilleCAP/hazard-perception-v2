@@ -259,10 +259,6 @@ function setSelected(groupKey: string, id: string): void {
 <template>
   <div class="demo-catalog">
     <section class="catalog-section" aria-label="All demos">
-      <div class="catalog-heading-row">
-        <h2 class="catalog-kicker">All demos</h2>
-      </div>
-
       <div
         v-if="!auth.isSignedIn"
         class="catalog-empty"
