@@ -294,20 +294,18 @@ function setSelected(groupKey: string, id: string): void {
 
 <template>
   <div class="demo-catalog">
+    <select
+      v-if="auth.isSignedIn && !catalogLoading && countries.length > 0"
+      id="demo-country"
+      v-model="selectedCountry"
+      class="demo-country-field demo-country-select"
+      aria-label="Country"
+    >
+      <option v-for="country in countries" :key="country" :value="country">
+        {{ country }}
+      </option>
+    </select>
     <section class="catalog-section" aria-label="All demos">
-      <label
-        v-if="auth.isSignedIn && !catalogLoading && countries.length > 0"
-        class="demo-country-field"
-        for="demo-country"
-      >
-        <span class="demo-country-label">Country</span>
-        <select id="demo-country" v-model="selectedCountry" class="demo-country-select">
-          <option v-for="country in countries" :key="country" :value="country">
-            {{ country }}
-          </option>
-        </select>
-      </label>
-
       <div
         v-if="!auth.isSignedIn"
         class="catalog-empty"
