@@ -227,6 +227,16 @@ export class SupabaseActivityRepository implements ActivityRepository {
     })
     throwIfError(error, 'Failed to publish activity')
 
+    // get_published_activity hides removed rows. The database function clears
+    // removed_at once that migration is applied; until then, do it here so a
+    // successful publish is visible.
+    const { error: restoreError } = await this.client
+      .from('activities')
+      .update({ removed_at: null })
+      .eq('id', activityId)
+      .not('removed_at', 'is', null)
+    throwIfError(restoreError, 'Failed to publish activity')
+
     const published = await this.getPublished(activityId)
     if (!published) {
       throw new Error(`Activity ${id} has no published version after publish`)
