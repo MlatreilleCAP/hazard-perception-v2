@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import { formatDemoTimestamp } from '@/lib/demo/accessMessage'
 import { demoFormError, displayDemoStatus, eventLabel, expiryIsoFromLocal } from '@/lib/demo/demoForm'
 import { isSetupIncomplete } from '@/lib/demo/provisionState'
 import { DEFAULT_DEMO_COUNTRY, startingDemoCountry } from '@/lib/demo/preferredCountry'
-import { LESSON_COUNTRY_OPTIONS } from '@/lib/inroadsMvp/packageSpec'
 import {
   deactivateDemoAccount,
   deleteCreatedDemoUser,
@@ -44,22 +43,26 @@ const organizationId = ref('')
 const organizationOptions = computed(() =>
   organizations.value.map((organization) => ({ value: organization.id, label: organization.name })),
 )
-const countryOptions = computed(() =>
-  LESSON_COUNTRY_OPTIONS.map((country) => ({ value: country, label: country })),
-)
 const publishedCountries = ref<string[]>([])
 const newDemoCountryOptions = computed(() =>
   publishedCountries.value.map((country) => ({ value: country, label: country })),
 )
 const accounts = ref<DemoAccountRecord[]>([])
 const preferredByProfile = ref<Record<string, string>>({})
+const optionsMenuId = ref<string | null>(null)
+const countryMenuId = ref<string | null>(null)
+const countryQuery = ref('')
+const filteredCountryOptions = computed(() => {
+  const query = countryQuery.value.trim().toLowerCase()
+  if (!query) return newDemoCountryOptions.value
+  return newDemoCountryOptions.value.filter((option) => option.label.toLowerCase().includes(query))
+})
 const loading = ref(true)
 const error = ref<string | null>(null)
 const busy = ref(false)
 
 const createOpen = ref(false)
 const email = ref('')
-const displayName = ref('')
 const preferredCountry = ref(DEFAULT_DEMO_COUNTRY)
 const expiresAtLocal = ref('')
 const dialogError = ref<string | null>(null)
@@ -74,7 +77,6 @@ const passwordDialog = ref<HTMLElement | null>(null)
 
 const incomplete = ref<{
   email: string
-  displayName: string
   preferredCountry: string
   expiresAtLocal: string
 } | null>(null)
@@ -117,8 +119,48 @@ watch(() => props.reloadToken, () => {
 
 onMounted(() => {
   toolbarReady.value = document.getElementById('users-new-demo') != null
+  document.addEventListener('pointerdown', onDocumentPointerDown)
+  document.addEventListener('keydown', onDocumentKeydown)
   void load()
 })
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
+  document.removeEventListener('keydown', onDocumentKeydown)
+})
+
+function closeRowMenus(): void {
+  optionsMenuId.value = null
+  countryMenuId.value = null
+  countryQuery.value = ''
+}
+
+function onDocumentPointerDown(event: PointerEvent): void {
+  const target = event.target
+  if (target instanceof Element && target.closest('.demo-account-tools .author-menu.is-open')) return
+  closeRowMenus()
+}
+
+function onDocumentKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') closeRowMenus()
+}
+
+function toggleOptions(profileId: string): void {
+  countryMenuId.value = null
+  countryQuery.value = ''
+  optionsMenuId.value = optionsMenuId.value === profileId ? null : profileId
+}
+
+function toggleCountryMenu(profileId: string): void {
+  optionsMenuId.value = null
+  if (countryMenuId.value === profileId) {
+    countryMenuId.value = null
+    countryQuery.value = ''
+    return
+  }
+  countryQuery.value = ''
+  countryMenuId.value = profileId
+}
 
 async function refreshAfterChange(): Promise<void> {
   await load()
@@ -190,13 +232,11 @@ function onDialogKeydown(event: KeyboardEvent, root: HTMLElement | null): void {
 
 async function openCreate(prefill?: {
   email: string
-  displayName: string
   preferredCountry?: string
   expiresAtLocal: string
 }): Promise<void> {
   rememberFocus()
   email.value = prefill?.email ?? ''
-  displayName.value = prefill?.displayName ?? ''
   preferredCountry.value = defaultPublishedCountry(prefill?.preferredCountry)
   expiresAtLocal.value = prefill?.expiresAtLocal ?? defaultExpiry()
   dialogError.value = null
@@ -216,6 +256,18 @@ function defaultExpiry(): string {
   const date = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const expiryLabel = computed(() => formatExpiryFace(expiresAtLocal.value))
+
+function formatExpiryFace(value: string): string {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/.exec(value)
+  if (!match) return ''
+  const [, date, hourText, minute] = match
+  const hour = Number(hourText)
+  const period = hour >= 12 ? 'PM' : 'AM'
+  const hour12 = hour % 12 || 12
+  return `${date}, ${String(hour12).padStart(2, '0')}:${minute} ${period}`
 }
 
 function closeDialogs(): void {
@@ -239,7 +291,6 @@ async function submitCreate(): Promise<void> {
   dialogError.value = null
   const validation = demoFormError({
     email: email.value,
-    displayName: displayName.value,
     preferredCountry: preferredCountry.value,
     countries: publishedCountries.value,
     expiresAtLocal: expiresAtLocal.value,
@@ -256,13 +307,12 @@ async function submitCreate(): Promise<void> {
   }
   busy.value = true
   const requestedEmail = email.value.trim().toLowerCase()
-  const requestedName = displayName.value.trim()
   const requestedCountry = preferredCountry.value.trim()
   const requestedExpiry = expiresAtLocal.value
   try {
     const result = await provisionDemoAccount({
       email: requestedEmail,
-      displayName: requestedName || null,
+      displayName: null,
       organizationId: organizationId.value,
       expiresAt,
       preferredCountry: requestedCountry,
@@ -290,7 +340,6 @@ async function submitCreate(): Promise<void> {
     if (isSetupIncomplete(message)) {
       incomplete.value = {
         email: requestedEmail,
-        displayName: requestedName,
         preferredCountry: requestedCountry,
         expiresAtLocal: requestedExpiry,
       }
@@ -493,10 +542,38 @@ async function saveCountry(account: DemoAccountRecord, country: string): Promise
   }
 }
 
+function chooseHistory(account: DemoAccountRecord): void {
+  if (statusOf(account) === 'Setup incomplete') return
+  closeRowMenus()
+  void openHistory(account)
+}
+
+function chooseExtend(account: DemoAccountRecord): void {
+  if (busy.value || statusOf(account) === 'Setup incomplete' || statusOf(account) === 'Deactivated') return
+  closeRowMenus()
+  openExtend(account)
+}
+
+function chooseDelete(account: DemoAccountRecord): void {
+  if (busy.value) return
+  closeRowMenus()
+  openDelete(account)
+}
+
+function chooseDeactivate(account: DemoAccountRecord): void {
+  if (busy.value || statusOf(account) === 'Setup incomplete' || statusOf(account) === 'Deactivated') return
+  closeRowMenus()
+  openDeactivate(account)
+}
+
+function chooseCountry(account: DemoAccountRecord, country: string): void {
+  closeRowMenus()
+  void saveCountry(account, country)
+}
+
 function retryHold(account: DemoAccountRecord): void {
   void openCreate({
     email: account.email,
-    displayName: account.displayName ?? '',
     expiresAtLocal: defaultExpiry(),
   })
 }
@@ -561,51 +638,122 @@ function retryHold(account: DemoAccountRecord): void {
         <div class="users-row-main">
           <p class="users-email">{{ account.email }}</p>
           <p class="author-list-sub">{{ accountSummary(account) }}</p>
-          <AuthorSelectField
-            :id="`demo-account-country-${account.profileId}`"
-            class="demo-account-country"
-            label="Country"
-            :model-value="countryFor(account.profileId)"
-            :options="countryOptions"
-            :disabled="busy"
-            @update:model-value="saveCountry(account, $event)"
-          />
         </div>
-        <div class="demo-account-actions">
-          <AuthorPillButton
-            v-if="statusOf(account) === 'Setup incomplete'"
-            variant="white"
-            :disabled="busy"
-            @click="retryHold(account)"
+        <div class="demo-account-tools">
+          <div
+            class="author-menu demo-account-country-menu"
+            :class="{ 'is-open': countryMenuId === account.profileId }"
           >
-            Retry
-          </AuthorPillButton>
-          <AuthorPillButton
-            v-else
-            variant="white"
-            :disabled="busy || statusOf(account) === 'Deactivated'"
-            @click="openDeactivate(account)"
+            <button
+              :id="`demo-account-country-${account.profileId}`"
+              type="button"
+              class="demo-account-tool"
+              :disabled="busy"
+              aria-haspopup="listbox"
+              :aria-expanded="countryMenuId === account.profileId"
+              @click="toggleCountryMenu(account.profileId)"
+            >
+              {{ countryFor(account.profileId) }}
+              <svg class="author-select-chevron" :class="{ 'is-open': countryMenuId === account.profileId }" viewBox="0 0 10 6" width="10" height="6" aria-hidden="true">
+                <path d="M1 1.5 5 4.5 9 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <div
+              v-if="countryMenuId === account.profileId"
+              class="author-menu-panel author-select-menu"
+              role="listbox"
+              :aria-labelledby="`demo-account-country-${account.profileId}`"
+            >
+              <input
+                v-model="countryQuery"
+                type="search"
+                class="author-select-search"
+                placeholder="Search"
+                aria-label="Search countries"
+                @click.stop
+              />
+              <p v-if="filteredCountryOptions.length === 0" class="author-select-empty">No matches.</p>
+              <button
+                v-for="option in filteredCountryOptions"
+                :key="option.value"
+                type="button"
+                class="author-menu-item"
+                role="option"
+                :aria-selected="option.value === countryFor(account.profileId)"
+                @click="chooseCountry(account, option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+          <div
+            class="author-menu demo-account-options"
+            :class="{ 'is-open': optionsMenuId === account.profileId }"
           >
-            Deactivate
-          </AuthorPillButton>
-          <AuthorPillButton
-            v-if="statusOf(account) !== 'Setup incomplete' && statusOf(account) !== 'Deactivated'"
-            variant="white"
-            :disabled="busy"
-            @click="openExtend(account)"
-          >
-            Extend
-          </AuthorPillButton>
-          <AuthorPillButton
-            v-if="statusOf(account) !== 'Setup incomplete'"
-            variant="white"
-            @click="openHistory(account)"
-          >
-            History
-          </AuthorPillButton>
-          <AuthorPillButton variant="white" :disabled="busy" @click="openDelete(account)">
-            Delete
-          </AuthorPillButton>
+            <button
+              :id="`demo-account-options-${account.profileId}`"
+              type="button"
+              class="demo-account-tool"
+              aria-haspopup="menu"
+              :aria-expanded="optionsMenuId === account.profileId"
+              @click="toggleOptions(account.profileId)"
+            >
+              Options
+            </button>
+            <div
+              v-if="optionsMenuId === account.profileId"
+              class="author-menu-panel"
+              role="menu"
+              aria-label="Options"
+            >
+              <button
+                v-if="statusOf(account) === 'Setup incomplete'"
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                :disabled="busy"
+                @click="closeRowMenus(); retryHold(account)"
+              >
+                Retry
+              </button>
+              <button
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                :disabled="statusOf(account) === 'Setup incomplete'"
+                @click="chooseHistory(account)"
+              >
+                History
+              </button>
+              <button
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                :disabled="busy || statusOf(account) === 'Setup incomplete' || statusOf(account) === 'Deactivated'"
+                @click="chooseExtend(account)"
+              >
+                Extend
+              </button>
+              <button
+                type="button"
+                class="author-menu-item danger"
+                role="menuitem"
+                :disabled="busy"
+                @click="chooseDelete(account)"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                class="author-menu-item"
+                role="menuitem"
+                :disabled="busy || statusOf(account) === 'Setup incomplete' || statusOf(account) === 'Deactivated'"
+                @click="chooseDeactivate(account)"
+              >
+                Deactivate
+              </button>
+            </div>
+          </div>
         </div>
       </li>
     </ul>
@@ -645,31 +793,36 @@ function retryHold(account: DemoAccountRecord): void {
         <p class="author-list-sub demo-create-lead">
           The demo account will be created immediately. We'll email the user a secure link to create their password before accessing Inroads.
         </p>
-        <form class="demo-form" novalidate @submit.prevent="submitCreate">
+        <form class="demo-form demo-create-form" novalidate @submit.prevent="submitCreate">
           <label class="demo-field">
-            <span>Email address</span>
+            <span>Email</span>
             <input v-model="email" type="email" autocomplete="off" required />
-          </label>
-          <label class="demo-field">
-            <span>Display name (optional)</span>
-            <input v-model="displayName" type="text" maxlength="80" autocomplete="off" />
           </label>
           <AuthorSelectField
             id="demo-preferred-country"
             v-model="preferredCountry"
-            label="Preferred country"
+            label="Preferred Country"
             :options="newDemoCountryOptions"
             searchable
           />
           <label class="demo-field">
             <span>Expiry</span>
-            <input v-model="expiresAtLocal" type="datetime-local" required />
+            <span class="demo-expiry">
+              <input v-model="expiresAtLocal" type="datetime-local" required />
+              <span class="demo-expiry-face" aria-hidden="true">
+                <span>{{ expiryLabel }}</span>
+                <svg class="demo-expiry-icon" viewBox="0 0 16 16" width="16" height="16">
+                  <rect x="2.2" y="3.4" width="11.6" height="10.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.3" />
+                  <path d="M2.2 6.6h11.6M5.4 2.2v2.2M10.6 2.2v2.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+                </svg>
+              </span>
+            </span>
           </label>
-          <p class="author-list-sub demo-create-note">Start is immediate. A future start cannot be chosen.</p>
+          <p class="demo-create-note">Start is immediate. A future start cannot be chosen.</p>
           <p v-if="dialogError" class="auth-error" role="alert">{{ dialogError }}</p>
           <div class="demo-account-actions">
             <AuthorPillButton variant="white" :disabled="busy" @click="closeDialogs">Cancel</AuthorPillButton>
-            <button type="submit" class="author-pill author-pill-primary" :disabled="busy">
+            <button type="submit" class="author-pill author-pill-white" :disabled="busy">
               {{ busy ? 'Creating…' : 'Create' }}
             </button>
           </div>

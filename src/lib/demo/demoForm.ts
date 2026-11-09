@@ -10,7 +10,6 @@ export function expiryIsoFromLocal(value: string, now = Date.now()): string | nu
 
 export function demoFormError(input: {
   email: string
-  displayName: string
   preferredCountry: string
   expiresAtLocal: string
   existingEmails: readonly string[]
@@ -22,8 +21,6 @@ export function demoFormError(input: {
   if (input.existingEmails.includes(email)) {
     return 'This email already has a demo account.'
   }
-  const name = input.displayName.trim()
-  if (name.length > 80) return 'The display name must be 80 characters or fewer.'
   const country = input.preferredCountry.trim()
   const countries: readonly string[] = input.countries ?? LESSON_COUNTRY_OPTIONS
   if (!countries.includes(country)) return 'Choose a country.'

@@ -86,6 +86,7 @@ describe('DemoAccountsSection', () => {
     expect(wrapper.text()).toContain('existing.demo@example.com')
     expect(wrapper.text()).toContain('admin · Active · Nov 1, 2026 - Jan 1, 2030')
 
+    await wrapper.get('#demo-account-options-profile-1').trigger('click')
     const history = wrapper.findAll('button').find((button) => button.text() === 'History')
     await history?.trigger('click')
     await flushPromises()
@@ -130,14 +131,13 @@ describe('DemoAccountsSection', () => {
     const wrapper = await mountSection()
     await wrapper.findAll('button').find((button) => button.text() === 'New Demo')?.trigger('click')
     await wrapper.get('input[type="email"]').setValue('new.person@example.com')
-    await wrapper.get('input[type="text"]').setValue('New Person')
     await wrapper.get('input[type="datetime-local"]').setValue('2030-06-01T09:30')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
     expect(provisionDemoAccount).toHaveBeenCalledWith(expect.objectContaining({
       email: 'new.person@example.com',
-      displayName: 'New Person',
+      displayName: null,
       organizationId: 'org-1',
       preferredCountry: 'United States',
     }))
@@ -159,7 +159,9 @@ describe('DemoAccountsSection', () => {
     vi.mocked(updateDemoPreferredCountry).mockResolvedValue()
     const wrapper = await mountSection()
     await wrapper.get('#demo-account-country-profile-1').trigger('click')
-    await wrapper.findAll('[role="option"]').find((option) => option.text() === 'Italy')?.trigger('click')
+    const options = wrapper.findAll('[role="option"]')
+    expect(options.map((option) => option.text())).toEqual(['United States', 'Italy'])
+    await options.find((option) => option.text() === 'Italy')?.trigger('click')
     await flushPromises()
 
     expect(updateDemoPreferredCountry).toHaveBeenCalledWith({
@@ -279,12 +281,14 @@ describe('DemoAccountsSection', () => {
     vi.mocked(deactivateDemoAccount).mockResolvedValue()
     const wrapper = await mountSection()
 
+    await wrapper.get('#demo-account-options-profile-1').trigger('click')
     await wrapper.findAll('button').find((button) => button.text() === 'Extend')?.trigger('click')
     await wrapper.get('input[type="datetime-local"]').setValue('2030-07-01T09:30')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
     expect(extendDemoAccount).toHaveBeenCalledWith('profile-1', expect.any(String))
 
+    await wrapper.get('#demo-account-options-profile-1').trigger('click')
     await wrapper.findAll('button').find((button) => button.text() === 'Deactivate')?.trigger('click')
     await wrapper.get('textarea').setValue('Contract ended')
     await wrapper.get('form').trigger('submit')
@@ -295,6 +299,7 @@ describe('DemoAccountsSection', () => {
   it('permanently deletes a created demo user after confirmation', async () => {
     vi.mocked(deleteCreatedDemoUser).mockResolvedValue()
     const wrapper = await mountSection()
+    await wrapper.get('#demo-account-options-profile-1').trigger('click')
     await wrapper.findAll('button').find((button) => button.text() === 'Delete')?.trigger('click')
     expect(wrapper.text()).toContain('This permanently removes the sign-in')
     expect(deleteCreatedDemoUser).not.toHaveBeenCalled()
@@ -334,6 +339,7 @@ describe('DemoAccountsSection', () => {
     expect(wrapper.text()).toContain('held.person@example.com')
     expect(wrapper.text()).toContain('Setup incomplete')
     expect(wrapper.text()).not.toContain(password)
+    await wrapper.get('#demo-account-options-held-1').trigger('click')
     await wrapper.findAll('button').find((button) => button.text() === 'Retry')?.trigger('click')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
@@ -375,6 +381,7 @@ describe('DemoAccountsSection', () => {
       ])
     vi.mocked(provisionDemoAccount).mockRejectedValue(new Error('This email already has a demo account.'))
     const wrapper = await mountSection()
+    await wrapper.get('#demo-account-options-held-2').trigger('click')
     await wrapper.findAll('button').find((button) => button.text() === 'Retry')?.trigger('click')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
