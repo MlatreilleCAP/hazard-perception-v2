@@ -19,6 +19,7 @@ import { contentReadonlyMessage } from '@/lib/auth/roles'
 import { canonicalActivityId } from '@/app/id'
 import { services } from '@/app/container'
 import { findInroadsMvpParent } from '@/services/publishInroadsMvp'
+import { syncObserveTriggersToLanguageVersions } from '@/services/syncObserveTriggers'
 import { useActivityStore } from '@/stores/activityStore'
 import type { ActivityDefinition } from '@/types/activity'
 import type { MediaRef } from '@/types/media'
@@ -263,6 +264,10 @@ async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
     if (props.embedded) {
       sourceActivity.value = await services.persistence.save(next)
       await activities.refreshList()
+      const parentId = canonicalActivityId(String(route.params.id ?? ''))
+      if (parentId) {
+        await syncObserveTriggersToLanguageVersions(parentId, id, readSeeDefinition(next).hazards)
+      }
     } else {
       await activities.save(next)
       sourceActivity.value = activities.current
