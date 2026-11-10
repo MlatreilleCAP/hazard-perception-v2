@@ -90,6 +90,11 @@
   flex-shrink: 0;
 }
 
+.landing-footer-logo-link {
+  display: inline-flex;
+  line-height: 0;
+}
+
 .landing-footer-logo {
   height: 24px;
 }

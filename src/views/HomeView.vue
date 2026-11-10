@@ -138,8 +138,10 @@ async function signOut(): Promise<void> {
 
     <footer class="landing-footer">
       <div class="landing-footer-inner">
-        <img src="/AD_Logo.svg" alt="AlertDriving" class="landing-footer-logo" />
-        <p>AlertDriving Driver Coaching</p>
+        <a href="https://alertdriving.com" class="landing-footer-logo-link">
+          <img src="/AD_Logo.svg" alt="AlertDriving" class="landing-footer-logo" />
+        </a>
+        <p>Alertdriving 2026</p>
       </div>
     </footer>
 
