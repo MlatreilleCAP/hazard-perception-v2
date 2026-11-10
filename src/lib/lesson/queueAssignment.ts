@@ -41,8 +41,8 @@ function namedHolder(
 
 /**
  * The person who first had the lesson in progress stays on the card when it
- * returns there from review or approval. Later column holders do not replace
- * that name.
+ * returns there from review, user acceptance, or approval. Later column holders
+ * do not replace that name.
  */
 export function nextQueueHolders(input: {
   fromStatus: string | undefined
@@ -59,7 +59,10 @@ export function nextQueueHolders(input: {
 
   if (to === 'available') return { assignee: null, progressAssignee: null }
 
-  if (to === 'in_progress' && (from === 'review' || from === 'approval' || from === 'approved')) {
+  if (
+    to === 'in_progress' &&
+    (from === 'review' || from === 'user_acceptance' || from === 'approval' || from === 'approved')
+  ) {
     const restored = progress ?? current
     return { assignee: restored, progressAssignee: progress ?? restored }
   }
@@ -69,7 +72,18 @@ export function nextQueueHolders(input: {
     return { assignee, progressAssignee: progress ?? assignee }
   }
 
-  const remembered = progress ?? (from === 'in_progress' || from === 'review' ? current : null)
+  if (to === 'user_acceptance') {
+    if (from === 'user_acceptance') {
+      return { assignee: actor ?? current, progressAssignee: progress ?? current }
+    }
+    const remembered =
+      progress ?? (from === 'in_progress' || from === 'review' ? current : null)
+    return { assignee: null, progressAssignee: remembered }
+  }
+
+  const remembered =
+    progress ??
+    (from === 'in_progress' || from === 'review' || from === 'user_acceptance' ? current : null)
   return { assignee: current, progressAssignee: remembered }
 }
 

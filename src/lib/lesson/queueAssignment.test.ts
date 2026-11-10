@@ -45,6 +45,48 @@ describe('nextQueueHolders', () => {
     expect(approved.assignee).toEqual(eric)
   })
 
+  it('keeps that name through user acceptance', () => {
+    const claimed = nextQueueHolders({
+      fromStatus: 'available',
+      toStatus: 'in_progress',
+      assignee: null,
+      progressAssignee: null,
+      actor: eric,
+    })
+    const reviewed = nextQueueHolders({
+      fromStatus: 'in_progress',
+      toStatus: 'review',
+      assignee: claimed.assignee,
+      progressAssignee: claimed.progressAssignee,
+      actor: matt,
+    })
+    const acceptance = nextQueueHolders({
+      fromStatus: 'review',
+      toStatus: 'user_acceptance',
+      assignee: reviewed.assignee,
+      progressAssignee: reviewed.progressAssignee,
+      actor: matt,
+    })
+
+    expect(acceptance.assignee).toBeNull()
+    expect(acceptance.progressAssignee).toEqual(eric)
+  })
+
+  it('assigns a user acceptance lesson to the person who claims it', () => {
+    expect(
+      nextQueueHolders({
+        fromStatus: 'user_acceptance',
+        toStatus: 'user_acceptance',
+        assignee: null,
+        progressAssignee: eric,
+        actor: { id: 'casey', name: 'Casey Quinn' },
+      }),
+    ).toEqual({
+      assignee: { id: 'casey', name: 'Casey Quinn' },
+      progressAssignee: eric,
+    })
+  })
+
   it('restores the original in-progress name when the lesson is sent back', () => {
     expect(
       nextQueueHolders({

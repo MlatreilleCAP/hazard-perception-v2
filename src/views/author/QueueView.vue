@@ -58,7 +58,8 @@ type QueueCard = {
   queueOrder: number | null
 }
 
-type BoardStatus = 'available' | 'in_progress' | 'review' | 'approval'
+type BoardStatus = 'available' | 'in_progress' | 'review' | 'user_acceptance' | 'approval'
+type SendBackStatus = 'in_progress' | 'review'
 
 const BOARD: Array<{
   status: BoardStatus
@@ -69,6 +70,7 @@ const BOARD: Array<{
   { status: 'available', label: 'Available', icon: availableIcon, action: 'Claim' },
   { status: 'in_progress', label: 'In Progress', icon: inProgressIcon, action: 'Submit' },
   { status: 'review', label: 'Review', icon: reviewIcon, action: 'Submit' },
+  { status: 'user_acceptance', label: 'User Acceptance', icon: reviewIcon, action: 'Submit' },
   { status: 'approval', label: 'Approval', icon: reviewIcon, action: 'Approve' },
 ]
 
@@ -95,6 +97,7 @@ const updatingId = ref<string | null>(null)
 const reviewMenuId = ref<string | null>(null)
 const noteCardId = ref<string | null>(null)
 const changesForId = ref<string | null>(null)
+const changesDestination = ref<SendBackStatus>('in_progress')
 const changesNote = ref('')
 const republishingId = ref<string | null>(null)
 const unpublishingId = ref<string | null>(null)
@@ -150,7 +153,13 @@ function previewRoute(card: QueueCard): { path: string; query: Record<string, st
   }
 }
 
-const BOARD_STATUSES: BoardStatus[] = ['available', 'in_progress', 'review', 'approval']
+const BOARD_STATUSES: BoardStatus[] = [
+  'available',
+  'in_progress',
+  'review',
+  'user_acceptance',
+  'approval',
+]
 
 function isBoardStatus(status: LessonReviewStatus): status is BoardStatus {
   return BOARD_STATUSES.includes(status as BoardStatus)
@@ -178,13 +187,19 @@ function canAct(card: QueueCard): boolean {
     return !card.assigneeId || card.assigneeId === identity.userId.value
   }
   if (card.status === 'review') return canSubmitReview()
+  if (card.status === 'user_acceptance') {
+    if (!card.assigneeId) return true
+    return card.assigneeId === identity.userId.value
+  }
   if (card.status === 'approval') return identity.canApprove.value
   return false
 }
 
 function actionTitle(card: QueueCard): string | undefined {
   if (canAct(card)) return undefined
-  if (card.status === 'in_progress') return 'Only the person who claimed this lesson can submit it'
+  if (card.status === 'in_progress' || card.status === 'user_acceptance') {
+    return 'Only the person who claimed this lesson can submit it'
+  }
   if (card.status === 'review') {
     return `Only ${MANAGING_EDITOR_NAME} or ${APPROVER_NAME} can submit these lessons`
   }
@@ -346,6 +361,25 @@ function holdersForMove(
   return { assignee, progressAssignee: moved.progressAssignee }
 }
 
+function canAdvance(previous: QueueCard, status: BoardStatus | 'approved'): boolean {
+  if (status === previous.status) return true
+  if (status === 'approved') return identity.canApprove.value
+  if (status === 'user_acceptance') return canSubmitReview()
+  if (status === 'approval' && previous.status === 'user_acceptance') {
+    return previous.assigneeId === identity.userId.value
+  }
+  if (status === 'approval') return canSubmitReview()
+  return true
+}
+
+function advanceError(previous: QueueCard, status: BoardStatus | 'approved'): string {
+  if (status === 'approved') return `Only ${APPROVER_NAME} can approve lessons`
+  if (previous.status === 'user_acceptance') {
+    return 'Only the person who claimed this lesson can submit it'
+  }
+  return `Only ${MANAGING_EDITOR_NAME} or ${APPROVER_NAME} can submit these lessons`
+}
+
 async function moveCard(
   id: string,
   status: BoardStatus | 'approved',
@@ -353,12 +387,8 @@ async function moveCard(
 ): Promise<boolean> {
   const previous = cards.value.find((item) => item.id === id)
   if (!previous || previous.status === status || updatingId.value) return false
-  if (status === 'approved' && !identity.canApprove.value) {
-    actionError.value = `Only ${APPROVER_NAME} can approve lessons`
-    return false
-  }
-  if (status === 'approval' && !canSubmitReview()) {
-    actionError.value = `Only ${MANAGING_EDITOR_NAME} or ${APPROVER_NAME} can submit these lessons`
+  if (!canAdvance(previous, status)) {
+    actionError.value = advanceError(previous, status)
     return false
   }
   updatingId.value = id
@@ -481,8 +511,8 @@ async function placeCard(
 ): Promise<void> {
   const previous = cards.value.find((item) => item.id === id)
   if (!previous || updatingId.value || id === targetId) return
-  if (status !== previous.status && status === 'approval' && !canSubmitReview()) {
-    actionError.value = `Only ${MANAGING_EDITOR_NAME} or ${APPROVER_NAME} can submit these lessons`
+  if (status !== previous.status && !canAdvance(previous, status)) {
+    actionError.value = advanceError(previous, status)
     return
   }
   const column = sortCards(
@@ -844,11 +874,64 @@ async function downloadAssets(card: QueueCard): Promise<void> {
   }
 }
 
+function actionLabel(card: QueueCard, action: string): string {
+  if (updatingId.value === card.id) return 'Saving…'
+  if (card.status === 'user_acceptance' && !card.assigneeId) return 'Claim'
+  return action
+}
+
 function act(card: QueueCard): void {
   if (!canAct(card)) return
   if (card.status === 'available') void moveCard(card.id, 'in_progress')
   else if (card.status === 'in_progress') void moveCard(card.id, 'review')
+  else if (card.status === 'user_acceptance') void claimUserAcceptance(card)
   else if (card.status === 'approval') void moveCard(card.id, 'approved')
+}
+
+async function claimUserAcceptance(card: QueueCard): Promise<void> {
+  if (card.status !== 'user_acceptance' || card.assigneeId || updatingId.value) return
+  const { assignee, progressAssignee } = nextQueueHolders({
+    fromStatus: 'user_acceptance',
+    toStatus: 'user_acceptance',
+    assignee: null,
+    progressAssignee: {
+      id: card.progressAssigneeId,
+      name: card.progressAssigneeName,
+    },
+    actor: {
+      id: identity.userId.value ?? '',
+      name: identity.name.value || 'Unassigned',
+    },
+  })
+  updatingId.value = card.id
+  actionError.value = null
+  const previous = card
+  cards.value = cards.value.map((item) =>
+    item.id === card.id
+      ? {
+          ...item,
+          assigneeId: assignee?.id ?? '',
+          assigneeName: assignee?.name ?? '',
+          progressAssigneeId: progressAssignee?.id ?? '',
+          progressAssigneeName: progressAssignee?.name ?? '',
+        }
+      : item,
+  )
+  try {
+    await setLessonQueuePlacement(
+      card.id,
+      'user_acceptance',
+      assignee,
+      undefined,
+      undefined,
+      progressAssignee,
+    )
+  } catch (cause) {
+    cards.value = cards.value.map((item) => (item.id === card.id ? previous : item))
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to claim the lesson'
+  } finally {
+    updatingId.value = null
+  }
 }
 
 function toggleReviewMenu(card: QueueCard): void {
@@ -857,21 +940,28 @@ function toggleReviewMenu(card: QueueCard): void {
   reviewMenuId.value = reviewMenuId.value === card.id ? null : card.id
 }
 
-function chooseApproved(card: QueueCard): void {
+function chooseUserAcceptance(card: QueueCard): void {
+  reviewMenuId.value = null
+  void moveCard(card.id, 'user_acceptance', { reviewNotes: '' })
+}
+
+function chooseApproval(card: QueueCard): void {
   reviewMenuId.value = null
   void moveCard(card.id, 'approval', { reviewNotes: '' })
 }
 
-function openChanges(card: QueueCard): void {
+function openChanges(card: QueueCard, destination: SendBackStatus): void {
   reviewMenuId.value = null
   noteCardId.value = null
   changesForId.value = card.id
+  changesDestination.value = destination
   changesNote.value = ''
 }
 
 function closeChanges(): void {
   if (updatingId.value) return
   changesForId.value = null
+  changesDestination.value = 'in_progress'
   changesNote.value = ''
 }
 
@@ -879,7 +969,7 @@ async function submitChanges(): Promise<void> {
   const card = changesCard.value
   const note = changesNote.value.trim()
   if (!card || !note) return
-  const saved = await moveCard(card.id, 'in_progress', {
+  const saved = await moveCard(card.id, changesDestination.value, {
     reviewNotes: note,
   })
   if (!saved) return
@@ -1055,11 +1145,13 @@ async function clearNote(card: QueueCard): Promise<void> {
               </div>
               <div
                 class="queue-card-actions"
-                :class="{ 'is-claim': column.status === 'available' }"
+                :class="{
+                  'is-claim': column.status === 'available' || (column.status === 'user_acceptance' && !card.assigneeId),
+                }"
               >
                 <span v-if="holderName(card)" class="queue-pill is-name">{{ holderName(card) }}</span>
                 <div
-                  v-if="column.status === 'review'"
+                  v-if="column.status === 'review' || (column.status === 'user_acceptance' && card.assigneeId)"
                   class="author-menu queue-review-menu"
                   :data-review-menu="card.id"
                   @pointerdown.stop
@@ -1080,24 +1172,44 @@ async function clearNote(card: QueueCard): Promise<void> {
                     v-if="reviewMenuId === card.id"
                     class="author-menu-panel queue-review-menu-panel"
                     role="menu"
-                    aria-label="Submit"
+                    :aria-label="column.status === 'review' ? 'Review' : 'User Acceptance'"
                   >
-                    <button
-                      type="button"
-                      class="author-menu-item"
-                      role="menuitem"
-                      @click="chooseApproved(card)"
-                    >
-                      Approved
-                    </button>
-                    <button
-                      type="button"
-                      class="author-menu-item"
-                      role="menuitem"
-                      @click="openChanges(card)"
-                    >
-                      Changes needed
-                    </button>
+                    <template v-if="column.status === 'review'">
+                      <button
+                        type="button"
+                        class="author-menu-item"
+                        role="menuitem"
+                        @click="chooseUserAcceptance(card)"
+                      >
+                        Send for UAT
+                      </button>
+                      <button
+                        type="button"
+                        class="author-menu-item"
+                        role="menuitem"
+                        @click="openChanges(card, 'in_progress')"
+                      >
+                        Send back
+                      </button>
+                    </template>
+                    <template v-else>
+                      <button
+                        type="button"
+                        class="author-menu-item"
+                        role="menuitem"
+                        @click="chooseApproval(card)"
+                      >
+                        Send to approval
+                      </button>
+                      <button
+                        type="button"
+                        class="author-menu-item"
+                        role="menuitem"
+                        @click="openChanges(card, 'review')"
+                      >
+                        Send back to Review
+                      </button>
+                    </template>
                   </div>
                 </div>
                 <button
@@ -1108,7 +1220,7 @@ async function clearNote(card: QueueCard): Promise<void> {
                   :title="actionTitle(card)"
                   @click="act(card)"
                 >
-                  {{ updatingId === card.id ? 'Saving…' : column.action }}
+                  {{ actionLabel(card, column.action) }}
                 </button>
               </div>
             </article>
@@ -1184,7 +1296,7 @@ async function clearNote(card: QueueCard): Promise<void> {
         @keydown.esc="closeChanges"
       >
         <form class="queue-notes-panel" @submit.prevent="submitChanges">
-          <h2>Changes needed</h2>
+          <h2>{{ changesDestination === 'review' ? 'Send back to Review' : 'Send back' }}</h2>
           <p>{{ changesCard.title }}</p>
           <label>
             Notes
