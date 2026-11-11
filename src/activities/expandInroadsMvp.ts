@@ -91,7 +91,8 @@ export async function expandInroadsMvpForPlayback(
       const intro = readIntroductionDefinition(introActivity)
       lesson.introMedia = intro.introMedia
       lesson.introCaptions = intro.introCaptions
-      lesson.introShowOnFirstVisitOnly = intro.introShowOnFirstVisitOnly
+      // A linked stand alone video plays on every visit. The first-visit flag is no longer authored.
+      lesson.introShowOnFirstVisitOnly = false
     }
   }
   const exampleId = canonicalActivityId(mvp.exampleActivityId)

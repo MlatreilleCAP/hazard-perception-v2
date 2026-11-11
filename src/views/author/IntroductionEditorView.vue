@@ -10,7 +10,6 @@ import AuthorPillButton from '@/components/author/AuthorPillButton.vue'
 import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import AuthorSectionHeader from '@/components/author/AuthorSectionHeader.vue'
 import AuthorStatusChip from '@/components/author/AuthorStatusChip.vue'
-import AuthorToggle from '@/components/author/AuthorToggle.vue'
 import MediaUploadField from '@/components/author/MediaUploadField.vue'
 import { canonicalActivityId } from '@/app/id'
 import { services } from '@/app/container'
@@ -328,11 +327,6 @@ function setIntroMedia(media: MediaRef | null): void {
 function setIntroCaptions(media: MediaRef | null): void {
   if (!editable.value || !introduction.value) return
   introduction.value = { ...introduction.value, introCaptions: media }
-}
-
-function setIntroFirstVisit(value: boolean): void {
-  if (!editable.value || !introduction.value) return
-  introduction.value = { ...introduction.value, introShowOnFirstVisitOnly: value }
 }
 
 async function syncCountryToSiblingVersions(sharedCountry: string): Promise<void> {
@@ -764,13 +758,6 @@ async function remove(): Promise<void> {
           :model-value="introduction.introCaptions"
           :readonly="!editable"
           @update:model-value="setIntroCaptions"
-        />
-        <AuthorToggle
-          :id="`${activityId}-intro-first-visit`"
-          :model-value="introduction.introShowOnFirstVisitOnly !== false"
-          label="Show on first visit only"
-          description="When on, the intro plays once per learner. When off, it plays every time the lesson starts."
-          @update:model-value="setIntroFirstVisit"
         />
       </section>
 
