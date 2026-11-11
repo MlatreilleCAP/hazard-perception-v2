@@ -64,7 +64,7 @@ export function expandIntroductionForPlayback(
   const lesson = createDefaultLessonDefinition()
   lesson.introMedia = intro.introMedia
   lesson.introCaptions = intro.introCaptions
-  lesson.introShowOnFirstVisitOnly = intro.introShowOnFirstVisitOnly
+  lesson.introShowOnFirstVisitOnly = false
   return lessonShellFrom(activity, lesson)
 }
 

@@ -64,7 +64,7 @@ export function createDefaultIntroductionDefinition(): IntroductionDefinition {
     introMedia: null,
     introCaptions: null,
     exampleMedia: null,
-    introShowOnFirstVisitOnly: true,
+    introShowOnFirstVisitOnly: false,
     country: '',
     language: '',
   }
@@ -92,7 +92,7 @@ export function cloneIntroductionDefinition(
     exampleMedia: definition.exampleMedia
       ? { media_asset_id: definition.exampleMedia.media_asset_id }
       : null,
-    introShowOnFirstVisitOnly: definition.introShowOnFirstVisitOnly !== false,
+    introShowOnFirstVisitOnly: false,
     country: definition.country,
     language: definition.language,
   }
@@ -116,7 +116,7 @@ export function normalizeIntroductionDefinition(
     introMedia: readMediaRef(raw?.introMedia),
     introCaptions: readMediaRef(raw?.introCaptions),
     exampleMedia: readMediaRef(raw?.exampleMedia),
-    introShowOnFirstVisitOnly: raw?.introShowOnFirstVisitOnly !== false,
+    introShowOnFirstVisitOnly: false,
     country: canonicalizeLessonCountry(typeof raw?.country === 'string' ? raw.country : ''),
     language: canonicalizeLessonLanguage(typeof raw?.language === 'string' ? raw.language : ''),
   }
