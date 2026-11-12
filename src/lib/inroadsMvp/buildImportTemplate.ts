@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs'
 import JSZip from 'jszip'
 import { IMPORT_README, SLOT_FOLDER_LABELS, TEMPLATE_FOLDER_SLOT_IDS } from '@/lib/inroadsMvp/packageSpec'
 import { EMPTY_RESULTS_CHROME, type ResultsChrome } from '@/lib/lesson/resultsChrome'
+import { LESSON_PASS_PERCENT } from '@/types/lesson'
 import {
   answersWithFixedPoints,
   createAnswerOption,
@@ -663,20 +664,20 @@ function activityTextRows(
     'Status',
     english.challengePassedLabel,
     upload.challengePassedLabel,
-    'Score is 70% or higher',
+    `Score is ${LESSON_PASS_PERCENT}% or higher`,
   )
   chrome(
     'Challenge results',
     'Status',
     english.challengeFailedLabel,
     upload.challengeFailedLabel,
-    'Score is below 70%',
+    `Score is below ${LESSON_PASS_PERCENT}%`,
   )
   chrome(
     'Challenge results',
     'Pass mark',
-    chromeText(english, 'passMark', 'Pass mark 70%'),
-    chromeText(upload, 'passMark', 'Pass mark 70%'),
+    chromeText(english, 'passMark', `Pass mark ${LESSON_PASS_PERCENT}%`),
+    chromeText(upload, 'passMark', `Pass mark ${LESSON_PASS_PERCENT}%`),
     'Always',
   )
   chrome('Challenge results', 'Section title', english.observationLabel, upload.observationLabel, 'Always')

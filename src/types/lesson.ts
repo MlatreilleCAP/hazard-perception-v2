@@ -281,7 +281,7 @@ export function markLessonIntroSeen(lessonId: string): void {
 }
 
 export const LESSON_SECTION_MAX_PTS = 40
-export const LESSON_PASS_PERCENT = 70
+export const LESSON_PASS_PERCENT = 80
 
 export type LessonMetricStatus = 'pass' | 'fail' | 'partial' | 'idle'
 
