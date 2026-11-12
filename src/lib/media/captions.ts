@@ -38,8 +38,12 @@ export function parseWebVtt(source: string): CaptionCue[] {
     if (start == null || end == null || end <= start) continue
     const text = lines
       .slice(timingIndex + 1)
-      .join('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join(' ')
+      .replace(/<br\s*\/?>/gi, ' ')
       .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
       .trim()
     if (!text) continue
     cues.push({ start, end, text })

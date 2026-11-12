@@ -7,7 +7,7 @@ import {
   useLessonChallengePassedLabel,
   useLessonResultsLabels,
 } from '@/lib/lesson/buttonLabel'
-import { resultsChromeLabel, useResultsChrome } from '@/lib/lesson/resultsChrome'
+import { passMarkWithThreshold, resultsChromeLabel, useResultsChrome } from '@/lib/lesson/resultsChrome'
 import LessonAccuracyIcon from '@/components/lesson/LessonAccuracyIcon.vue'
 import LessonMetricRing from '@/components/lesson/LessonMetricRing.vue'
 import metricFailIcon from '@/assets/lesson/metric-fail.svg'
@@ -42,6 +42,12 @@ const challengePassedLabel = useLessonChallengePassedLabel()
 const challengeFailedLabel = useLessonChallengeFailedLabel()
 const resultsLabels = useLessonResultsLabels()
 const resultsChrome = useResultsChrome()
+const passMarkText = computed(() =>
+  passMarkWithThreshold(
+    resultsChromeLabel(resultsChrome.value.passMark, `Pass mark ${LESSON_PASS_PERCENT}%`),
+    LESSON_PASS_PERCENT,
+  ),
+)
 
 defineEmits<{
   continue: []
@@ -264,7 +270,7 @@ function goToSession(): void {
                 {{ passed ? challengePassedLabel : challengeFailedLabel }}
               </p>
               <p class="lesson-results-passmark">
-                {{ resultsChromeLabel(resultsChrome.passMark, `Pass mark ${LESSON_PASS_PERCENT}%`) }}
+                {{ passMarkText }}
               </p>
             </div>
           </div>

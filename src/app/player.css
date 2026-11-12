@@ -379,7 +379,7 @@ body:has(.player-page) {
   font-weight: 500;
   line-height: 1.35;
   text-align: center;
-  white-space: pre-line;
+  white-space: normal;
 }
 
 .process-instruction-card {

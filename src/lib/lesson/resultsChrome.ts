@@ -71,6 +71,11 @@ export function resultsChromeLabel(value: string, fallback: string): string {
   return value.trim() || fallback
 }
 
+/** Keep translated pass-mark wording, and show the current threshold. */
+export function passMarkWithThreshold(label: string, percent: number): string {
+  return label.replace(/(\d+)(\s*)%/g, `${percent}$2%`)
+}
+
 export function provideResultsChrome(source: MaybeRefOrGetter<ResultsChrome>): void {
   const chrome = computed(() => readResultsChrome(toValue(source)))
   provide(RESULTS_CHROME, chrome)
