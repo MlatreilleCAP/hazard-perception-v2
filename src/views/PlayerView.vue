@@ -486,9 +486,9 @@ function onExperienceFinished(): void {
     return
   }
 
-  // Demo / published playback: start the lesson over from the title page.
+  // Demo viewing: Complete Session returns to the demo catalog.
   if (isLesson.value) {
-    replayNonce.value += 1
+    void router.push({ path: '/', hash: '#demos' })
   }
 }
 </script>
