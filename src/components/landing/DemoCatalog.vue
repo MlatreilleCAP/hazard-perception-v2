@@ -10,7 +10,7 @@ import {
   publishedDemoCountryNames,
   startingDemoCountry,
 } from '@/lib/demo/preferredCountry'
-import { DEFAULT_LESSON_BUTTON_LABEL } from '@/lib/lesson/buttonLabel'
+import { startDemoLabel } from '@/lib/demo/startDemoLabel'
 import { lessonVersionKey, previewCardTitle } from '@/lib/inroadsMvp/lessonVersions'
 import { loadOwnPreferredCountry } from '@/services/demoAccounts'
 import DemoPillSelect from '@/components/landing/DemoPillSelect.vue'
@@ -31,7 +31,6 @@ const localeById = ref(
       language: string
       country: string
       lessonTitle: string
-      button: string
       description: string
       previewImageId: string
     }
@@ -137,7 +136,6 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
       language: string
       country: string
       lessonTitle: string
-      button: string
       description: string
       previewImageId: string
     }
@@ -149,7 +147,6 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
           language: '',
           country: '',
           lessonTitle: '',
-          button: '',
           description: '',
           previewImageId: '',
         })
@@ -162,7 +159,6 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
           language: parsed?.language ?? '',
           country: parsed?.country ?? '',
           lessonTitle: parsed?.lessonTitle ?? '',
-          button: parsed?.buttonLabel ?? '',
           description: definition?.metadata.description.trim() ?? '',
           previewImageId: parsed?.previewImage?.media_asset_id ?? '',
         })
@@ -171,7 +167,6 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
           language: '',
           country: '',
           lessonTitle: '',
-          button: '',
           description: '',
           previewImageId: '',
         })
@@ -209,7 +204,7 @@ function cardTitle(id: string, activityName: string): string {
 }
 
 function buttonLabelFor(id: string): string {
-  return localeById.value.get(id)?.button.trim() || DEFAULT_LESSON_BUTTON_LABEL
+  return startDemoLabel(localeById.value.get(id)?.language ?? '')
 }
 
 function descriptionFor(id: string): string {

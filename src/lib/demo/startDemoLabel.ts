@@ -1,0 +1,58 @@
+import { canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
+
+/** "Begin" in the lesson language. Unlisted languages stay in English. */
+const BEGIN_LABELS: Readonly<Record<string, string>> = {
+  Afrikaans: 'Begin',
+  Arabic: 'ابدأ',
+  Bangla: 'শুরু করুন',
+  Bulgarian: 'Започни',
+  Catalan: 'Comença',
+  Chinese: '开始',
+  Croatian: 'Počni',
+  Czech: 'Začít',
+  Danish: 'Begynd',
+  Dutch: 'Begin',
+  English: 'Begin',
+  Estonian: 'Alusta',
+  Filipino: 'Simulan',
+  Finnish: 'Aloita',
+  French: 'Commencer',
+  German: 'Beginnen',
+  Greek: 'Έναρξη',
+  Hebrew: 'התחל',
+  Hindi: 'शुरू करें',
+  Hungarian: 'Kezdés',
+  Indonesian: 'Mulai',
+  Italian: 'Inizia',
+  Japanese: '開始',
+  Korean: '시작',
+  Latvian: 'Sākt',
+  Lithuanian: 'Pradėti',
+  Malay: 'Mula',
+  Norwegian: 'Begynn',
+  'Norwegian Bokmål': 'Begynn',
+  'Norwegian Nynorsk': 'Begynn',
+  Persian: 'شروع',
+  Polish: 'Rozpocznij',
+  Portuguese: 'Começar',
+  Romanian: 'Începe',
+  Russian: 'Начать',
+  Serbian: 'Почни',
+  Slovak: 'Začať',
+  Slovenian: 'Začni',
+  Spanish: 'Comenzar',
+  Swahili: 'Anza',
+  Swedish: 'Börja',
+  Tamil: 'தொடங்கு',
+  Telugu: 'ప్రారంభించండి',
+  Thai: 'เริ่ม',
+  Turkish: 'Başla',
+  Ukrainian: 'Почати',
+  Urdu: 'شروع کریں',
+  Vietnamese: 'Bắt đầu',
+}
+
+export function startDemoLabel(language: string): string {
+  const canonical = canonicalizeLessonLanguage(language)
+  return BEGIN_LABELS[canonical] ?? BEGIN_LABELS.English
+}
