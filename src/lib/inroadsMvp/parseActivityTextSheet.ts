@@ -53,6 +53,7 @@ function emptyLesson(): ImportedLessonFields {
     sku: null,
     button: null,
     exampleButton: null,
+    demoButton: null,
     submit: null,
     challengePassed: null,
     challengeFailed: null,
@@ -274,13 +275,16 @@ function applyProgressChrome(row: ActivityTextRow, value: string, chrome: Partia
     if (reference === 'progress') setChrome(chrome, 'progress', value)
     else if (reference.includes('competency')) setChrome(chrome, 'competencyHeading', value)
     else if (reference.includes('period')) setChrome(chrome, 'periodHeading', value)
+    else if (reference.includes('up next')) setChrome(chrome, 'upNextHeading', value)
   } else if (element === 'competency') {
     if (reference.includes('speed')) setChrome(chrome, 'speedManagement', value)
     else if (reference.includes('space')) setChrome(chrome, 'spaceManagement', value)
     else if (reference.includes('danger')) setChrome(chrome, 'dangerZones', value)
     else if (reference.includes('other')) setChrome(chrome, 'otherMotorists', value)
     else if (reference.includes('scanning')) setChrome(chrome, 'scanning', value)
-    else if (reference.includes('attitude')) setChrome(chrome, 'attitude', value)
+    else if (reference.includes('total') || reference.includes('attitude')) {
+      setChrome(chrome, 'competencyTotal', value)
+    }
   } else if (element === 'rank') {
     if (reference.includes('department')) setChrome(chrome, 'departmentRank', value)
     else if (reference.includes('company')) setChrome(chrome, 'companyRank', value)
@@ -300,7 +304,9 @@ function applyProgressChrome(row: ActivityTextRow, value: string, chrome: Partia
     else if (reference.includes('active') || /\bx\b/.test(reference)) {
       setChrome(chrome, 'engagementValue', value)
     }
-  } else if (element === 'button') setChrome(chrome, 'completeSession', value)
+  } else if (element === 'up_next') setChrome(chrome, 'upNextTitle', value)
+  else if (element === 'up_next_value') setChrome(chrome, 'upNextTiming', value)
+  else if (element === 'button') setChrome(chrome, 'completeSession', value)
 }
 
 function flushQuestion(draft: QuestionDraft | null, questions: ImportedQuestionRow[]): void {
@@ -408,6 +414,11 @@ export function parseActivityTextSheet(
 
     if (screenKey === 'progress') {
       applyProgressChrome(row, value, lesson.resultsChrome)
+      continue
+    }
+
+    if (screenKey === 'demo instruction') {
+      if (headerKey(row.element) === 'button' && value) lesson.demoButton = value
       continue
     }
 

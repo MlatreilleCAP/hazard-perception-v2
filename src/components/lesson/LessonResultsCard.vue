@@ -18,8 +18,6 @@ import fireIcon from '@/assets/lesson/results/fire.svg'
 import lightningIcon from '@/assets/lesson/results/lightning.svg'
 import starIcon from '@/assets/lesson/results/star.svg'
 import ticketIcon from '@/assets/lesson/results/ticket.svg'
-import trendDownIcon from '@/assets/lesson/results/trend-down.svg'
-import trendUpIcon from '@/assets/lesson/results/trend-up.svg'
 import trophyIcon from '@/assets/lesson/results/trophy.svg'
 import trophyCompanyIcon from '@/assets/lesson/results/trophy-company.svg'
 import {
@@ -33,8 +31,6 @@ const props = defineProps<{
   percent: number
   passed: boolean
   sections: LessonResultsSection[]
-  /** Optional percent delta vs prior attempt; omit/null hides the chip. */
-  percentDelta?: number | null
 }>()
 
 const lessonButtonLabel = useLessonButtonLabel()
@@ -66,12 +62,12 @@ const STREAK_BONUS = 10
 /** Placeholder Progress numbers until gamification backend is wired. */
 const progressNumbers = {
   competencies: [
-    { key: 'speedManagement', fallback: 'Speed Management', percent: 85, delta: 5 },
-    { key: 'spaceManagement', fallback: 'Space Management', percent: 85, delta: 5 },
-    { key: 'dangerZones', fallback: 'Danger Zones', percent: 85, delta: 5 },
-    { key: 'otherMotorists', fallback: 'Other Motorists', percent: 85, delta: 5 },
-    { key: 'scanning', fallback: 'Scanning', percent: 85, delta: 5 },
-    { key: 'attitude', fallback: 'Attitude', percent: 85, delta: 5 },
+    { key: 'speedManagement', fallback: 'Speed Management', percent: 85, emphasize: false },
+    { key: 'spaceManagement', fallback: 'Space Management', percent: 85, emphasize: false },
+    { key: 'dangerZones', fallback: 'Danger Zones', percent: 85, emphasize: false },
+    { key: 'otherMotorists', fallback: 'Other Motorists', percent: 85, emphasize: false },
+    { key: 'scanning', fallback: 'Scanning', percent: 85, emphasize: false },
+    { key: 'competencyTotal', fallback: 'Total', percent: 85, emphasize: true },
   ],
   ranks: [
     {
@@ -80,8 +76,6 @@ const progressNumbers = {
       fallback: 'Department Rank',
       icon: trophyIcon,
       value: '23/34',
-      delta: 5,
-      deltaUp: true,
     },
     {
       id: 'company',
@@ -89,8 +83,6 @@ const progressNumbers = {
       fallback: 'Company Rank',
       icon: trophyCompanyIcon,
       value: '230/340',
-      delta: 5,
-      deltaUp: false,
     },
     {
       id: 'draw',
@@ -98,8 +90,6 @@ const progressNumbers = {
       fallback: 'Draw Entries',
       icon: ticketIcon,
       value: '1,900',
-      delta: 500,
-      deltaUp: true,
     },
   ],
   drawFill: 0.72,
@@ -186,14 +176,6 @@ const scoreRows = computed(() => [
   },
 ])
 
-const showPercentDelta = computed(
-  () => typeof props.percentDelta === 'number' && Number.isFinite(props.percentDelta),
-)
-
-const percentDeltaUp = computed(() => (props.percentDelta ?? 0) > 0)
-const percentDeltaDown = computed(() => (props.percentDelta ?? 0) < 0)
-const percentDeltaAbs = computed(() => Math.abs(Math.round(props.percentDelta ?? 0)))
-
 function metricIcon(metric: LessonMetricToken): string {
   return metric.status === 'pass' ? metricPassIcon : metricFailIcon
 }
@@ -276,25 +258,6 @@ function goToSession(): void {
           </div>
           <div class="lesson-results-score-cluster">
             <p class="lesson-results-percent">{{ percent }}%</p>
-            <div
-              v-if="showPercentDelta"
-              class="lesson-results-delta"
-              :class="{
-                'is-up': percentDeltaUp,
-                'is-down': percentDeltaDown,
-              }"
-            >
-              <img
-                v-if="percentDeltaUp || percentDeltaDown"
-                class="lesson-results-delta-icon"
-                :class="{ 'is-down': percentDeltaDown }"
-                :src="percentDeltaDown ? trendDownIcon : trendUpIcon"
-                alt=""
-                width="7"
-                height="7"
-              />
-              <span>{{ percentDeltaAbs }}%</span>
-            </div>
           </div>
         </header>
 
@@ -417,20 +380,11 @@ function goToSession(): void {
               v-for="item in progressCompetencies"
               :key="item.key"
               class="lesson-results-competency-row"
+              :class="{ 'is-total': item.emphasize }"
             >
               <span class="lesson-results-competency-label">{{ item.label }}</span>
               <div class="lesson-results-competency-values">
                 <span class="lesson-results-competency-percent">{{ item.percent }}%</span>
-                <div class="lesson-results-delta is-up">
-                  <img
-                    class="lesson-results-delta-icon"
-                    :src="trendUpIcon"
-                    alt=""
-                    width="7"
-                    height="7"
-                  />
-                  <span>{{ item.delta }}%</span>
-                </div>
               </div>
             </li>
           </ul>
@@ -445,20 +399,6 @@ function goToSession(): void {
             <img class="lesson-results-rank-icon" :src="rank.icon" alt="" width="20" height="20" />
             <div class="lesson-results-rank-values">
               <p class="lesson-results-rank-value">{{ rank.value }}</p>
-              <div
-                class="lesson-results-delta"
-                :class="{ 'is-up': rank.deltaUp, 'is-down': !rank.deltaUp }"
-              >
-                <img
-                  class="lesson-results-delta-icon"
-                  :class="{ 'is-down': !rank.deltaUp }"
-                  :src="rank.deltaUp ? trendUpIcon : trendDownIcon"
-                  alt=""
-                  width="7"
-                  height="7"
-                />
-                <span>{{ rank.delta }}</span>
-              </div>
             </div>
             <p class="lesson-results-rank-label">{{ rank.label }}</p>
           </li>
@@ -488,9 +428,6 @@ function goToSession(): void {
             <h2 class="lesson-results-progress-heading">
               {{ resultsChromeLabel(resultsChrome.periodHeading, 'This Period') }}
             </h2>
-            <span class="lesson-results-phase-pill">
-              {{ resultsChromeLabel(resultsChrome.phase, 'PHASE 2') }}
-            </span>
           </div>
           <ul class="lesson-results-period-list">
             <li class="lesson-results-period-row">
@@ -516,6 +453,20 @@ function goToSession(): void {
               <strong>{{ progressNumbers.lifetimePoints }}</strong>
             </li>
           </ul>
+        </section>
+
+        <section class="lesson-results-up-next" aria-label="Up next">
+          <h2 class="lesson-results-progress-heading">
+            {{ resultsChromeLabel(resultsChrome.upNextHeading, 'Up Next') }}
+          </h2>
+          <div class="lesson-results-up-next-row">
+            <p class="lesson-results-up-next-title">
+              {{ resultsChromeLabel(resultsChrome.upNextTitle, 'Following Distance') }}
+            </p>
+            <span class="lesson-results-up-next-pill">
+              {{ resultsChromeLabel(resultsChrome.upNextTiming, '10 Days') }}
+            </span>
+          </div>
         </section>
       </div>
 

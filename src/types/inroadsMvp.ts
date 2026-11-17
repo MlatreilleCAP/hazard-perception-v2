@@ -109,6 +109,8 @@ export type InroadsMvpDefinition = {
   submitLabel: string
   /** Label for the Observe instruction Example button. */
   exampleButtonLabel: string
+  /** Label for the demo catalog Start button. */
+  demoButtonLabel: string
   /** Final results heading when the lesson is passed. */
   challengePassedLabel: string
   /** Final results heading when the lesson is failed. */
@@ -137,7 +139,7 @@ export type InroadsMvpDefinition = {
   q2Label: string
   /** Final results label for the third question metric. */
   q3Label: string
-  /** Final results label for the fourth question metric. */
+  /** Final results label for the coaching question, shown with a + ahead. */
   q4Label: string
   /** Final results Observe section title. */
   observeLabel: string
@@ -190,6 +192,7 @@ export function createDefaultInroadsMvpDefinition(
     buttonLabel: '',
     submitLabel: '',
     exampleButtonLabel: '',
+    demoButtonLabel: '',
     challengePassedLabel: '',
     challengeFailedLabel: '',
     maneuverLabel: '',
@@ -244,6 +247,7 @@ export function cloneInroadsMvpDefinition(
     buttonLabel: definition.buttonLabel.trim(),
     submitLabel: definition.submitLabel.trim(),
     exampleButtonLabel: (definition.exampleButtonLabel ?? '').trim(),
+    demoButtonLabel: (definition.demoButtonLabel ?? '').trim(),
     challengePassedLabel: definition.challengePassedLabel.trim(),
     challengeFailedLabel: definition.challengeFailedLabel.trim(),
     maneuverLabel: definition.maneuverLabel.trim(),
@@ -330,6 +334,7 @@ export function normalizeInroadsMvpDefinition(
     submitLabel: typeof raw.submitLabel === 'string' ? raw.submitLabel.trim() : '',
     exampleButtonLabel:
       typeof raw.exampleButtonLabel === 'string' ? raw.exampleButtonLabel.trim() : '',
+    demoButtonLabel: typeof raw.demoButtonLabel === 'string' ? raw.demoButtonLabel.trim() : '',
     challengePassedLabel:
       typeof raw.challengePassedLabel === 'string' ? raw.challengePassedLabel.trim() : '',
     challengeFailedLabel:

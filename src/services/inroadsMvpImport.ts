@@ -525,6 +525,7 @@ export function buildEnglishReferenceFromWorkbook(payload: ParsedImportPackage):
     buttonLabel: lesson.button ?? '',
     submitLabel: lesson.submit ?? '',
     exampleButtonLabel: lesson.exampleButton ?? '',
+    demoButtonLabel: lesson.demoButton ?? '',
     challengePassedLabel: lesson.challengePassed ?? '',
     challengeFailedLabel: lesson.challengeFailed ?? '',
     maneuverLabel: lesson.maneuverHeading ?? '',
@@ -1121,6 +1122,8 @@ export async function importInroadsMvpPackage(
     submitLabel: payload.lesson.submit != null ? payload.lesson.submit : mvp.submitLabel,
     exampleButtonLabel:
       payload.lesson.exampleButton != null ? payload.lesson.exampleButton : mvp.exampleButtonLabel,
+    demoButtonLabel:
+      payload.lesson.demoButton != null ? payload.lesson.demoButton : mvp.demoButtonLabel,
     challengePassedLabel:
       payload.lesson.challengePassed != null
         ? payload.lesson.challengePassed

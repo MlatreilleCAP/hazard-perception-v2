@@ -33,6 +33,7 @@ const localeById = ref(
       lessonTitle: string
       description: string
       previewImageId: string
+      demoButton: string
     }
   >(),
 )
@@ -138,6 +139,7 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
       lessonTitle: string
       description: string
       previewImageId: string
+      demoButton: string
     }
   >()
   await Promise.all(
@@ -149,6 +151,7 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
           lessonTitle: '',
           description: '',
           previewImageId: '',
+          demoButton: '',
         })
         return
       }
@@ -161,6 +164,7 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
           lessonTitle: parsed?.lessonTitle ?? '',
           description: definition?.metadata.description.trim() ?? '',
           previewImageId: parsed?.previewImage?.media_asset_id ?? '',
+          demoButton: parsed?.demoButtonLabel.trim() ?? '',
         })
       } catch {
         next.set(item.id, {
@@ -169,6 +173,7 @@ async function loadLocales(items: ActivitySummary[]): Promise<void> {
           lessonTitle: '',
           description: '',
           previewImageId: '',
+          demoButton: '',
         })
       }
     }),
@@ -204,7 +209,8 @@ function cardTitle(id: string, activityName: string): string {
 }
 
 function buttonLabelFor(id: string): string {
-  return startDemoLabel(localeById.value.get(id)?.language ?? '')
+  const locale = localeById.value.get(id)
+  return locale?.demoButton.trim() || startDemoLabel(locale?.language ?? '')
 }
 
 function descriptionFor(id: string): string {

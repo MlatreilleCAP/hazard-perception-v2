@@ -68,6 +68,7 @@ export function lessonEnglishGroups(
         'Example',
         mvp.exampleButtonLabel.trim() || DEFAULT_LESSON_EXAMPLE_BUTTON_LABEL,
       ),
+      row('Demo', mvp.demoButtonLabel.trim() || 'Begin'),
     ]),
     group('Results', [
       row('Passed', mvp.challengePassedLabel),

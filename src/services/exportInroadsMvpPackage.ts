@@ -342,6 +342,7 @@ function workbookContentFromParts(
       mvp.exampleButtonLabel,
       DEFAULT_LESSON_EXAMPLE_BUTTON_LABEL,
     ),
+    demoButtonLabel: filledOrDefault(mvp.demoButtonLabel, 'Begin'),
     challengePassedLabel: filledOrDefault(
       mvp.challengePassedLabel,
       DEFAULT_LESSON_CHALLENGE_PASSED_LABEL,
@@ -374,6 +375,7 @@ function workbookContentFromParts(
     q1Label: filledOrDefault(mvp.q1Label, DEFAULT_LESSON_RESULTS_LABELS.q1),
     q2Label: filledOrDefault(mvp.q2Label, DEFAULT_LESSON_RESULTS_LABELS.q2),
     q3Label: filledOrDefault(mvp.q3Label, DEFAULT_LESSON_RESULTS_LABELS.q3),
+    q4Label: filledOrDefault(mvp.q4Label, DEFAULT_LESSON_RESULTS_LABELS.q4),
     observationLabel: filledOrDefault(mvp.observeLabel, DEFAULT_LESSON_RESULTS_LABELS.observe),
     processSectionLabel: filledOrDefault(mvp.processLabel, DEFAULT_LESSON_RESULTS_LABELS.process),
     anticipationLabel: filledOrDefault(

@@ -18,6 +18,7 @@ export const RESULTS_CHROME_KEYS = [
   'otherMotorists',
   'scanning',
   'attitude',
+  'competencyTotal',
   'departmentRank',
   'companyRank',
   'drawEntries',
@@ -32,6 +33,9 @@ export const RESULTS_CHROME_KEYS = [
   'engagementRow',
   'engagementValue',
   'lifetimePointsRow',
+  'upNextHeading',
+  'upNextTitle',
+  'upNextTiming',
   'completeSession',
 ] as const
 

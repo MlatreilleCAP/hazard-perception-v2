@@ -1703,37 +1703,6 @@ body:has(.player-page) {
   color: transparent;
 }
 
-.lesson-results-delta {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px 6px;
-  border-radius: 2px;
-  background: #fff;
-  font-family: var(--font-poppins);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 14.4px;
-  color: #60a1a7;
-  white-space: nowrap;
-}
-
-.lesson-results-delta.is-down {
-  color: #eb5e95;
-}
-
-.lesson-results-delta-icon {
-  display: block;
-  width: 7px;
-  height: 7px;
-  flex-shrink: 0;
-  transform: rotate(90deg);
-}
-
-.lesson-results-delta-icon.is-down {
-  transform: rotate(-90deg);
-}
-
 .lesson-results-sections {
   display: flex;
   width: 100%;
@@ -2000,6 +1969,11 @@ body:has(.player-page) {
   border-bottom: 0;
 }
 
+.lesson-results-competency-row.is-total .lesson-results-competency-label,
+.lesson-results-competency-row.is-total .lesson-results-competency-percent {
+  font-weight: 600;
+}
+
 .lesson-results-competency-label {
   font-family: var(--font-poppins);
   font-size: 12px;
@@ -2120,21 +2094,6 @@ body:has(.player-page) {
   gap: 12px;
 }
 
-.lesson-results-phase-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 10px;
-  border-radius: 200px;
-  background: #f0f1f5;
-  font-family: var(--font-poppins);
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 18px;
-  letter-spacing: 0.04em;
-  color: #808080;
-}
-
 .lesson-results-period-list {
   display: flex;
   width: 100%;
@@ -2176,6 +2135,46 @@ body:has(.player-page) {
 
 .lesson-results-period-row strong.is-accent {
   color: #60a1a7;
+}
+
+.lesson-results-up-next {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lesson-results-up-next-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lesson-results-up-next-title {
+  margin: 0;
+  font-family: var(--font-poppins);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: normal;
+  color: #403b3b;
+}
+
+.lesson-results-up-next-pill {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  border-radius: 200px;
+  background: #f0f1f5;
+  font-family: var(--font-poppins);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  color: #808080;
+  white-space: nowrap;
 }
 
 .lesson-results-page .process-instruction-begin {

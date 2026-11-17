@@ -20,6 +20,7 @@ export type ImportWorkbookContent = {
   buttonLabel: string
   submitLabel: string
   exampleButtonLabel: string
+  demoButtonLabel: string
   challengePassedLabel: string
   challengeFailedLabel: string
   maneuverHeading: string
@@ -34,6 +35,7 @@ export type ImportWorkbookContent = {
   q1Label: string
   q2Label: string
   q3Label: string
+  q4Label: string
   observationLabel: string
   processSectionLabel: string
   anticipationLabel: string
@@ -121,6 +123,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     buttonLabel: 'Continue',
     submitLabel: 'Submit',
     exampleButtonLabel: 'Example',
+    demoButtonLabel: 'Begin',
     challengePassedLabel: 'Challenge Complete',
     challengeFailedLabel: 'Challenge Failed',
     maneuverHeading: 'Maneuver',
@@ -135,6 +138,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     q1Label: 'Q1',
     q2Label: 'Q2',
     q3Label: 'Q3',
+    q4Label: 'Q4',
     observationLabel: 'Observation',
     processSectionLabel: 'Process',
     anticipationLabel: 'Anticipation',
@@ -441,6 +445,15 @@ function activityTextRows(
 ): ActivityTextRow[] {
   const rows: ActivityTextRow[] = []
   const title = english.title.trim()
+  rows.push(
+    activityRow(
+      'Demo Instruction',
+      'Button',
+      english.demoButtonLabel,
+      'Always',
+      upload.demoButtonLabel,
+    ),
+  )
   rows.push(activityRow('Title', 'Country', english.country, 'Always', upload.country))
   rows.push(activityRow('Title', 'Title', title, 'Always', upload.title.trim()))
   rows.push(activityRow('Title', 'Description', english.description, 'Always', upload.description))
@@ -702,6 +715,7 @@ function activityTextRows(
   chrome('Challenge results', 'Metric', english.q1Label, upload.q1Label, 'Process and Anticipation')
   chrome('Challenge results', 'Metric', english.q2Label, upload.q2Label, 'Process and Anticipation')
   chrome('Challenge results', 'Metric', english.q3Label, upload.q3Label, 'Process and Anticipation')
+  chrome('Challenge results', 'Metric', english.q4Label, upload.q4Label, 'Process and Anticipation')
   chrome('Challenge results', 'Score row', englishScoreBase, uploadScoreBase, 'Always')
   chrome(
     'Challenge results',
@@ -756,14 +770,13 @@ function activityTextRows(
   progress('Competency', 'dangerZones', 'Danger Zones', 'Always on this screen')
   progress('Competency', 'otherMotorists', 'Other Motorists', 'Always on this screen')
   progress('Competency', 'scanning', 'Scanning', 'Always on this screen')
-  progress('Competency', 'attitude', 'Attitude', 'Always on this screen')
+  progress('Competency', 'competencyTotal', 'Total', 'Always on this screen')
   progress('Rank', 'departmentRank', 'Department Rank', 'Always on this screen')
   progress('Rank', 'companyRank', 'Company Rank', 'Always on this screen')
   progress('Rank', 'drawEntries', 'Draw Entries', 'Always on this screen')
   progress('Draw', 'drawTitle', 'October Draw', 'Always on this screen')
   progress('Draw', 'drawRemaining', '14 days remain', 'Always on this screen')
   progress('Heading', 'periodHeading', 'This Period', 'Always on this screen')
-  progress('Phase', 'phase', 'PHASE 2', 'Always on this screen')
   progress('Row', 'streakRow', 'Streak', 'Always on this screen')
   progress('Row value', 'streakValue', 'Level 2 +10 pts', 'Always on this screen')
   progress('Row', 'perfectRunsRow', 'Perfect Runs', 'Always on this screen')
@@ -771,6 +784,9 @@ function activityTextRows(
   progress('Row', 'engagementRow', 'Engagement Window', 'Always on this screen')
   progress('Row value', 'engagementValue', 'Active x 1.2', 'Always on this screen')
   progress('Row', 'lifetimePointsRow', 'Lifetime Points', 'Always on this screen')
+  progress('Heading', 'upNextHeading', 'Up Next', 'Bottom of this screen')
+  progress('Up next', 'upNextTitle', 'Following Distance', 'Bottom of this screen')
+  progress('Up next value', 'upNextTiming', '10 Days', 'Bottom of this screen')
   progress('Button', 'completeSession', 'Complete Session', 'Always on this screen')
   return rows
 }

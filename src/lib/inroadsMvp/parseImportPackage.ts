@@ -63,6 +63,8 @@ export type ImportedLessonFields = {
   button: string | null
   /** Null when the workbook has no Example button row. */
   exampleButton: string | null
+  /** Null when the workbook has no Demo Instruction button row. */
+  demoButton: string | null
   /** Null when the Lesson sheet has no submit row. */
   submit: string | null
   /** Null when the Lesson sheet has no challenge_passed row. */
@@ -307,6 +309,7 @@ function emptyLessonFields(): ImportedLessonFields {
     sku: null,
     button: null,
     exampleButton: null,
+    demoButton: null,
     submit: null,
     challengePassed: null,
     challengeFailed: null,
@@ -349,6 +352,7 @@ function parseLessonSheet(
     sku: null,
     button: null,
     exampleButton: null,
+    demoButton: null,
     submit: null,
     challengePassed: null,
     challengeFailed: null,
