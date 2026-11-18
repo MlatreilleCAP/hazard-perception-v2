@@ -286,8 +286,8 @@ async function loadSectionDefinition(item: LessonCompositionItem): Promise<Activ
   return definition
 }
 
-async function startIntro(): Promise<boolean> {
-  if (!shouldPlayIntro()) return false
+async function startIntro(force = false): Promise<boolean> {
+  if (!force && !shouldPlayIntro()) return false
   const mediaId = lesson.value.introMedia?.media_asset_id
   if (!mediaId) return false
 
@@ -506,6 +506,95 @@ function onAnticipateFinished(payload?: {
   advanceToNextSection()
 }
 
+type LessonStop =
+  | { kind: 'title' }
+  | { kind: 'intro' }
+  | { kind: 'section'; index: number }
+  | { kind: 'results' }
+
+const lessonStops = computed((): LessonStop[] => {
+  const stops: LessonStop[] = [{ kind: 'title' }]
+  if (lesson.value.introMedia?.media_asset_id) stops.push({ kind: 'intro' })
+  orderedItems.value.forEach((_, index) => stops.push({ kind: 'section', index }))
+  stops.push({ kind: 'results' })
+  return stops
+})
+
+const currentStopIndex = computed(() => {
+  const stops = lessonStops.value
+  if (phase.value === 'intro') {
+    const index = stops.findIndex((stop) => stop.kind === 'intro')
+    return index >= 0 ? index : 0
+  }
+  if (phase.value === 'results') return stops.length - 1
+  if (phase.value === 'playing' || phase.value === 'error') {
+    const index = stops.findIndex(
+      (stop) => stop.kind === 'section' && stop.index === sectionIndex.value,
+    )
+    if (index >= 0) return index
+  }
+  return 0
+})
+
+const canGoPrevious = computed(() => currentStopIndex.value > 0)
+const canGoNext = computed(() => currentStopIndex.value < lessonStops.value.length - 1)
+
+function showLessonTitle(): void {
+  loadGeneration += 1
+  clearReadyDismissTimer()
+  awaitingReady.value = false
+  sectionDefinition.value = null
+  introSrc.value = null
+  introCaptionsMediaId.value = null
+  error.value = null
+  phase.value = 'title'
+}
+
+function showLessonResults(): void {
+  loadGeneration += 1
+  clearReadyDismissTimer()
+  awaitingReady.value = false
+  sectionDefinition.value = null
+  introSrc.value = null
+  introCaptionsMediaId.value = null
+  error.value = null
+  phase.value = 'results'
+}
+
+async function showStop(stop: LessonStop): Promise<void> {
+  if (stop.kind === 'title') {
+    showLessonTitle()
+    return
+  }
+  if (stop.kind === 'results') {
+    showLessonResults()
+    return
+  }
+  loadGeneration += 1
+  if (stop.kind === 'intro') {
+    await startIntro(true)
+    return
+  }
+  await enterSection(stop.index)
+}
+
+function goPrevious(): void {
+  if (!canGoPrevious.value) return
+  void showStop(lessonStops.value[currentStopIndex.value - 1])
+}
+
+function goNext(): void {
+  if (!canGoNext.value) return
+  void showStop(lessonStops.value[currentStopIndex.value + 1])
+}
+
+defineExpose({
+  canGoPrevious,
+  canGoNext,
+  goPrevious,
+  goNext,
+})
+
 function showPreviewResults(): void {
   sectionResults.value = previewLessonSectionResults()
   phase.value = 'results'
@@ -565,13 +654,6 @@ onBeforeUnmount(() => {
         @ready="onSegmentReady"
         @ended="onIntroEnded"
       />
-      <button
-        type="button"
-        class="lesson-intro-skip"
-        @click="onIntroEnded"
-      >
-        Skip
-      </button>
     </div>
     <template v-else-if="phase === 'playing' && sectionDefinition && currentItem">
       <SeeExperience

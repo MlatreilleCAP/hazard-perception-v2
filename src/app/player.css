@@ -57,7 +57,12 @@ body:has(.player-page) {
   overflow: hidden;
 }
 
+.player-page:has(.player-section-nav) {
+  --phone-fit-pad: 128px;
+}
+
 .player-phone-slot {
+  position: relative;
   width: calc(var(--iphone-17-pro-width) * var(--phone-fit));
   height: calc(var(--iphone-17-pro-height) * var(--phone-fit));
   max-width: 100%;
@@ -149,6 +154,41 @@ body:has(.player-page) {
   color: #403b3b;
 }
 
+.player-section-nav {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.player-section-nav button {
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(28, 28, 30, 0.12),
+    0 4px 14px rgba(28, 28, 30, 0.16);
+  padding: 8px 16px;
+  color: #403b3b;
+  font-family: var(--font-poppins);
+  font-size: calc(14px * 0.85);
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.player-section-nav button:hover:not(:disabled) {
+  background: rgb(64 59 59 / 8%);
+}
+
+.player-section-nav button:disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
 @media (max-width: 700px), (hover: none) and (pointer: coarse) and (max-width: 1024px) {
   html:has(.player-page),
   body:has(.player-page),
@@ -182,6 +222,10 @@ body:has(.player-page) {
     border-radius: 0;
     transform: none;
     box-shadow: none;
+  }
+
+  .player-section-nav {
+    display: none;
   }
 }
 
@@ -1505,32 +1549,6 @@ body:has(.player-page) {
   position: absolute;
   inset: 0;
   z-index: 30;
-}
-
-.lesson-intro-skip {
-  position: absolute;
-  top: max(16px, env(safe-area-inset-top, 0px));
-  right: max(12px, env(safe-area-inset-right, 0px));
-  z-index: 40;
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  border: 1.5px solid rgb(255 255 255 / 90%);
-  border-radius: 8px;
-  background: rgb(0 0 0 / 55%);
-  color: #fff;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  pointer-events: auto;
-}
-
-.lesson-intro-skip:hover {
-  background: rgb(0 0 0 / 72%);
 }
 
 .lesson-preloader {

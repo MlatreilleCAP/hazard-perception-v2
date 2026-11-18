@@ -163,6 +163,7 @@ provideLessonResultsLabels(lessonResultsLabels)
 const lessonResultsChrome = ref<ResultsChrome>({ ...EMPTY_RESULTS_CHROME })
 provideResultsChrome(lessonResultsChrome)
 const seeExampleSrc = ref('')
+const lessonExperience = ref<InstanceType<typeof LessonExperience> | null>(null)
 
 async function resolveLessonLabels(activity: ActivityDefinition): Promise<{
   button: string
@@ -522,9 +523,26 @@ function onExperienceFinished(): void {
       </button>
     </div>
     <div v-if="hasExperience && definition" class="player-phone-slot">
+      <div v-if="isLesson" class="player-section-nav" aria-label="Lesson sections">
+        <button
+          type="button"
+          :disabled="!lessonExperience?.canGoPrevious"
+          @click="lessonExperience?.goPrevious()"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          :disabled="!lessonExperience?.canGoNext"
+          @click="lessonExperience?.goNext()"
+        >
+          Skip
+        </button>
+      </div>
       <div class="player-phone" aria-label="iPhone 17 Pro preview (492 × 874)">
         <LessonExperience
           v-if="isLesson"
+          ref="lessonExperience"
           :key="`${definition.id}-${replayNonce}`"
           :definition="definition"
           :country="lessonCountry"
