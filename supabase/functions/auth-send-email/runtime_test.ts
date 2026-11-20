@@ -238,8 +238,8 @@ Deno.test('auth send email runtime', async (t) => {
           assertEquals(rendered.text.includes('undefined'), false)
           if (message.tokenHash) {
             assertEquals(rendered.html.includes('or copy this link'), false)
-            assertStringIncludes(rendered.html, 'expires in 1 hour')
-            assertStringIncludes(rendered.text, 'expires in 1 hour')
+            assertStringIncludes(rendered.html, 'expires in 24 hours')
+            assertStringIncludes(rendered.text, 'expires in 24 hours')
             assertEquals(rendered.html.includes(message.otp ?? '111111'), false)
             assertEquals(verifyLink(rendered.html).searchParams.get('token'), message.tokenHash)
           }

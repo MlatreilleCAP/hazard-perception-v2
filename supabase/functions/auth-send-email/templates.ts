@@ -9,7 +9,7 @@ import { authActionExpectsLink, type AuthEmailAction, type PlannedEmail } from '
  */
 
 /** Matches auth.email.otp_expiry in supabase/config.toml. */
-const CODE_LIFETIME = '1 hour'
+const CODE_LIFETIME = '24 hours'
 
 const DEFAULT_PRODUCT_URL = 'https://inroads.alertdriving.com'
 const LINK_EXPIRY = `This link expires in ${CODE_LIFETIME} and can only be used once.`

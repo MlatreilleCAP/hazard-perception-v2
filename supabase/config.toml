@@ -238,8 +238,8 @@ secure_password_change = false
 max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
-# Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# Number of seconds before the email OTP / recovery link expires. Maximum is 86400 (24 hours).
+otp_expiry = 86400
 
 # Auth mail is delivered by the Send Email Hook (supabase/functions/auth-send-email), not SMTP.
 # Leave this disabled. Enabling SMTP does not brand mail once the hook is turned on.

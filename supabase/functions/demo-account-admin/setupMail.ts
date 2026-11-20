@@ -82,7 +82,7 @@ export function buildSetupMessage(
     actionUrl: actionLink,
     footerMessage:
       'If the link expires, you can request a new one using Forgot Password on the Inroads sign-in page. Once your password is created, you can sign in and start exploring Inroads.',
-    expiryNote: 'For security, this link expires after a limited time.',
+    expiryNote: 'For security, this link expires in 24 hours and can only be used once.',
   })
   return { subject: SETUP_SUBJECT, html: rendered.html, text: rendered.text }
 }
