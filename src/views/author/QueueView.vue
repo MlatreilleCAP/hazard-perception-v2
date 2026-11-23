@@ -7,7 +7,13 @@ import AuthorSelectField from '@/components/author/AuthorSelectField.vue'
 import availableIcon from '@/assets/queue/available.svg'
 import inProgressIcon from '@/assets/queue/in-progress.svg'
 import reviewIcon from '@/assets/queue/review.svg'
-import { canonicalActivityId } from '@/app/id'
+import { canonicalActivityId, createId } from '@/app/id'
+import {
+  formatReleaseDate,
+  groupByReleaseBucket,
+  readReleaseDate,
+  type ReleaseBucket,
+} from '@/lib/lesson/releaseBuckets'
 import { services } from '@/app/container'
 import { useQueueIdentity } from '@/composables/useQueueIdentity'
 import { downloadBlob } from '@/lib/inroadsMvp/buildImportTemplate'
@@ -23,6 +29,7 @@ import {
 import { exportIntroductionAssetsZip } from '@/services/exportIntroductionPackage'
 import { exportLessonTemplateZip } from '@/services/exportInroadsMvpPackage'
 import { listQueueSnapshots } from '@/services/queueSnapshots'
+import { loadReleaseBuckets, saveReleaseBuckets } from '@/services/releaseBuckets'
 import {
   markDraftLanguageVariantsAvailable,
   publishInroadsMvpLesson,
@@ -56,6 +63,7 @@ type QueueCard = {
   reviewNotes: string
   addedAt: number
   queueOrder: number | null
+  releaseBucketId: string
 }
 
 type BoardStatus = 'available' | 'in_progress' | 'review' | 'user_acceptance' | 'approval'
@@ -105,6 +113,14 @@ const downloadingId = ref<string | null>(null)
 const draggingId = ref<string | null>(null)
 const dropStatus = ref<BoardStatus | null>(null)
 const dropPlace = ref<{ id: string; place: 'before' | 'after' } | null>(null)
+const dropBucketId = ref<string | null>(null)
+const dropCountryKey = ref<string | null>(null)
+const draggingCountry = ref<{ bucketId: string; country: string } | null>(null)
+const releaseBuckets = ref<ReleaseBucket[]>([])
+const openBuckets = ref(new Set<string>())
+const seenBucketIds = ref(new Set<string>())
+const bucketForm = ref<{ id: string | null; name: string; releaseDate: string } | null>(null)
+const savingBuckets = ref(false)
 const actionError = ref<string | null>(null)
 
 function isOnPublishedTab(status: LessonReviewStatus): boolean {
@@ -166,8 +182,13 @@ function isBoardStatus(status: LessonReviewStatus): status is BoardStatus {
 }
 
 function cardsFor(status: QueueCard['status']): QueueCard[] {
-  const items = cards.value.filter((card) => card.status === status)
-  return status === 'available' ? sortAvailableCards(items) : sortCards(items)
+  return sortCards(cards.value.filter((card) => card.status === status))
+}
+
+function bucketIdFor(card: QueueCard): string {
+  return releaseBuckets.value.some((bucket) => bucket.id === card.releaseBucketId)
+    ? card.releaseBucketId
+    : ''
 }
 
 function holderName(card: QueueCard): string {
@@ -239,15 +260,27 @@ function sortCards(items: QueueCard[]): QueueCard[] {
   })
 }
 
-type AvailableGroup = {
-  key: string
-  label: string
-  cards: QueueCard[]
-}
-
 type QueueEntry =
-  | { kind: 'header'; key: string; label: string; count: number; country: string }
-  | { kind: 'card'; key: string; card: QueueCard; grouped: boolean }
+  | {
+      kind: 'bucket'
+      key: string
+      bucketId: string
+      label: string
+      dateLabel: string
+      count: number
+      named: boolean
+    }
+  | {
+      kind: 'country'
+      key: string
+      countryKey: string
+      groupKey: string
+      bucketId: string
+      label: string
+      count: number
+      nested: boolean
+    }
+  | { kind: 'card'; key: string; card: QueueCard; grouped: boolean; nested: boolean }
 
 const openCountries = ref(new Set<string>())
 
@@ -257,17 +290,6 @@ function countryKey(country: string): string {
 
 function countryLabel(country: string): string {
   return country.trim() || 'No country'
-}
-
-function availableGroups(items: QueueCard[]): AvailableGroup[] {
-  const groups: AvailableGroup[] = []
-  for (const card of sortAvailableCards(items)) {
-    const key = countryKey(card.country)
-    const current = groups[groups.length - 1]
-    if (current && current.key === key) current.cards.push(card)
-    else groups.push({ key, label: countryLabel(card.country), cards: [card] })
-  }
-  return groups
 }
 
 function countryOpen(key: string): boolean {
@@ -281,33 +303,7 @@ function toggleCountry(key: string): void {
   openCountries.value = next
 }
 
-function cardEntries(entry: QueueEntry): QueueCard[] {
-  return entry.kind === 'card' ? [entry.card] : []
-}
-
-function entriesFor(status: BoardStatus): QueueEntry[] {
-  const items = cardsFor(status)
-  if (status !== 'available') {
-    return items.map((card) => ({ kind: 'card', key: card.id, card, grouped: false }))
-  }
-  const entries: QueueEntry[] = []
-  for (const group of availableGroups(items)) {
-    entries.push({
-      kind: 'header',
-      key: `country-${group.key}`,
-      label: group.label,
-      count: group.cards.length,
-      country: group.key,
-    })
-    if (!countryOpen(group.key)) continue
-    for (const card of group.cards) {
-      entries.push({ kind: 'card', key: card.id, card, grouped: true })
-    }
-  }
-  return entries
-}
-
-/** Available stays grouped by country (the locale under the title), then title and language. */
+/** Available stays grouped by country, then title and language. */
 function sortAvailableCards(items: QueueCard[]): QueueCard[] {
   return [...items].sort((left, right) => {
     const byCountry = (left.country || '\uffff').localeCompare(right.country || '\uffff')
@@ -318,6 +314,122 @@ function sortAvailableCards(items: QueueCard[]): QueueCard[] {
     if (byLanguage !== 0) return byLanguage
     return orderKey(left) - orderKey(right)
   })
+}
+
+function countryGroups(items: readonly QueueCard[]): Array<{ key: string; label: string; cards: QueueCard[] }> {
+  const groups: Array<{ key: string; label: string; cards: QueueCard[] }> = []
+  for (const card of items) {
+    const key = countryKey(card.country)
+    const current = groups[groups.length - 1]
+    if (current && current.key === key) current.cards.push(card)
+    else groups.push({ key, label: countryLabel(card.country), cards: [card] })
+  }
+  return groups
+}
+
+function revealBuckets(buckets: readonly ReleaseBucket[]): void {
+  const seen = seenBucketIds.value
+  const next = new Set(openBuckets.value)
+  if (!seen.has('')) {
+    seen.add('')
+    next.add('')
+  }
+  for (const bucket of buckets) {
+    if (seen.has(bucket.id)) continue
+    seen.add(bucket.id)
+    next.add(bucket.id)
+  }
+  openBuckets.value = next
+}
+
+function bucketOpen(id: string): boolean {
+  return openBuckets.value.has(id)
+}
+
+function toggleBucket(id: string): void {
+  const next = new Set(openBuckets.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  openBuckets.value = next
+}
+
+function beginBucketCreate(): void {
+  if (savingBuckets.value) return
+  bucketForm.value = { id: null, name: '', releaseDate: '' }
+}
+
+function beginBucketEdit(entry: Extract<QueueEntry, { kind: 'bucket' }>): void {
+  if (!entry.named || savingBuckets.value) return
+  const bucket = releaseBuckets.value.find((item) => item.id === entry.bucketId)
+  if (!bucket) return
+  bucketForm.value = { id: bucket.id, name: bucket.name, releaseDate: bucket.releaseDate }
+}
+
+function closeBucketForm(): void {
+  if (savingBuckets.value) return
+  bucketForm.value = null
+}
+
+function cardEntries(entry: QueueEntry): QueueCard[] {
+  return entry.kind === 'card' ? [entry.card] : []
+}
+
+function pushCountryEntries(
+  entries: QueueEntry[],
+  items: readonly QueueCard[],
+  bucketId: string,
+  nested: boolean,
+): void {
+  for (const group of countryGroups(items)) {
+    const key = nested ? `${bucketId}::${group.key}` : group.key
+    entries.push({
+      kind: 'country',
+      key: `country-${bucketId || 'none'}-${group.key}`,
+      countryKey: key,
+      groupKey: group.key,
+      bucketId,
+      label: group.label,
+      count: group.cards.length,
+      nested,
+    })
+    if (!countryOpen(key)) continue
+    for (const card of group.cards) {
+      entries.push({ kind: 'card', key: card.id, card, grouped: true, nested })
+    }
+  }
+}
+
+function entriesFor(status: BoardStatus): QueueEntry[] {
+  if (status !== 'available') {
+    return cardsFor(status).map((card) => ({
+      kind: 'card',
+      key: card.id,
+      card,
+      grouped: false,
+      nested: false,
+    }))
+  }
+  const items = sortAvailableCards(cards.value.filter((card) => card.status === 'available'))
+  const entries: QueueEntry[] = []
+  if (releaseBuckets.value.length === 0) {
+    pushCountryEntries(entries, items, '', false)
+    return entries
+  }
+  for (const section of groupByReleaseBucket(items, releaseBuckets.value)) {
+    const bucketId = section.bucket?.id ?? ''
+    entries.push({
+      kind: 'bucket',
+      key: `bucket-${bucketId || 'unscheduled'}`,
+      bucketId,
+      label: section.bucket?.name ?? 'Unscheduled',
+      dateLabel: section.bucket ? formatReleaseDate(section.bucket.releaseDate) : '',
+      count: section.cards.length,
+      named: section.bucket != null,
+    })
+    if (!bucketOpen(bucketId)) continue
+    pushCountryEntries(entries, section.cards, bucketId, true)
+  }
+  return entries
 }
 
 function orderBetween(before: QueueCard | undefined, after: QueueCard | undefined): number {
@@ -443,15 +555,38 @@ function onDragStart(card: QueueCard, event: DragEvent): void {
 
 function onDragEnd(): void {
   draggingId.value = null
+  draggingCountry.value = null
   dropStatus.value = null
   dropPlace.value = null
+  dropBucketId.value = null
+  dropCountryKey.value = null
+}
+
+function onCountryDragStart(
+  entry: Extract<QueueEntry, { kind: 'country' }>,
+  event: DragEvent,
+): void {
+  if (updatingId.value) {
+    event.preventDefault()
+    return
+  }
+  reviewMenuId.value = null
+  noteCardId.value = null
+  draggingId.value = null
+  draggingCountry.value = { bucketId: entry.bucketId, country: entry.groupKey }
+  event.dataTransfer?.setData('text/plain', `country:${entry.countryKey}`)
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
 }
 
 function onDragOver(status: BoardStatus, event: DragEvent): void {
+  if (draggingCountry.value) return
   const card = cards.value.find((item) => item.id === draggingId.value)
   if (!card) return
+  const target = event.target
+  if (target instanceof HTMLElement && target.closest('.queue-bucket, .queue-card')) return
   event.preventDefault()
   dropPlace.value = null
+  dropBucketId.value = null
   dropStatus.value = card.status === status ? null : status
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
 }
@@ -462,9 +597,20 @@ function onDragLeave(status: BoardStatus, event: DragEvent): void {
   if (current instanceof Node && next instanceof Node && current.contains(next)) return
   if (dropStatus.value === status) dropStatus.value = null
   dropPlace.value = null
+  dropBucketId.value = null
 }
 
 function onCardDragOver(card: QueueCard, event: DragEvent): void {
+  if (draggingCountry.value) {
+    if (card.status !== 'available' || bucketIdFor(card) === draggingCountry.value.bucketId) return
+    event.preventDefault()
+    event.stopPropagation()
+    dropPlace.value = null
+    dropBucketId.value = bucketIdFor(card)
+    dropCountryKey.value = null
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+    return
+  }
   if (!draggingId.value || draggingId.value === card.id || !isBoardStatus(card.status)) return
   event.preventDefault()
   event.stopPropagation()
@@ -475,7 +621,67 @@ function onCardDragOver(card: QueueCard, event: DragEvent): void {
   dropPlace.value = { id: card.id, place }
   const dragged = cards.value.find((item) => item.id === draggingId.value)
   dropStatus.value = dragged && dragged.status !== card.status ? card.status : null
+  dropBucketId.value = card.status === 'available' ? bucketIdFor(card) : null
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+}
+
+function onBucketDragOver(bucketId: string, event: DragEvent): void {
+  if (draggingCountry.value?.bucketId === bucketId) return
+  if (!draggingId.value && !draggingCountry.value) return
+  event.preventDefault()
+  event.stopPropagation()
+  dropPlace.value = null
+  dropCountryKey.value = null
+  dropBucketId.value = bucketId
+  const dragged = cards.value.find((item) => item.id === draggingId.value)
+  dropStatus.value = dragged && dragged.status !== 'available' ? 'available' : null
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+}
+
+function onCountryDragOver(
+  entry: Extract<QueueEntry, { kind: 'country' }>,
+  event: DragEvent,
+): void {
+  if (draggingCountry.value) {
+    if (draggingCountry.value.bucketId === entry.bucketId) return
+    event.preventDefault()
+    event.stopPropagation()
+    dropPlace.value = null
+    dropBucketId.value = entry.bucketId
+    dropCountryKey.value = entry.countryKey
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+    return
+  }
+  if (entry.nested) onBucketDragOver(entry.bucketId, event)
+}
+
+function onCountryDrop(
+  entry: Extract<QueueEntry, { kind: 'country' }>,
+  event: DragEvent,
+): void {
+  if (draggingCountry.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    const country = draggingCountry.value
+    onDragEnd()
+    void moveCountry(country, entry.bucketId)
+    return
+  }
+  if (entry.nested) onBucketDrop(entry.bucketId, event)
+}
+
+function onBucketDrop(bucketId: string, event: DragEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  const country = draggingCountry.value
+  onDragEnd()
+  if (country) {
+    void moveCountry(country, bucketId)
+    return
+  }
+  const id = draggedCardId(event)
+  if (!id) return
+  void placeCard(id, 'available', null, 'after', bucketId)
 }
 
 function draggedCardId(event: DragEvent): string {
@@ -488,19 +694,93 @@ function draggedCardId(event: DragEvent): string {
 function onCardDrop(card: QueueCard, event: DragEvent): void {
   event.preventDefault()
   event.stopPropagation()
+  if (draggingCountry.value) {
+    const country = draggingCountry.value
+    const bucketId = card.status === 'available' ? bucketIdFor(card) : ''
+    onDragEnd()
+    if (card.status === 'available') void moveCountry(country, bucketId)
+    return
+  }
   const id = draggedCardId(event)
   const place = dropPlace.value?.id === card.id ? dropPlace.value.place : 'before'
   onDragEnd()
   if (!id || !isBoardStatus(card.status)) return
-  void placeCard(id, card.status, card.id, place)
+  void placeCard(
+    id,
+    card.status,
+    card.id,
+    place,
+    card.status === 'available' ? bucketIdFor(card) : undefined,
+  )
 }
 
 function onDrop(status: BoardStatus, event: DragEvent): void {
   event.preventDefault()
+  if (draggingCountry.value) {
+    onDragEnd()
+    return
+  }
   const id = draggedCardId(event)
   onDragEnd()
   if (!id) return
   void placeCard(id, status, null, 'after')
+}
+
+function cardsInCountry(bucketId: string, country: string): QueueCard[] {
+  return cards.value.filter(
+    (card) =>
+      card.status === 'available' &&
+      bucketIdFor(card) === bucketId &&
+      countryKey(card.country) === country,
+  )
+}
+
+async function moveCountry(
+  source: { bucketId: string; country: string },
+  targetBucketId: string,
+): Promise<void> {
+  if (updatingId.value || source.bucketId === targetBucketId) return
+  const moving = cardsInCountry(source.bucketId, source.country)
+  if (moving.length === 0) return
+  const previous = cards.value
+  const movingIds = new Set(moving.map((card) => card.id))
+  updatingId.value = moving[0]?.id ?? null
+  actionError.value = null
+  cards.value = cards.value.map((card) =>
+    movingIds.has(card.id) ? { ...card, releaseBucketId: targetBucketId } : card,
+  )
+  const open = new Set(openCountries.value)
+  open.add(
+    releaseBuckets.value.length > 0 ? `${targetBucketId}::${source.country}` : source.country,
+  )
+  openCountries.value = open
+  if (!openBuckets.value.has(targetBucketId)) {
+    const buckets = new Set(openBuckets.value)
+    buckets.add(targetBucketId)
+    openBuckets.value = buckets
+  }
+  try {
+    await mapPool(moving, QUEUE_LOAD_LIMIT, async (card) => {
+      await setLessonQueuePlacement(
+        card.id,
+        'available',
+        card.assigneeId || card.assigneeName
+          ? { id: card.assigneeId, name: card.assigneeName }
+          : null,
+        undefined,
+        card.queueOrder ?? undefined,
+        card.progressAssigneeId || card.progressAssigneeName
+          ? { id: card.progressAssigneeId, name: card.progressAssigneeName }
+          : null,
+        targetBucketId,
+      )
+    })
+  } catch (cause) {
+    cards.value = previous
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to move the country'
+  } finally {
+    updatingId.value = null
+  }
 }
 
 async function placeCard(
@@ -508,6 +788,7 @@ async function placeCard(
   status: BoardStatus,
   targetId: string | null,
   place: 'before' | 'after',
+  bucketId?: string,
 ): Promise<void> {
   const previous = cards.value.find((item) => item.id === id)
   if (!previous || updatingId.value || id === targetId) return
@@ -515,8 +796,14 @@ async function placeCard(
     actionError.value = advanceError(previous, status)
     return
   }
+  const nextBucket =
+    status === 'available' ? (bucketId ?? bucketIdFor(previous)) : previous.releaseBucketId
   const column = sortCards(
-    cards.value.filter((item) => item.status === status && item.id !== id),
+    cards.value.filter((item) => {
+      if (item.status !== status || item.id === id) return false
+      if (status === 'available' && bucketIdFor(item) !== nextBucket) return false
+      return true
+    }),
   )
   let index = column.length
   if (targetId) {
@@ -526,8 +813,11 @@ async function placeCard(
   }
   const before = column[index - 1]
   const after = column[index]
-  if (previous.status === status) {
-    const current = sortCards(cards.value.filter((item) => item.status === status))
+  const bucketChanged = status === 'available' && previous.releaseBucketId !== nextBucket
+  if (previous.status === status && !bucketChanged) {
+    const current = sortCards(
+      cards.value.filter((item) => item.status === status && bucketIdFor(item) === nextBucket),
+    )
     const currentIndex = current.findIndex((item) => item.id === id)
     const sameNeighbors =
       (current[currentIndex - 1]?.id ?? null) === (before?.id ?? null) &&
@@ -562,13 +852,22 @@ async function placeCard(
       progressAssigneeId: progressAssignee?.id ?? '',
       progressAssigneeName: progressAssignee?.name ?? '',
       queueOrder,
+      releaseBucketId: status === 'available' ? nextBucket : previous.releaseBucketId,
     },
   ])
   try {
-    await setLessonQueuePlacement(id, status, assignee, undefined, queueOrder, progressAssignee)
+    await setLessonQueuePlacement(
+      id,
+      status,
+      assignee,
+      undefined,
+      queueOrder,
+      progressAssignee,
+      status === 'available' ? nextBucket : undefined,
+    )
     if (status === 'available') {
       try {
-        const marked = await markDraftLanguageVariantsAvailable(id)
+        const marked = await markDraftLanguageVariantsAvailable(id, nextBucket)
         const extras = (
           await Promise.all(marked.map((markedId) => availableCard(markedId)))
         ).filter((card): card is QueueCard => card != null)
@@ -622,6 +921,7 @@ async function availableCard(id: string): Promise<QueueCard | null> {
     reviewNotes: parsed.reviewNotes.trim(),
     addedAt: addedAtFrom(definition.metadata.createdAt),
     queueOrder: readQueueOrder(parsed.queueOrder),
+    releaseBucketId: parsed.releaseBucketId,
   }
 }
 
@@ -663,6 +963,7 @@ function cardFromSnapshot(
     progressAssigneeName: string
     reviewNotes: string
     queueOrder: number | null
+    releaseBucketId: string
   } | undefined,
 ): QueueCard {
   return {
@@ -679,6 +980,7 @@ function cardFromSnapshot(
     reviewNotes: snapshot?.reviewNotes ?? '',
     addedAt: addedAtFrom(snapshot?.createdAt),
     queueOrder: snapshot?.queueOrder ?? null,
+    releaseBucketId: snapshot?.releaseBucketId ?? '',
   }
 }
 
@@ -700,15 +1002,24 @@ async function promoteLoadedDrafts(loaded: QueueCard[]): Promise<void> {
     const ids = new Set(
       draftLanguageVariantIds(group.map((card) => ({ id: card.id, status: card.status }))),
     )
+    const source = group.find((card) => card.status === 'available' && !ids.has(card.id))
     for (const card of group) {
-      if (ids.has(card.id)) drafts.push(card)
+      if (ids.has(card.id)) drafts.push({ ...card, releaseBucketId: source?.releaseBucketId ?? '' })
     }
   }
   if (drafts.length === 0) return
   const promoted: QueueCard[] = []
   await mapPool(drafts, QUEUE_LOAD_LIMIT, async (card) => {
     try {
-      await setLessonQueuePlacement(card.id, 'available', null, undefined, undefined, null)
+      await setLessonQueuePlacement(
+        card.id,
+        'available',
+        null,
+        undefined,
+        undefined,
+        null,
+        card.releaseBucketId || undefined,
+      )
       promoted.push({
         ...card,
         status: 'available',
@@ -729,7 +1040,13 @@ async function promoteLoadedDrafts(loaded: QueueCard[]): Promise<void> {
 onMounted(async () => {
   loading.value = true
   try {
-    await Promise.all([activities.refreshList(), identity.load()])
+    const [loadedBuckets] = await Promise.all([
+      loadReleaseBuckets(),
+      activities.refreshList(),
+      identity.load(),
+    ])
+    releaseBuckets.value = loadedBuckets
+    revealBuckets(loadedBuckets)
     const jobs = [
       ...activities.summaries
         .filter((item) => isInroadsMvpActivity(item.tags))
@@ -780,6 +1097,7 @@ function onDocumentKeyDown(event: KeyboardEvent): void {
   reviewMenuId.value = null
   noteCardId.value = null
   if (!updatingId.value) changesForId.value = null
+  closeBucketForm()
 }
 
 async function republish(card: QueueCard): Promise<void> {
@@ -982,6 +1300,73 @@ function toggleNote(card: QueueCard): void {
   noteCardId.value = noteCardId.value === card.id ? null : card.id
 }
 
+async function saveBucketForm(): Promise<void> {
+  const form = bucketForm.value
+  if (!form || savingBuckets.value) return
+  const name = form.name.trim()
+  const releaseDate = readReleaseDate(form.releaseDate)
+  if (!name || !releaseDate) {
+    actionError.value = 'Enter a name and a release date.'
+    return
+  }
+  const next = form.id
+    ? releaseBuckets.value.map((bucket) =>
+        bucket.id === form.id ? { id: bucket.id, name, releaseDate } : bucket,
+      )
+    : [...releaseBuckets.value, { id: createId(), name, releaseDate }]
+  savingBuckets.value = true
+  actionError.value = null
+  try {
+    releaseBuckets.value = await saveReleaseBuckets(next)
+    revealBuckets(releaseBuckets.value)
+    bucketForm.value = null
+  } catch (cause) {
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to save the release'
+  } finally {
+    savingBuckets.value = false
+  }
+}
+
+async function removeBucket(): Promise<void> {
+  const id = bucketForm.value?.id
+  if (!id || savingBuckets.value) return
+  const remaining = releaseBuckets.value.filter((bucket) => bucket.id !== id)
+  const affected = cards.value.filter((card) => card.releaseBucketId === id)
+  const previousBuckets = releaseBuckets.value
+  const previousCards = cards.value
+  savingBuckets.value = true
+  actionError.value = null
+  releaseBuckets.value = remaining
+  cards.value = cards.value.map((card) =>
+    card.releaseBucketId === id ? { ...card, releaseBucketId: '' } : card,
+  )
+  try {
+    releaseBuckets.value = await saveReleaseBuckets(remaining)
+    await mapPool(affected, QUEUE_LOAD_LIMIT, async (card) => {
+      await setLessonQueuePlacement(
+        card.id,
+        card.status,
+        card.assigneeId || card.assigneeName
+          ? { id: card.assigneeId, name: card.assigneeName }
+          : null,
+        undefined,
+        card.queueOrder ?? undefined,
+        card.progressAssigneeId || card.progressAssigneeName
+          ? { id: card.progressAssigneeId, name: card.progressAssigneeName }
+          : null,
+        '',
+      )
+    })
+    bucketForm.value = null
+  } catch (cause) {
+    releaseBuckets.value = previousBuckets
+    cards.value = previousCards
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to remove the release'
+  } finally {
+    savingBuckets.value = false
+  }
+}
+
 async function clearNote(card: QueueCard): Promise<void> {
   if (!identity.canApprove.value || updatingId.value || !card.reviewNotes) return
   updatingId.value = card.id
@@ -1035,7 +1420,10 @@ async function clearNote(card: QueueCard): Promise<void> {
           v-for="column in BOARD"
           :key="column.status"
           class="queue-column"
-          :class="{ 'is-drop-target': dropStatus === column.status }"
+          :class="{
+            'is-available': column.status === 'available',
+            'is-drop-target': dropStatus === column.status,
+          }"
           @dragover="onDragOver(column.status, $event)"
           @dragleave="onDragLeave(column.status, $event)"
           @drop="onDrop(column.status, $event)"
@@ -1046,12 +1434,64 @@ async function clearNote(card: QueueCard): Promise<void> {
           </h2>
           <div class="queue-column-cards">
             <template v-for="entry in entriesFor(column.status)" :key="entry.key">
+            <div
+              v-if="entry.kind === 'bucket'"
+              class="queue-country queue-bucket"
+              :class="{ 'is-drop-target': dropBucketId === entry.bucketId }"
+              :aria-expanded="bucketOpen(entry.bucketId)"
+              @dragover="onBucketDragOver(entry.bucketId, $event)"
+              @drop="onBucketDrop(entry.bucketId, $event)"
+            >
+              <button
+                type="button"
+                class="queue-bucket-toggle"
+                :aria-expanded="bucketOpen(entry.bucketId)"
+                :aria-label="`${bucketOpen(entry.bucketId) ? 'Collapse' : 'Expand'} ${entry.label}`"
+                @click="toggleBucket(entry.bucketId)"
+              >
+                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path
+                    d="M4.5 6.5 8 10l3.5-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+              <span class="queue-bucket-copy">
+                <button
+                  v-if="entry.named"
+                  type="button"
+                  class="queue-bucket-name"
+                  @click="beginBucketEdit(entry)"
+                >
+                  {{ entry.label }}
+                </button>
+                <span v-else class="queue-bucket-name">{{ entry.label }}</span>
+                <span v-if="entry.dateLabel" class="queue-bucket-date">{{ entry.dateLabel }}</span>
+              </span>
+              <span class="queue-country-count">{{ entry.count }}</span>
+            </div>
             <button
-              v-if="entry.kind === 'header'"
+              v-else-if="entry.kind === 'country'"
               type="button"
               class="queue-country"
-              :aria-expanded="countryOpen(entry.country)"
-              @click="toggleCountry(entry.country)"
+              :class="{
+                'is-nested': entry.nested,
+                'is-dragging':
+                  draggingCountry?.bucketId === entry.bucketId &&
+                  draggingCountry?.country === entry.groupKey,
+                'is-drop-target': dropCountryKey === entry.countryKey,
+              }"
+              :aria-expanded="countryOpen(entry.countryKey)"
+              :draggable="updatingId === null"
+              @click="toggleCountry(entry.countryKey)"
+              @dragstart="onCountryDragStart(entry, $event)"
+              @dragend="onDragEnd"
+              @dragover="onCountryDragOver(entry, $event)"
+              @drop="onCountryDrop(entry, $event)"
             >
               <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
                 <path
@@ -1074,6 +1514,7 @@ async function clearNote(card: QueueCard): Promise<void> {
               :aria-label="card.title"
               :class="{
                 'is-grouped': entry.kind === 'card' && entry.grouped,
+                'is-nested': entry.kind === 'card' && entry.nested,
                 'is-available': column.status === 'available',
                 'is-dragging': draggingId === card.id,
                 'is-open': reviewMenuId === card.id || noteCardId === card.id,
@@ -1227,6 +1668,14 @@ async function clearNote(card: QueueCard): Promise<void> {
             </template>
             </template>
           </div>
+          <button
+            v-if="column.status === 'available'"
+            type="button"
+            class="queue-add-release"
+            @click="beginBucketCreate"
+          >
+            Add release
+          </button>
         </section>
       </div>
 
@@ -1288,6 +1737,47 @@ async function clearNote(card: QueueCard): Promise<void> {
           </li>
         </ul>
       </section>
+
+      <div
+        v-if="bucketForm"
+        class="queue-notes-backdrop"
+        @click.self="closeBucketForm"
+      >
+        <form class="queue-notes-panel" @submit.prevent="saveBucketForm">
+          <h2>{{ bucketForm.id ? 'Edit release' : 'New release' }}</h2>
+          <p v-if="bucketForm.id">Activities in this release stay together. Removing it returns them to Unscheduled.</p>
+          <p v-else>Name this release and set the date activities in it are planned for.</p>
+          <label>
+            Name
+            <input v-model="bucketForm.name" type="text" required maxlength="80" autofocus />
+          </label>
+          <label>
+            Release date
+            <input v-model="bucketForm.releaseDate" type="date" required />
+          </label>
+          <div class="queue-notes-actions">
+            <button
+              v-if="bucketForm.id"
+              type="button"
+              class="author-pill author-pill-ghost queue-bucket-remove"
+              :disabled="savingBuckets"
+              @click="removeBucket"
+            >
+              Remove
+            </button>
+            <button type="button" class="author-pill author-pill-ghost" @click="closeBucketForm">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="author-pill author-pill-primary"
+              :disabled="savingBuckets || !bucketForm.name.trim() || !bucketForm.releaseDate"
+            >
+              {{ savingBuckets ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+        </form>
+      </div>
 
       <div
         v-if="changesCard"

@@ -143,7 +143,10 @@ const totalScore = computed(
 const scoreRows = computed(() => [
   {
     id: 'base',
-    label: resultsChromeLabel(resultsChrome.value.scoreBase, `${props.title} Score`),
+    label: resultsChromeLabel(resultsChrome.value.scoreBase, `${props.title} Score`).replaceAll(
+      '{name}',
+      props.title,
+    ),
     value: String(baseScore.value),
   },
   {

@@ -83,7 +83,7 @@ export function lessonEnglishGroups(
       row('Q4', mvp.q4Label),
       row('Observation', mvp.observeLabel),
       row('Process', mvp.processLabel),
-      row('Anticipation', mvp.anticipateLabel),
+      row('Anticipate', mvp.anticipateLabel),
     ]),
     group('Clip intro headings', [
       row('Maneuver', mvp.maneuverLabel),

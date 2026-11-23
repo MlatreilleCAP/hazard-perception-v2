@@ -59,6 +59,14 @@ export type ImportedLessonFields = {
   language: string
   /** Null when the Lesson sheet has no sku row. */
   sku: string | null
+  /** Null when the workbook has no template row. */
+  template: string | null
+  /** Landing page title. Null when the workbook has no landing title row. */
+  cardTitle: string | null
+  /** Landing page body. Null when the workbook has no landing text row. */
+  landingText: string | null
+  /** Player strings keyed by global.player.* */
+  playerCopy: Record<string, string>
   /** Null when the Lesson sheet has no button row. */
   button: string | null
   /** Null when the workbook has no Example button row. */
@@ -307,6 +315,10 @@ function emptyLessonFields(): ImportedLessonFields {
     country: '',
     language: '',
     sku: null,
+    template: null,
+    cardTitle: null,
+    landingText: null,
+    playerCopy: {},
     button: null,
     exampleButton: null,
     demoButton: null,
@@ -350,6 +362,10 @@ function parseLessonSheet(
     country: '',
     language: '',
     sku: null,
+    template: null,
+    cardTitle: null,
+    landingText: null,
+    playerCopy: {},
     button: null,
     exampleButton: null,
     demoButton: null,

@@ -4,7 +4,7 @@ import { canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
 export const DEFAULT_LESSON_BUTTON_LABEL = 'Continue'
 export const DEFAULT_LESSON_SUBMIT_LABEL = 'Submit'
 export const DEFAULT_LESSON_EXAMPLE_BUTTON_LABEL = 'Example'
-export const DEFAULT_LESSON_CHALLENGE_PASSED_LABEL = 'Challenge Complete'
+export const DEFAULT_LESSON_CHALLENGE_PASSED_LABEL = 'Challenge Passed'
 export const DEFAULT_LESSON_CHALLENGE_FAILED_LABEL = 'Challenge Failed'
 
 const LESSON_BUTTON_LABEL = Symbol('lessonButtonLabel')
@@ -27,7 +27,7 @@ export const DEFAULT_LESSON_RESULTS_LABELS = {
   q4: 'Q4',
   observe: 'Observation',
   process: 'Process',
-  anticipate: 'Anticipation',
+  anticipate: 'Anticipate',
 } as const
 
 export type LessonResultsLabels = {

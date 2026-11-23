@@ -3,6 +3,7 @@ import {
   canonicalizeLessonCountry,
   canonicalizeLessonLanguage,
 } from '@/lib/inroadsMvp/packageSpec'
+import { readReleaseBucketId } from '@/lib/lesson/releaseBuckets'
 import {
   readLessonReviewStatus,
   readQueueOrder,
@@ -28,6 +29,8 @@ export type IntroductionDefinition = {
   reviewNotes: string
   /** Manual position in a queue column. Unset cards sort by the date they were added. */
   queueOrder: number | null
+  /** Release-date bucket in the Available column. Empty means unscheduled. */
+  releaseBucketId: string
   /** Title in Details. Independent of the activity name used in the header and queue. */
   videoTitle: string
   introMedia: MediaRef | null
@@ -60,6 +63,7 @@ export function createDefaultIntroductionDefinition(): IntroductionDefinition {
     progressAssigneeName: '',
     reviewNotes: '',
     queueOrder: null,
+    releaseBucketId: '',
     videoTitle: '',
     introMedia: null,
     introCaptions: null,
@@ -82,6 +86,7 @@ export function cloneIntroductionDefinition(
     progressAssigneeName: (definition.progressAssigneeName ?? '').trim(),
     reviewNotes: definition.reviewNotes.trim(),
     queueOrder: readQueueOrder(definition.queueOrder),
+    releaseBucketId: readReleaseBucketId(definition.releaseBucketId),
     videoTitle: definition.videoTitle.trim(),
     introMedia: definition.introMedia
       ? { media_asset_id: definition.introMedia.media_asset_id }
@@ -112,6 +117,7 @@ export function normalizeIntroductionDefinition(
       typeof raw?.progressAssigneeName === 'string' ? raw.progressAssigneeName.trim() : '',
     reviewNotes: typeof raw?.reviewNotes === 'string' ? raw.reviewNotes.trim() : '',
     queueOrder: readQueueOrder(raw?.queueOrder),
+    releaseBucketId: readReleaseBucketId(raw?.releaseBucketId),
     videoTitle: typeof raw?.videoTitle === 'string' ? raw.videoTitle.trim() : '',
     introMedia: readMediaRef(raw?.introMedia),
     introCaptions: readMediaRef(raw?.introCaptions),

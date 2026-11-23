@@ -520,7 +520,10 @@ export function buildEnglishReferenceFromWorkbook(payload: ParsedImportPackage):
     ...createDefaultInroadsMvpDefinition('', '', ''),
     country: lesson.country.trim(),
     language: lesson.language.trim() || 'English',
-    lessonTitle: lesson.title.trim(),
+    lessonTitle: lesson.cardTitle?.trim() || lesson.title.trim(),
+    activityTemplate: lesson.template ?? '',
+    landingText: lesson.landingText ?? '',
+    playerCopy: lesson.playerCopy,
     sku: lesson.sku ?? '',
     buttonLabel: lesson.button ?? '',
     submitLabel: lesson.submit ?? '',
@@ -999,7 +1002,8 @@ export async function importInroadsMvpPackage(
   const processActivity = await loadActivityOrThrow(mvp.processActivityId)
   const anticipateActivity = await loadActivityOrThrow(mvp.anticipateActivityId)
 
-  const lessonTitle = payload.lesson.title.trim() || mvp.lessonTitle.trim()
+  const lessonTitle =
+    payload.lesson.cardTitle?.trim() || payload.lesson.title.trim() || mvp.lessonTitle.trim()
 
   const uploaded: Partial<Record<VideoSlotId, { media: MediaRef; durationMs: number }>> = {}
   const uploadedCaptions: Partial<Record<VideoSlotId, MediaRef>> = {}
@@ -1118,6 +1122,13 @@ export async function importInroadsMvpPackage(
     country: payload.lesson.country.trim() || mvp.country,
     language: payload.lesson.language.trim() || mvp.language,
     sku: payload.lesson.sku != null ? payload.lesson.sku : mvp.sku,
+    activityTemplate:
+      payload.lesson.template != null ? payload.lesson.template : mvp.activityTemplate,
+    landingText: payload.lesson.landingText != null ? payload.lesson.landingText : mvp.landingText,
+    playerCopy:
+      Object.keys(payload.lesson.playerCopy).length > 0
+        ? { ...mvp.playerCopy, ...payload.lesson.playerCopy }
+        : mvp.playerCopy,
     buttonLabel: payload.lesson.button != null ? payload.lesson.button : mvp.buttonLabel,
     submitLabel: payload.lesson.submit != null ? payload.lesson.submit : mvp.submitLabel,
     exampleButtonLabel:

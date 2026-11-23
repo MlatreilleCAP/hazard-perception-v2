@@ -2,6 +2,7 @@ import {
   canonicalizeLessonCountry,
   canonicalizeLessonLanguage,
 } from '@/lib/inroadsMvp/packageSpec'
+import { readReleaseBucketId } from '@/lib/lesson/releaseBuckets'
 import {
   EMPTY_RESULTS_CHROME,
   readResultsChrome,
@@ -86,6 +87,8 @@ export type InroadsMvpDefinition = {
   progressAssigneeName: string
   /** Manual position in a queue column. Unset cards sort by the date they were added. */
   queueOrder: number | null
+  /** Release-date bucket in the Available column. Empty means unscheduled. */
+  releaseBucketId: string
   /** Name on the project management board. Independent of the English lesson title. */
   projectTitle: string
   /** Title on demo preview cards. Independent of the activity name. */
@@ -103,6 +106,12 @@ export type InroadsMvpDefinition = {
   language: string
   /** Product identifier for this lesson, imported from the Lesson sheet. */
   sku: string
+  /** Workbook template id, such as INR-MVP. */
+  activityTemplate: string
+  /** Landing page body under the lesson title. */
+  landingText: string
+  /** Player strings from the workbook that do not have their own lesson field. */
+  playerCopy: Record<string, string>
   /** Label for every learner Continue / Start button in this lesson. */
   buttonLabel: string
   /** Label for every severity-question Submit button in this lesson. */
@@ -179,6 +188,7 @@ export function createDefaultInroadsMvpDefinition(
     progressAssigneeId: '',
     progressAssigneeName: '',
     queueOrder: null,
+    releaseBucketId: '',
     projectTitle: '',
     lessonTitle: '',
     introMedia: null,
@@ -189,6 +199,9 @@ export function createDefaultInroadsMvpDefinition(
     country: 'Canada',
     language: 'English',
     sku: '',
+    activityTemplate: '',
+    landingText: '',
+    playerCopy: {},
     buttonLabel: '',
     submitLabel: '',
     exampleButtonLabel: '',
@@ -230,6 +243,7 @@ export function cloneInroadsMvpDefinition(
     progressAssigneeId: (definition.progressAssigneeId ?? '').trim(),
     progressAssigneeName: (definition.progressAssigneeName ?? '').trim(),
     queueOrder: readQueueOrder(definition.queueOrder),
+    releaseBucketId: readReleaseBucketId(definition.releaseBucketId),
     projectTitle: definition.projectTitle.trim(),
     lessonTitle: definition.lessonTitle.trim(),
     introMedia: definition.introMedia
@@ -244,6 +258,9 @@ export function cloneInroadsMvpDefinition(
     country: canonicalizeLessonCountry(definition.country),
     language: canonicalizeLessonLanguage(definition.language),
     sku: definition.sku.trim(),
+    activityTemplate: (definition.activityTemplate ?? '').trim(),
+    landingText: (definition.landingText ?? '').trim(),
+    playerCopy: readPlayerCopy(definition.playerCopy),
     buttonLabel: definition.buttonLabel.trim(),
     submitLabel: definition.submitLabel.trim(),
     exampleButtonLabel: (definition.exampleButtonLabel ?? '').trim(),
@@ -314,6 +331,7 @@ export function normalizeInroadsMvpDefinition(
     progressAssigneeName:
       typeof raw.progressAssigneeName === 'string' ? raw.progressAssigneeName.trim() : '',
     queueOrder: readQueueOrder(raw.queueOrder),
+    releaseBucketId: readReleaseBucketId(raw.releaseBucketId),
     projectTitle: typeof raw.projectTitle === 'string' ? raw.projectTitle.trim() : '',
     lessonTitle: typeof raw.lessonTitle === 'string' ? raw.lessonTitle.trim() : '',
     introMedia,
@@ -330,6 +348,9 @@ export function normalizeInroadsMvpDefinition(
       typeof raw.language === 'string' ? raw.language : '',
     ),
     sku: typeof raw.sku === 'string' ? raw.sku.trim() : '',
+    activityTemplate: typeof raw.activityTemplate === 'string' ? raw.activityTemplate.trim() : '',
+    landingText: typeof raw.landingText === 'string' ? raw.landingText.trim() : '',
+    playerCopy: readPlayerCopy(raw.playerCopy),
     buttonLabel: typeof raw.buttonLabel === 'string' ? raw.buttonLabel.trim() : '',
     submitLabel: typeof raw.submitLabel === 'string' ? raw.submitLabel.trim() : '',
     exampleButtonLabel:
@@ -362,6 +383,17 @@ export function normalizeInroadsMvpDefinition(
     processActivityId,
     anticipateActivityId,
   }
+}
+
+export function readPlayerCopy(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object') return {}
+  const next: Record<string, string> = {}
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (!key.startsWith('global.player.') || typeof item !== 'string') continue
+    const text = item.trim()
+    if (text) next[key] = text
+  }
+  return next
 }
 
 export const INROADS_MVP_SECTIONS = [

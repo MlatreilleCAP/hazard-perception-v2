@@ -134,6 +134,17 @@ export function canonicalizeLessonLanguage(value: string): string {
   return LANGUAGE_ALIASES[trimmed.toLowerCase()] ?? trimmed
 }
 
+/** Locale written in the activity-text Language row. English uses the workbook's en-US tag. */
+export function lessonLanguageTag(language: string): string {
+  const canonical = canonicalizeLessonLanguage(language)
+  if (!canonical) return ''
+  if (canonical === 'English') return 'en-US'
+  const code = Object.entries(LANGUAGE_ALIASES).find(
+    ([key, name]) => name === canonical && /^[a-z]{2}$/.test(key),
+  )
+  return code?.[0] ?? canonical
+}
+
 export const COPY_SECTIONS = ['observe', 'process', 'anticipate'] as const
 export type CopySection = (typeof COPY_SECTIONS)[number]
 
@@ -370,10 +381,11 @@ Required folders: none. Videos in the named folders are optional.
 Workbook
 --------
 One sheet named "Activity text".
-Columns: Screen | Element | Text | Upload text | When
+Columns: Key | Screen | Element | Text | Upload text | When
 Text is the source copy. Upload text is what this lesson version uses.
+The Key column is the stable id. Leave Key and When as they are.
 Mark the correct choice as "Answer A (correct)" (B, C, …).
-Leave the When column as it is; it tells the importer which line is which.
+Language is a locale tag such as en-US. Older workbooks without a Key column still import.
 
 Draw additional tap hazards in the Observe editor after import if needed.
 

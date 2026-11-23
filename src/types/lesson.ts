@@ -454,6 +454,63 @@ function questionMetrics(
   }))
 }
 
+function randomFlag(): boolean {
+  return Math.random() < 0.5
+}
+
+/** Placeholder scores for a section the learner skipped before any result was recorded. */
+export function randomLessonSectionResult(
+  kind: LessonCompositionItemKind,
+): LessonSectionResult {
+  if (kind === 'see') {
+    const correct = randomFlag()
+    const attempts = correct ? 1 + Math.floor(Math.random() * 3) : 3
+    const hazards: LessonSeeHazardResult[] = [
+      {
+        id: 'skipped-hazard',
+        correct,
+        attempts,
+        identifyRatio: correct ? Math.random() : null,
+      },
+    ]
+    const spotted = correct ? 1 : 0
+    return {
+      kind: 'see',
+      spotted,
+      total: 1,
+      hazards,
+      metrics: buildObserveMetrics(hazards, spotted, 1),
+    }
+  }
+
+  const correct = [randomFlag(), randomFlag(), randomFlag()]
+  const correctCount = correct.filter(Boolean).length
+  const coachingAsked = randomFlag()
+  return {
+    kind,
+    percent: Math.round((correctCount / correct.length) * 100),
+    correctCount,
+    totalCount: correct.length,
+    coachingRequired: correctCount < correct.length,
+    coachingAsked,
+    coachingCorrect: coachingAsked && randomFlag(),
+    metrics: questionMetrics(kind, correct),
+  }
+}
+
+/** Keep recorded scores, and invent scores for lesson sections that were skipped. */
+export function withSkippedSectionResults(
+  results: Partial<Record<LessonCompositionItemKind, LessonSectionResult>>,
+  kinds: readonly LessonCompositionItemKind[],
+): Partial<Record<LessonCompositionItemKind, LessonSectionResult>> {
+  const next = { ...results }
+  for (const kind of kinds) {
+    if (next[kind]) continue
+    next[kind] = randomLessonSectionResult(kind)
+  }
+  return next
+}
+
 /** Studio preview of the results card. */
 export function previewLessonSectionResults(): Partial<
   Record<'see' | 'process' | 'anticipate', LessonSectionResult>

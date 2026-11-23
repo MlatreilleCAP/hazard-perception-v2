@@ -265,7 +265,8 @@ async function englishWorkbookContent(
   if (!reference) return upload
   return workbookContentFromParts(
     {
-      title: reference.mvp.lessonTitle.trim() || reference.title,
+      title: reference.title,
+      cardTitle: reference.mvp.lessonTitle.trim() || reference.title,
       description: reference.description,
     },
     reference.mvp,
@@ -299,7 +300,8 @@ async function lessonWorkbookContent(
   )
   return workbookContentFromParts(
     {
-      title: mvp.lessonTitle.trim() || parent.metadata.title,
+      title: parent.metadata.title,
+      cardTitle: mvp.lessonTitle.trim() || parent.metadata.title,
       description: parent.metadata.description,
     },
     mvp,
@@ -310,7 +312,7 @@ async function lessonWorkbookContent(
 }
 
 function workbookContentFromParts(
-  meta: { title: string; description: string },
+  meta: { title: string; cardTitle?: string; description: string },
   mvp: InroadsMvpDefinition,
   see: SeeDefinition,
   process: ProcessDefinition,
@@ -332,6 +334,10 @@ function workbookContentFromParts(
   return {
     title: meta.title,
     description: meta.description,
+    template: mvp.activityTemplate,
+    cardTitle: meta.cardTitle?.trim() || mvp.lessonTitle,
+    landingText: mvp.landingText,
+    playerCopy: mvp.playerCopy,
     introFirstVisit: mvp.introShowOnFirstVisitOnly,
     country,
     language,

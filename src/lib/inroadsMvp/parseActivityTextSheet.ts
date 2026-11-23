@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import type { CopyField, CopySection } from '@/lib/inroadsMvp/packageSpec'
+import { canonicalizeLessonLanguage, type CopyField, type CopySection } from '@/lib/inroadsMvp/packageSpec'
 import type { ResultsChrome, ResultsChromeKey } from '@/lib/lesson/resultsChrome'
 import type { ExplanationWhen, ProcessQuestionKind } from '@/types/questions'
 import type {
@@ -11,6 +11,7 @@ import type {
 export type WorkbookTextSource = 'text' | 'upload'
 
 type ActivityTextRow = {
+  key: string
   screen: string
   element: string
   text: string
@@ -51,6 +52,10 @@ function emptyLesson(): ImportedLessonFields {
     country: '',
     language: '',
     sku: null,
+    template: null,
+    cardTitle: null,
+    landingText: null,
+    playerCopy: {},
     button: null,
     exampleButton: null,
     demoButton: null,
@@ -107,15 +112,17 @@ function sheetRows(sheet: XLSX.WorkSheet): ActivityTextRow[] {
   const textIndex = index('text')
   const uploadIndex = index('upload_text')
   const whenIndex = index('when')
+  const keyIndex = index('key')
   const parsed: ActivityTextRow[] = []
   for (const row of rows.slice(1)) {
+    const key = keyIndex >= 0 ? cellString(row[keyIndex]) : ''
     const screen = cellString(row[screenIndex])
     const element = cellString(row[elementIndex])
     const text = textIndex >= 0 ? cellString(row[textIndex]) : ''
     const uploadText = uploadIndex >= 0 ? cellString(row[uploadIndex]) : ''
     const when = whenIndex >= 0 ? cellString(row[whenIndex]) : ''
-    if (!screen && !element && !text && !uploadText) continue
-    parsed.push({ screen, element, text, uploadText, when })
+    if (!key && !screen && !element && !text && !uploadText) continue
+    parsed.push({ key, screen, element, text, uploadText, when })
   }
   return parsed
 }
@@ -135,15 +142,22 @@ function setCopy(
   copy[section] = { ...copy[section], [field]: value }
 }
 
-function questionScreen(screen: string): {
+function questionScreen(
+  screen: string,
+  keyed: boolean,
+): {
   section: 'observe' | 'process' | 'anticipate'
   segment: 1 | 2
 } | null {
   const match =
-    /^(observe|process|anticipate)(?:\s+coaching)?\s+question(?:\s+\d+)?$/i.exec(screen.trim())
+    /^(observe|process|anticipate)(?:\s+(?:challenge|coaching))?\s+question(?:\s+\d+)?$/i.exec(
+      screen.trim(),
+    )
   if (!match) return null
   const section = match[1].toLowerCase() as 'observe' | 'process' | 'anticipate'
-  const segment: 1 | 2 = /\bcoaching\s+question\b/i.test(screen) ? 2 : 1
+  let segment: 1 | 2 = /\bcoaching\s+question\b/i.test(screen) ? 2 : 1
+  // The hazard question bank plays during Observe coaching. Keyed workbooks name it that way.
+  if (keyed && section === 'observe' && segment === 2) segment = 1
   return { section, segment }
 }
 
@@ -338,6 +352,266 @@ function flushQuestion(draft: QuestionDraft | null, questions: ImportedQuestionR
   })
 }
 
+const CLIP_HEADINGS = [
+  'maneuverHeading',
+  'roadwayHeading',
+  'trafficDensityHeading',
+  'timeOfDayHeading',
+  'roadConditionsHeading',
+] as const
+
+const CLIP_VALUES = [
+  'maneuver',
+  'roadway',
+  'traffic_density',
+  'time_of_day',
+  'road_conditions',
+] as const
+
+const TEXT_NODES: Array<{
+  section: CopySection
+  pill: 'instruction_pill' | 'second_instruction_pill'
+  body: 'instruction' | 'second_instruction'
+}> = [
+  { section: 'observe', pill: 'instruction_pill', body: 'instruction' },
+  { section: 'observe', pill: 'second_instruction_pill', body: 'second_instruction' },
+  { section: 'process', pill: 'instruction_pill', body: 'instruction' },
+  { section: 'process', pill: 'second_instruction_pill', body: 'second_instruction' },
+  { section: 'anticipate', pill: 'instruction_pill', body: 'instruction' },
+  { section: 'anticipate', pill: 'second_instruction_pill', body: 'second_instruction' },
+]
+
+function setChromeValue(
+  lesson: ImportedLessonFields,
+  key: ResultsChromeKey,
+  value: string,
+): void {
+  if (value) lesson.resultsChrome[key] = value
+}
+
+function expandQuestionLabels(lesson: ImportedLessonFields, pattern: string): void {
+  const labels = [1, 2, 3, 4].map((number) => pattern.replaceAll('{number}', String(number)))
+  lesson.q1 = labels[0] ?? null
+  lesson.q2 = labels[1] ?? null
+  lesson.q3 = labels[2] ?? null
+  lesson.q4 = labels[3] ?? null
+}
+
+function applyPlayerKey(
+  lesson: ImportedLessonFields,
+  copy: ImportedCopy,
+  key: string,
+  value: string,
+): void {
+  if (value) lesson.playerCopy[key] = value
+  if (!value) return
+  switch (key) {
+    case 'global.player.continue':
+      lesson.button = value
+      setChromeValue(lesson, 'continueLabel', value)
+      break
+    case 'global.player.submit':
+      lesson.submit = value
+      break
+    case 'global.player.observe.passed':
+      setCopy(copy, 'observe', 'success_result', value)
+      break
+    case 'global.player.observe.coaching':
+      setCopy(copy, 'observe', 'fail_screen', value)
+      break
+    case 'global.player.observe.no_attempts':
+      setCopy(copy, 'observe', 'no_clicks_remain', value)
+      break
+    case 'global.player.results.outcome.passed':
+      lesson.challengePassed = value
+      break
+    case 'global.player.results.outcome.failed':
+      lesson.challengeFailed = value
+      break
+    case 'global.player.results.item.detection':
+      lesson.detection = value
+      break
+    case 'global.player.results.item.accuracy':
+      lesson.accuracy = value
+      break
+    case 'global.player.results.item.coaching':
+      lesson.coaching = value
+      break
+    case 'global.player.results.item.question':
+      expandQuestionLabels(lesson, value)
+      break
+    case 'global.player.results.section.observation':
+      lesson.observation = value
+      break
+    case 'global.player.results.section.process':
+      lesson.processSection = value
+      break
+    case 'global.player.results.section.anticipate':
+      lesson.anticipation = value
+      break
+    case 'global.player.results.pass_mark':
+      setChromeValue(lesson, 'passMark', value)
+      break
+    case 'global.player.results.lesson_score':
+      setChromeValue(lesson, 'scoreBase', value)
+      break
+    case 'global.player.results.multiplier':
+      setChromeValue(lesson, 'multiplier', value)
+      break
+    case 'global.player.results.completion':
+      setChromeValue(lesson, 'completion', value)
+      break
+    case 'global.player.results.perfect_run':
+      setChromeValue(lesson, 'perfectRun', value)
+      break
+    case 'global.player.results.streak':
+      setChromeValue(lesson, 'streak', value)
+      setChromeValue(lesson, 'streakRow', value)
+      break
+    case 'global.player.results.total':
+      setChromeValue(lesson, 'total', value)
+      break
+    case 'global.player.results.total_points':
+      setChromeValue(lesson, 'competencyTotal', value)
+      break
+    case 'global.player.results.progress':
+      setChromeValue(lesson, 'progress', value)
+      break
+    case 'global.player.results.core_competencies':
+      setChromeValue(lesson, 'competencyHeading', value)
+      break
+    case 'global.player.results.department_rank':
+      setChromeValue(lesson, 'departmentRank', value)
+      break
+    case 'global.player.results.company_rank':
+      setChromeValue(lesson, 'companyRank', value)
+      break
+    case 'global.player.results.draw_entries':
+      setChromeValue(lesson, 'drawEntries', value)
+      break
+    case 'global.player.results.days_remain.other':
+      setChromeValue(lesson, 'drawRemaining', value)
+      break
+    case 'global.player.results.this_period':
+      setChromeValue(lesson, 'periodHeading', value)
+      break
+    case 'global.player.results.streak_value':
+      setChromeValue(lesson, 'streakValue', value)
+      break
+    case 'global.player.results.perfect_runs':
+      setChromeValue(lesson, 'perfectRunsRow', value)
+      break
+    case 'global.player.results.perfect_runs_value':
+      setChromeValue(lesson, 'perfectRunsValue', value)
+      break
+    case 'global.player.results.engagement_window':
+      setChromeValue(lesson, 'engagementRow', value)
+      break
+    case 'global.player.results.engagement_active':
+      setChromeValue(lesson, 'engagementValue', value)
+      break
+    case 'global.player.results.up_next':
+      setChromeValue(lesson, 'upNextHeading', value)
+      break
+    case 'global.player.results.complete_session':
+      setChromeValue(lesson, 'completeSession', value)
+      break
+    default:
+      break
+  }
+}
+
+function applyActivityKey(
+  row: ActivityTextRow,
+  value: string,
+  lesson: ImportedLessonFields,
+  copy: ImportedCopy,
+): boolean {
+  const key = row.key.trim()
+  if (!key) return false
+
+  if (key === 'sku') {
+    if (value) lesson.sku = value
+    return true
+  }
+  if (key === 'template') {
+    if (value) lesson.template = value
+    return true
+  }
+  if (key === 'country') {
+    if (value) lesson.country = value
+    return true
+  }
+  if (key === 'language') {
+    if (value) lesson.language = canonicalizeLessonLanguage(value)
+    return true
+  }
+  if (key === 'lesson.name') {
+    if (value) lesson.title = value
+    return true
+  }
+  if (key === 'description') {
+    if (value) lesson.description = value
+    return true
+  }
+  if (key === 'lesson.node.LANDING_1.title') {
+    if (value) lesson.cardTitle = value
+    return true
+  }
+  if (key === 'lesson.node.LANDING_1.text') {
+    if (value) lesson.landingText = value
+    return true
+  }
+
+  const textNode = /^lesson\.node\.TEXT_([1-6])\.(title|text|submit\.\d+\.label)$/.exec(key)
+  if (textNode) {
+    const node = TEXT_NODES[Number(textNode[1]) - 1]
+    const part = textNode[2]
+    if (!node || !value) return true
+    if (part === 'title') setCopy(copy, node.section, node.pill, value)
+    else if (part === 'text') setCopy(copy, node.section, node.body, value)
+    else if (node.section === 'observe' && node.body === 'instruction') lesson.exampleButton = value
+    return true
+  }
+
+  const table = /^lesson\.node\.TABLE_1\.table\.([1-5])\.col\.([23])\.text$/.exec(key)
+  if (table) {
+    const index = Number(table[1]) - 1
+    if (!value) return true
+    if (table[2] === '2') {
+      const field = CLIP_HEADINGS[index]
+      if (field) lesson[field] = value
+    } else {
+      const field = CLIP_VALUES[index]
+      if (field) setCopy(copy, 'observe', field, value)
+    }
+    return true
+  }
+
+  const hazard = /^lesson\.node\.HAZARD_PERCEPTION_1\.(.+)$/.exec(key)
+  if (hazard) {
+    if (!value) return true
+    const suffix = hazard[1]
+    if (suffix === 'attempt.1.failure.text') setCopy(copy, 'observe', 'missed_1_attempt', value)
+    else if (suffix === 'attempt.2.failure.text') setCopy(copy, 'observe', 'missed_2_attempt', value)
+    else if (suffix === 'attempt.2.success.text') setCopy(copy, 'observe', '2_attempts', value)
+    else if (suffix === 'attempt.3.success.text') setCopy(copy, 'observe', '3_attempts', value)
+    else if (suffix === 'no_attempts.text') setCopy(copy, 'observe', 'time_out', value)
+    else if (suffix === 'hazard.1.explanation.text') {
+      setCopy(copy, 'observe', 'hazard_explanation', value)
+    } else if (suffix === 'hazard.1.name') setCopy(copy, 'observe', 'hazard_name', value)
+    return true
+  }
+
+  if (key.startsWith('global.player.')) {
+    applyPlayerKey(lesson, copy, key, value)
+    return true
+  }
+
+  if (key.startsWith('lesson.node.QUESTION_')) return false
+  return false
+}
+
 export function parseActivityTextSheet(
   workbook: XLSX.WorkBook,
   textSource: WorkbookTextSource,
@@ -358,13 +632,14 @@ export function parseActivityTextSheet(
 
   for (const row of sheetRows(sheet)) {
     const screenKey = row.screen.trim().toLowerCase()
-    const question = questionScreen(row.screen)
+    const question = questionScreen(row.screen, Boolean(row.key))
     if (!question && draft) {
       flushQuestion(draft, questions)
       draft = null
     }
 
     const value = chosenText(row, textSource)
+    if (applyActivityKey(row, value, lesson, copy)) continue
     if (question) {
       if (!draft || draft.screen !== row.screen) {
         flushQuestion(draft, questions)

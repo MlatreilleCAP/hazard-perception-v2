@@ -208,6 +208,22 @@ const sku = computed({
   },
 })
 
+const activityTemplate = computed({
+  get: () => mvp.value?.activityTemplate ?? '',
+  set: (value: string) => {
+    if (!mvp.value) return
+    mvp.value = { ...mvp.value, activityTemplate: value }
+  },
+})
+
+const landingText = computed({
+  get: () => mvp.value?.landingText ?? '',
+  set: (value: string) => {
+    if (!mvp.value) return
+    mvp.value = { ...mvp.value, landingText: value }
+  },
+})
+
 const showEnglishReference = computed(
   () => canonicalizeLessonLanguage(language.value) !== 'English',
 )
@@ -243,6 +259,8 @@ const englishDescription = computed(() => englishSource.value?.description ?? ''
 const englishCountry = computed(() => englishSource.value?.mvp.country ?? '')
 const englishLanguageName = computed(() => englishSource.value?.mvp.language ?? '')
 const englishSku = computed(() => englishSource.value?.mvp.sku ?? '')
+const englishTemplate = computed(() => englishSource.value?.mvp.activityTemplate ?? '')
+const englishLandingText = computed(() => englishSource.value?.mvp.landingText ?? '')
 
 const lessonCopyGroups = computed(() => {
   const source = englishSource.value
@@ -1191,7 +1209,23 @@ async function deleteVersion(id: string): Promise<void> {
               :disabled="!editable"
             />
           </FieldPair>
-          <p class="author-muted">Demo preview cards use this title and the country.</p>
+          <p class="author-muted">Demo preview cards and the lesson title screen use this title and the country.</p>
+          <FieldPair
+            :enabled="showEnglishReference"
+            label="Landing text"
+            :value="englishLandingText"
+            multiline
+          >
+            <AuthorField
+              :id="`${activityId}-landing-text`"
+              v-model="landingText"
+              label="Landing text"
+              multiline
+              :rows="2"
+              placeholder="Landing page text"
+              :disabled="!editable"
+            />
+          </FieldPair>
           <FieldPair
             :enabled="showEnglishReference"
             label="SKU"
@@ -1202,6 +1236,19 @@ async function deleteVersion(id: string): Promise<void> {
               v-model="sku"
               label="SKU"
               placeholder="SKU"
+              :disabled="!editable"
+            />
+          </FieldPair>
+          <FieldPair
+            :enabled="showEnglishReference"
+            label="Template"
+            :value="englishTemplate"
+          >
+            <AuthorField
+              :id="`${activityId}-template`"
+              v-model="activityTemplate"
+              label="Template"
+              placeholder="INR-MVP"
               :disabled="!editable"
             />
           </FieldPair>

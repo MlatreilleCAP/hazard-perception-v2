@@ -23,11 +23,13 @@ import {
   buildObserveMetrics,
   hasSeenLessonIntro,
   previewLessonSectionResults,
+  withSkippedSectionResults,
   markLessonIntroSeen,
   orderedInroadsCompositionItems,
   type LessonCompositionItem,
   type LessonSectionResult,
 } from '@/types/lesson'
+import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { isInroadsMvpChildActivity } from '@/types/inroadsMvp'
 import { isIntroductionActivity } from '@/types/introduction'
 
@@ -107,8 +109,17 @@ const currentItem = computed(
 const resultsModel = computed(() =>
   buildLessonResultsModel(props.definition.metadata.title, sectionResults.value),
 )
-const titlePageTitle = computed(() => props.definition.metadata.title.trim() || 'Activity')
-const titlePageDescription = computed(() => props.definition.metadata.description.trim())
+const lessonDefinition = computed(() => readInroadsMvpDefinition(props.definition))
+const titlePageTitle = computed(
+  () =>
+    lessonDefinition.value?.lessonTitle.trim() ||
+    props.definition.metadata.title.trim() ||
+    'Activity',
+)
+const titlePageDescription = computed(
+  () =>
+    lessonDefinition.value?.landingText.trim() || props.definition.metadata.description.trim(),
+)
 const titlePageCountry = computed(() => props.country.trim())
 const previewCoverUrl = ref<string | null>(null)
 
@@ -318,6 +329,7 @@ async function enterSection(index: number): Promise<void> {
   const item = orderedItems.value[index]
   if (!item) {
     onSegmentReady()
+    fillSkippedSectionResults()
     phase.value = 'results'
     sectionDefinition.value = null
     return
@@ -550,6 +562,13 @@ function showLessonTitle(): void {
   phase.value = 'title'
 }
 
+function fillSkippedSectionResults(): void {
+  sectionResults.value = withSkippedSectionResults(
+    sectionResults.value,
+    orderedItems.value.map((item) => item.kind),
+  )
+}
+
 function showLessonResults(): void {
   loadGeneration += 1
   clearReadyDismissTimer()
@@ -558,6 +577,7 @@ function showLessonResults(): void {
   introSrc.value = null
   introCaptionsMediaId.value = null
   error.value = null
+  fillSkippedSectionResults()
   phase.value = 'results'
 }
 

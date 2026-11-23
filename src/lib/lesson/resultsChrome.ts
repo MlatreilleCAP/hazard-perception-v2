@@ -77,6 +77,7 @@ export function resultsChromeLabel(value: string, fallback: string): string {
 
 /** Keep translated pass-mark wording, and show the current threshold. */
 export function passMarkWithThreshold(label: string, percent: number): string {
+  if (label.includes('{value}')) return label.replaceAll('{value}', `${percent}%`)
   return label.replace(/(\d+)(\s*)%/g, `${percent}$2%`)
 }
 

@@ -111,7 +111,10 @@ function siblingIdsFor(
 }
 
 /** Puts every draft language of a lesson into Available when one language is already there. */
-export async function markDraftLanguageVariantsAvailable(parentId: string): Promise<string[]> {
+export async function markDraftLanguageVariantsAvailable(
+  parentId: string,
+  releaseBucketId?: string,
+): Promise<string[]> {
   const id = canonicalActivityId(parentId)
   if (!id) return []
   const parent = await loadActivityOrThrow(id)
@@ -130,7 +133,15 @@ export async function markDraftLanguageVariantsAvailable(parentId: string): Prom
   }
   const marked: string[] = []
   for (const draftId of draftLanguageVariantIds(variants)) {
-    await setLessonQueuePlacement(draftId, 'available', null)
+    await setLessonQueuePlacement(
+      draftId,
+      'available',
+      null,
+      undefined,
+      undefined,
+      null,
+      releaseBucketId,
+    )
     marked.push(draftId)
   }
   return marked
@@ -150,6 +161,7 @@ export async function setLessonQueuePlacement(
   reviewNotes?: string,
   queueOrder?: number,
   progressAssignee?: { id: string; name: string } | null,
+  releaseBucketId?: string,
 ): Promise<void> {
   const id = canonicalActivityId(parentId)
   if (!id) {
@@ -167,6 +179,8 @@ export async function setLessonQueuePlacement(
           progressAssigneeId: progressAssignee?.id.trim() ?? '',
           progressAssigneeName: progressAssignee?.name.trim() ?? '',
         }
+  const bucketFields =
+    releaseBucketId === undefined ? {} : { releaseBucketId: releaseBucketId.trim() }
   if (isIntroductionActivity(parent.metadata.tags)) {
     const intro = readIntroductionDefinition(parent)
     const next = writeIntroductionDefinition(parent, {
@@ -177,6 +191,7 @@ export async function setLessonQueuePlacement(
       ...progressFields,
       ...(notes === undefined ? {} : { reviewNotes: notes }),
       ...(order === undefined ? {} : { queueOrder: order }),
+      ...bucketFields,
     })
     next.id = id
     await services.persistence.save(next)
@@ -192,6 +207,7 @@ export async function setLessonQueuePlacement(
     ...progressFields,
     ...(notes === undefined ? {} : { reviewNotes: notes }),
     ...(order === undefined ? {} : { queueOrder: order }),
+    ...bucketFields,
   })
   next.id = id
   await services.persistence.save(next)

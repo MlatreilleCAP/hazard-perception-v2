@@ -266,6 +266,8 @@ export const LANGUAGE_ALIASES: Record<string, (typeof LESSON_LANGUAGE_OPTIONS)[n
   'ee': 'Ewe',
   'el': 'Greek',
   'en': 'English',
+  'en-us': 'English',
+  'en-gb': 'English',
   'english': 'English',
   'eo': 'Esperanto',
   'es': 'Spanish',

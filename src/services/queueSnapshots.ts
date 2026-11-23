@@ -3,6 +3,7 @@ import { readIntroductionDefinition } from '@/activities/introductionDefinition'
 import { services } from '@/app/container'
 import { getSupabase } from '@/services/supabase'
 import { isIntroductionActivity } from '@/types/introduction'
+import { readReleaseBucketId } from '@/lib/lesson/releaseBuckets'
 import {
   isInroadsMvpActivity,
   readLessonReviewStatus,
@@ -21,6 +22,7 @@ export type QueueSnapshot = {
   progressAssigneeName: string
   reviewNotes: string
   queueOrder: number | null
+  releaseBucketId: string
 }
 
 const ID_CHUNK = 80
@@ -42,6 +44,7 @@ export function readQueueSnapshot(raw: unknown, createdAt: string): QueueSnapsho
     progressAssigneeName: text(value.progressAssigneeName),
     reviewNotes: text(value.reviewNotes),
     queueOrder: readQueueOrder(value.queueOrder),
+    releaseBucketId: readReleaseBucketId(value.releaseBucketId),
   }
 }
 

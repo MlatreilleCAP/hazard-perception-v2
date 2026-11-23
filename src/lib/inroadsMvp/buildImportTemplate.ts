@@ -1,8 +1,8 @@
 import ExcelJS from 'exceljs'
+import { buildActivityTextRows } from '@/lib/inroadsMvp/buildActivityTextRows'
 import JSZip from 'jszip'
 import { IMPORT_README, SLOT_FOLDER_LABELS, TEMPLATE_FOLDER_SLOT_IDS } from '@/lib/inroadsMvp/packageSpec'
 import { EMPTY_RESULTS_CHROME, type ResultsChrome } from '@/lib/lesson/resultsChrome'
-import { LESSON_PASS_PERCENT } from '@/types/lesson'
 import {
   answersWithFixedPoints,
   createAnswerOption,
@@ -39,6 +39,10 @@ export type ImportWorkbookContent = {
   observationLabel: string
   processSectionLabel: string
   anticipationLabel: string
+  template: string
+  cardTitle: string
+  landingText: string
+  playerCopy: Record<string, string>
   observe: {
     instruction: string
     instructionPill: string
@@ -124,7 +128,7 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     submitLabel: 'Submit',
     exampleButtonLabel: 'Example',
     demoButtonLabel: 'Begin',
-    challengePassedLabel: 'Challenge Complete',
+    challengePassedLabel: 'Challenge Passed',
     challengeFailedLabel: 'Challenge Failed',
     maneuverHeading: 'Maneuver',
     roadwayHeading: 'Roadway',
@@ -141,7 +145,11 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
     q4Label: 'Q4',
     observationLabel: 'Observation',
     processSectionLabel: 'Process',
-    anticipationLabel: 'Anticipation',
+    anticipationLabel: 'Anticipate',
+    template: 'INR-MVP',
+    cardTitle: 'Inroads - Lane Changes',
+    landingText: '',
+    playerCopy: {},
     observe: {
       instruction:
         "You're about to watch a short driving video. \n\nThe primary hazard could be in front, behind, or to either side. Drag the screen side-to-side to scan the road and mirrors, then tap or click it as soon as you spot it. \n\nYou'll have a few seconds and three attempts. No replay, so watch closely.",
@@ -307,490 +315,6 @@ export function defaultImportWorkbookContent(): ImportWorkbookContent {
   }
 }
 
-type ActivityTextRow = [string, string, string, string, string]
-
-function activityRow(
-  screen: string,
-  element: string,
-  text: string,
-  when: string,
-  uploadText = text,
-): ActivityTextRow {
-  return [screen, element, text, uploadText, when]
-}
-
-function chromeText(
-  content: ImportWorkbookContent,
-  key: keyof ResultsChrome,
-  fallback: string,
-): string {
-  return content.resultsChrome[key]?.trim() || fallback
-}
-
-function questionWhen(
-  section: 'observe' | 'process' | 'anticipate',
-  segment: 1 | 2,
-): string {
-  if (section === 'observe') return 'When coaching is required'
-  if (segment === 2) {
-    return section === 'process'
-      ? 'When Process coaching plays'
-      : 'When Anticipate coaching plays'
-  }
-  return 'Always'
-}
-
-function questionScreenLabel(
-  section: 'observe' | 'process' | 'anticipate',
-  segment: 1 | 2,
-  index: number,
-  total: number,
-): string {
-  const name = section.charAt(0).toUpperCase() + section.slice(1)
-  if (segment === 2) {
-    return total === 1 ? `${name} coaching question` : `${name} coaching question ${index + 1}`
-  }
-  return `${name} question ${index + 1}`
-}
-
-function filledAnswers(
-  question: ProcessSurveyQuestion | undefined,
-): Array<{ text: string; answerIndex: number }> {
-  return (question?.answers ?? [])
-    .map((answer, answerIndex) => ({ text: answer?.text?.trim() ?? '', answerIndex }))
-    .filter((answer) => answer.text.length > 0)
-}
-
-function pushQuestionRows(
-  rows: ActivityTextRow[],
-  upload: ImportWorkbookContent,
-  english: ImportWorkbookContent,
-  section: 'observe' | 'process' | 'anticipate',
-  segment: 1 | 2,
-): void {
-  const items = upload.questions.filter(
-    (item) => item.section === section && item.segment === segment,
-  )
-  const englishItems = english.questions.filter(
-    (item) => item.section === section && item.segment === segment,
-  )
-  const when = questionWhen(section, segment)
-  items.forEach((item, index) => {
-    const screen = questionScreenLabel(section, segment, index, items.length)
-    const question = item.question
-    const englishQuestion = englishItems[index]?.question
-    rows.push(
-      activityRow(screen, 'Question', englishQuestion?.questionText ?? '', when, question.questionText),
-    )
-    const answers = filledAnswers(question)
-    const englishAnswers = filledAnswers(englishQuestion)
-    answers.forEach((answer, position) => {
-      const letter = 'ABCDEF'[position] ?? String(position + 1)
-      const correct = answer.answerIndex === question.correctIndex
-      rows.push(
-        activityRow(
-          screen,
-          correct ? `Answer ${letter} (correct)` : `Answer ${letter}`,
-          englishAnswers[position]?.text ?? '',
-          when,
-          answer.text,
-        ),
-      )
-    })
-    rows.push(
-      activityRow(
-        screen,
-        'Explanation',
-        englishQuestion?.explanation ?? '',
-        'After the answer',
-        question.explanation,
-      ),
-    )
-    if (question.kind === 'severity') {
-      rows.push(
-        activityRow(
-          screen,
-          'Button',
-          english.submitLabel,
-          'Before the answer is submitted',
-          upload.submitLabel,
-        ),
-      )
-    }
-    rows.push(
-      activityRow(screen, 'Button', english.buttonLabel, 'After the answer', upload.buttonLabel),
-    )
-  })
-}
-
-function instructionRows(
-  rows: ActivityTextRow[],
-  screen: string,
-  englishPill: string,
-  uploadPill: string,
-  englishInstruction: string,
-  uploadInstruction: string,
-  englishButton: string,
-  uploadButton: string,
-  when: string,
-): void {
-  rows.push(activityRow(screen, 'Pill', englishPill, when, uploadPill))
-  rows.push(activityRow(screen, 'Instruction', englishInstruction, when, uploadInstruction))
-  rows.push(activityRow(screen, 'Button', englishButton, when, uploadButton))
-}
-
-function activityTextRows(
-  upload: ImportWorkbookContent,
-  english: ImportWorkbookContent = upload,
-): ActivityTextRow[] {
-  const rows: ActivityTextRow[] = []
-  const title = english.title.trim()
-  rows.push(
-    activityRow(
-      'Demo Instruction',
-      'Button',
-      english.demoButtonLabel,
-      'Always',
-      upload.demoButtonLabel,
-    ),
-  )
-  rows.push(activityRow('Title', 'Country', english.country, 'Always', upload.country))
-  rows.push(activityRow('Title', 'Title', title, 'Always', upload.title.trim()))
-  rows.push(activityRow('Title', 'Description', english.description, 'Always', upload.description))
-  rows.push(activityRow('Title', 'Button', english.buttonLabel, 'Always', upload.buttonLabel))
-
-  instructionRows(
-    rows,
-    'Observe instruction',
-    english.observe.instructionPill,
-    upload.observe.instructionPill,
-    english.observe.instruction,
-    upload.observe.instruction,
-    english.buttonLabel,
-    upload.buttonLabel,
-    'Always',
-  )
-  rows.push(
-    activityRow(
-      'Observe Instruction Desktop',
-      'Instruction',
-      english.observe.instructionDesktop,
-      'Desktop only; unused in this demo',
-      upload.observe.instructionDesktop,
-    ),
-  )
-  rows.push(
-    activityRow(
-      'Observe instruction',
-      'Example button',
-      english.exampleButtonLabel,
-      'When an example video is available',
-      upload.exampleButtonLabel,
-    ),
-  )
-  rows.push(
-    activityRow(
-      'Observe challenge',
-      'No clicks remain',
-      english.observe.noClicksRemain,
-      'Shown when no clicks remain',
-      upload.observe.noClicksRemain,
-    ),
-  )
-  const summary: Array<[string, string, string]> = [
-    [english.maneuverHeading || 'Maneuver', english.observe.maneuver, upload.observe.maneuver],
-    [english.roadwayHeading || 'Roadway', english.observe.roadway, upload.observe.roadway],
-    [
-      english.trafficDensityHeading || 'Traffic Density',
-      english.observe.trafficDensity,
-      upload.observe.trafficDensity,
-    ],
-    [english.timeOfDayHeading || 'Time of Day', english.observe.timeOfDay, upload.observe.timeOfDay],
-    [
-      english.roadConditionsHeading || 'Road Conditions',
-      english.observe.roadConditions,
-      upload.observe.roadConditions,
-    ],
-  ]
-  for (const [element, value, translated] of summary) {
-    rows.push(activityRow('Observe clip summary', element, value, 'After the hazard clip', translated))
-  }
-  const observeResult = (
-    element: string,
-    englishText: string,
-    uploadText: string,
-    when: string,
-  ) => {
-    rows.push(activityRow('Observe results', element, englishText, when, uploadText))
-  }
-  observeResult(
-    'Heading',
-    english.observe.successResult,
-    upload.observe.successResult,
-    'Hazard spotted on the first attempt',
-  )
-  observeResult('Heading', english.observe.failScreen, upload.observe.failScreen, 'Any other outcome')
-  observeResult(
-    'Subtext',
-    english.observe.twoAttempts,
-    upload.observe.twoAttempts,
-    'Spotted on the second attempt',
-  )
-  observeResult(
-    'Subtext',
-    english.observe.threeAttempts,
-    upload.observe.threeAttempts,
-    'Spotted on the third attempt',
-  )
-  observeResult(
-    'Subtext',
-    english.observe.timeOut,
-    upload.observe.timeOut,
-    'Missed with no attempts',
-  )
-  observeResult(
-    'Subtext',
-    english.observe.missed1Attempt,
-    upload.observe.missed1Attempt,
-    'Missed after one attempt',
-  )
-  observeResult(
-    'Subtext',
-    english.observe.missed2Attempt,
-    upload.observe.missed2Attempt,
-    'Missed after two attempts',
-  )
-  observeResult(
-    'Explanation',
-    english.observe.hazardExplanation,
-    upload.observe.hazardExplanation,
-    'Shown unless the hazard is spotted on the first attempt',
-  )
-  observeResult('Button', english.buttonLabel, upload.buttonLabel, 'Always')
-
-  instructionRows(
-    rows,
-    'Observe coaching',
-    english.observe.secondInstructionPill,
-    upload.observe.secondInstructionPill,
-    english.observe.secondInstruction,
-    upload.observe.secondInstruction,
-    english.buttonLabel,
-    upload.buttonLabel,
-    'When coaching is required',
-  )
-  pushQuestionRows(rows, upload, english, 'observe', 1)
-
-  instructionRows(
-    rows,
-    'Process instruction',
-    english.process.instructionPill,
-    upload.process.instructionPill,
-    english.process.instruction,
-    upload.process.instruction,
-    english.buttonLabel,
-    upload.buttonLabel,
-    'Always',
-  )
-  rows.push(
-    activityRow(
-      'Process Instruction Desktop',
-      'Instruction',
-      english.process.instructionDesktop,
-      'Desktop only; unused in this demo',
-      upload.process.instructionDesktop,
-    ),
-  )
-  pushQuestionRows(rows, upload, english, 'process', 1)
-  instructionRows(
-    rows,
-    'Process coaching',
-    english.process.secondInstructionPill,
-    upload.process.secondInstructionPill,
-    english.process.secondInstruction,
-    upload.process.secondInstruction,
-    english.buttonLabel,
-    upload.buttonLabel,
-    'When the Process score is below the pass threshold',
-  )
-  pushQuestionRows(rows, upload, english, 'process', 2)
-
-  instructionRows(
-    rows,
-    'Anticipate instruction',
-    english.anticipate.instructionPill,
-    upload.anticipate.instructionPill,
-    english.anticipate.instruction,
-    upload.anticipate.instruction,
-    english.buttonLabel,
-    upload.buttonLabel,
-    'Always',
-  )
-  rows.push(
-    activityRow(
-      'Anticipate Instruction Desktop',
-      'Instruction',
-      english.anticipate.instructionDesktop,
-      'Desktop only; unused in this demo',
-      upload.anticipate.instructionDesktop,
-    ),
-  )
-  pushQuestionRows(rows, upload, english, 'anticipate', 1)
-  instructionRows(
-    rows,
-    'Anticipate coaching',
-    english.anticipate.secondInstructionPill,
-    upload.anticipate.secondInstructionPill,
-    english.anticipate.secondInstruction,
-    upload.anticipate.secondInstruction,
-    english.buttonLabel,
-    upload.buttonLabel,
-    'When the Anticipate score is below the pass threshold',
-  )
-  pushQuestionRows(rows, upload, english, 'anticipate', 2)
-
-  const uploadTitle = upload.title.trim()
-  const englishScoreBase = chromeText(english, 'scoreBase', title ? `${title} Score` : 'Score')
-  const uploadScoreBase = chromeText(
-    upload,
-    'scoreBase',
-    uploadTitle ? `${uploadTitle} Score` : 'Score',
-  )
-  const chrome = (
-    screen: string,
-    element: string,
-    englishText: string,
-    uploadText: string,
-    when: string,
-  ) => {
-    rows.push(activityRow(screen, element, englishText, when, uploadText))
-  }
-  chrome(
-    'Challenge results',
-    'Title',
-    chromeText(english, 'resultsTitle', title),
-    chromeText(upload, 'resultsTitle', uploadTitle),
-    'Always',
-  )
-  chrome(
-    'Challenge results',
-    'Status',
-    english.challengePassedLabel,
-    upload.challengePassedLabel,
-    `Score is ${LESSON_PASS_PERCENT}% or higher`,
-  )
-  chrome(
-    'Challenge results',
-    'Status',
-    english.challengeFailedLabel,
-    upload.challengeFailedLabel,
-    `Score is below ${LESSON_PASS_PERCENT}%`,
-  )
-  chrome(
-    'Challenge results',
-    'Pass mark',
-    chromeText(english, 'passMark', `Pass mark ${LESSON_PASS_PERCENT}%`),
-    chromeText(upload, 'passMark', `Pass mark ${LESSON_PASS_PERCENT}%`),
-    'Always',
-  )
-  chrome('Challenge results', 'Section title', english.observationLabel, upload.observationLabel, 'Always')
-  chrome(
-    'Challenge results',
-    'Section title',
-    english.processSectionLabel,
-    upload.processSectionLabel,
-    'Always',
-  )
-  chrome(
-    'Challenge results',
-    'Section title',
-    english.anticipationLabel,
-    upload.anticipationLabel,
-    'Always',
-  )
-  chrome('Challenge results', 'Points suffix', english.ptsLabel, upload.ptsLabel, 'After each section score')
-  chrome('Challenge results', 'Metric', english.detectionLabel, upload.detectionLabel, 'Observation')
-  chrome('Challenge results', 'Metric', english.accuracyLabel, upload.accuracyLabel, 'Observation')
-  chrome('Challenge results', 'Metric', english.coachingLabel, upload.coachingLabel, 'Each section')
-  chrome('Challenge results', 'Metric', english.q1Label, upload.q1Label, 'Process and Anticipation')
-  chrome('Challenge results', 'Metric', english.q2Label, upload.q2Label, 'Process and Anticipation')
-  chrome('Challenge results', 'Metric', english.q3Label, upload.q3Label, 'Process and Anticipation')
-  chrome('Challenge results', 'Metric', english.q4Label, upload.q4Label, 'Process and Anticipation')
-  chrome('Challenge results', 'Score row', englishScoreBase, uploadScoreBase, 'Always')
-  chrome(
-    'Challenge results',
-    'Score row',
-    chromeText(english, 'multiplier', 'Multiplier'),
-    chromeText(upload, 'multiplier', 'Multiplier'),
-    'Always',
-  )
-  chrome(
-    'Challenge results',
-    'Score row',
-    chromeText(english, 'completion', 'Completion'),
-    chromeText(upload, 'completion', 'Completion'),
-    'Always',
-  )
-  chrome(
-    'Challenge results',
-    'Score row',
-    chromeText(english, 'perfectRun', 'Perfect Run'),
-    chromeText(upload, 'perfectRun', 'Perfect Run'),
-    'Always',
-  )
-  chrome(
-    'Challenge results',
-    'Score row',
-    chromeText(english, 'streak', 'Streak'),
-    chromeText(upload, 'streak', 'Streak'),
-    'Always',
-  )
-  chrome(
-    'Challenge results',
-    'Score row',
-    chromeText(english, 'total', 'TOTAL'),
-    chromeText(upload, 'total', 'TOTAL'),
-    'Always',
-  )
-  chrome(
-    'Challenge results',
-    'Button',
-    chromeText(english, 'continueLabel', english.buttonLabel),
-    chromeText(upload, 'continueLabel', upload.buttonLabel),
-    'Always',
-  )
-
-  const progress = (element: string, key: keyof ResultsChrome, fallback: string, when: string) => {
-    chrome('Progress', element, chromeText(english, key, fallback), chromeText(upload, key, fallback), when)
-  }
-  progress('Heading', 'progress', 'Progress', 'After Continue on the results screen')
-  progress('Heading', 'competencyHeading', 'Core Competency Scores to Date', 'Always on this screen')
-  progress('Competency', 'speedManagement', 'Speed Management', 'Always on this screen')
-  progress('Competency', 'spaceManagement', 'Space Management', 'Always on this screen')
-  progress('Competency', 'dangerZones', 'Danger Zones', 'Always on this screen')
-  progress('Competency', 'otherMotorists', 'Other Motorists', 'Always on this screen')
-  progress('Competency', 'scanning', 'Scanning', 'Always on this screen')
-  progress('Competency', 'competencyTotal', 'Total', 'Always on this screen')
-  progress('Rank', 'departmentRank', 'Department Rank', 'Always on this screen')
-  progress('Rank', 'companyRank', 'Company Rank', 'Always on this screen')
-  progress('Rank', 'drawEntries', 'Draw Entries', 'Always on this screen')
-  progress('Draw', 'drawTitle', 'October Draw', 'Always on this screen')
-  progress('Draw', 'drawRemaining', '14 days remain', 'Always on this screen')
-  progress('Heading', 'periodHeading', 'This Period', 'Always on this screen')
-  progress('Row', 'streakRow', 'Streak', 'Always on this screen')
-  progress('Row value', 'streakValue', 'Level 2 +10 pts', 'Always on this screen')
-  progress('Row', 'perfectRunsRow', 'Perfect Runs', 'Always on this screen')
-  progress('Row value', 'perfectRunsValue', '2 this period', 'Always on this screen')
-  progress('Row', 'engagementRow', 'Engagement Window', 'Always on this screen')
-  progress('Row value', 'engagementValue', 'Active x 1.2', 'Always on this screen')
-  progress('Row', 'lifetimePointsRow', 'Lifetime Points', 'Always on this screen')
-  progress('Heading', 'upNextHeading', 'Up Next', 'Bottom of this screen')
-  progress('Up next', 'upNextTitle', 'Following Distance', 'Bottom of this screen')
-  progress('Up next value', 'upNextTiming', '10 Days', 'Bottom of this screen')
-  progress('Button', 'completeSession', 'Complete Session', 'Always on this screen')
-  return rows
-}
-
 export async function buildWorkbookBytes(
   content: ImportWorkbookContent,
   english: ImportWorkbookContent = content,
@@ -798,14 +322,14 @@ export async function buildWorkbookBytes(
   const workbook = new ExcelJS.Workbook()
   workbook.creator = 'Inroads MVP'
   const sheet = workbook.addWorksheet('Activity text')
-  sheet.addRow(['Screen', 'Element', 'Text', 'Upload text', 'When'])
+  sheet.addRow(['Key', 'Screen', 'Element', 'Text', 'Upload text', 'When'])
   sheet.getRow(1).font = { bold: true }
-  for (const row of activityTextRows(content, english)) sheet.addRow(row)
-  ;[27, 21, 61, 61, 37].forEach((width, index) => {
+  for (const row of buildActivityTextRows(content, english)) sheet.addRow(row)
+  ;[54, 32, 28, 61, 61, 37].forEach((width, index) => {
     sheet.getColumn(index + 1).width = width
   })
-  sheet.getColumn(3).alignment = { wrapText: true, vertical: 'top' }
   sheet.getColumn(4).alignment = { wrapText: true, vertical: 'top' }
+  sheet.getColumn(5).alignment = { wrapText: true, vertical: 'top' }
   const buffer = await workbook.xlsx.writeBuffer()
   return new Uint8Array(buffer)
 }
