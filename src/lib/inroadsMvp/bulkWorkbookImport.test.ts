@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
 import {
+  existingVersionsForWorkbook,
   languageFromWorkbookFileName,
   orderLessonFiles,
   workbookLessonName,
+  workbookMatchesExistingLesson,
+  type ExistingLessonIdentity,
   type WorkbookLessonFile,
 } from '@/lib/inroadsMvp/bulkWorkbookImport'
 import { parseImportWorkbook } from '@/lib/inroadsMvp/parseImportPackage'
@@ -60,5 +63,34 @@ describe('bulk workbook lesson identity', () => {
     const parsed = await parseImportWorkbook(file)
     expect(workbookLessonName(parsed.lesson.title, parsed.lesson.country)).toBe('Lane Changes - Poland')
     expect(languageFromWorkbookFileName(file.name)).toBe('Polish')
+  })
+
+  it('matches an existing lesson by its landing title and replaces that language', () => {
+    const existing: ExistingLessonIdentity = {
+      id: 'parking-en',
+      title: 'FD Inroads - Parking',
+      lessonTitle: 'FD Inroads - Parking',
+      country: 'United States',
+      language: 'English',
+      sku: 'INR_PARK',
+    }
+    const lesson: WorkbookLessonFile = {
+      fileName: 'Parking_United States_English.xlsx',
+      lessonName: 'Parking - United States',
+      language: 'English',
+      title: 'Parking',
+      country: 'United States',
+      description: '',
+      cardTitle: 'FD Inroads - Parking',
+      sku: 'INR_PARK',
+    }
+    expect(workbookMatchesExistingLesson(lesson, existing)).toBe(true)
+    expect(existingVersionsForWorkbook(lesson, [existing]).get('English')).toBe('parking-en')
+    expect(
+      workbookMatchesExistingLesson(lesson, { ...existing, country: 'Canada', sku: '' }),
+    ).toBe(false)
+    expect(
+      workbookMatchesExistingLesson(lesson, { ...existing, sku: 'INR_OTHER' }),
+    ).toBe(false)
   })
 })

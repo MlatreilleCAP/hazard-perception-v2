@@ -122,9 +122,10 @@ async function importSelected(): Promise<void> {
       </div>
 
       <p class="author-muted">
-        Add every spreadsheet for the lessons you want to create. Files with the same title and
-        country become one lesson, and each file is a language. End the file name with the
-        language, for example Lane Changes_Poland_English.xlsx.
+        Add the spreadsheets for the lessons you want to create or update. A spreadsheet for a
+        lesson that already exists replaces that lesson's text instead of creating another
+        activity. Files with the same title and country stay one lesson, and each file is a
+        language. End the file name with the language, for example Lane Changes_Poland_English.xlsx.
       </p>
 
       <div

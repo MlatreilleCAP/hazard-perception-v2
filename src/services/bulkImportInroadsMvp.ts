@@ -1,18 +1,25 @@
 import { readInroadsMvpDefinition } from '@/activities/inroadsMvpDefinition'
 import { services } from '@/app/container'
 import {
+  existingVersionsForWorkbook,
   languageFromWorkbookFileName,
   orderLessonFiles,
   workbookLessonName,
+  type ExistingLessonIdentity,
   type WorkbookLessonFile,
 } from '@/lib/inroadsMvp/bulkWorkbookImport'
 import { lessonVersionKey } from '@/lib/inroadsMvp/lessonVersions'
 import { parseImportWorkbook } from '@/lib/inroadsMvp/parseImportPackage'
-import { canonicalizeLessonLanguage, isWorkbookName } from '@/lib/inroadsMvp/packageSpec'
+import {
+  canonicalizeLessonCountry,
+  canonicalizeLessonLanguage,
+  isWorkbookName,
+} from '@/lib/inroadsMvp/packageSpec'
+import { isInroadsMvpActivity, isInroadsMvpChildActivity } from '@/types/inroadsMvp'
 import { createBlankInroadsMvp, duplicateInroadsMvpVersion } from '@/services/createInroadsMvp'
 import { replaceInroadsMvpWorkbook } from '@/services/inroadsMvpImport'
 import { markDraftLanguageVariantsAvailable } from '@/services/publishInroadsMvp'
-import { inroadsMvpSiblingIds, removeInroadsMvpParent } from '@/services/removeInroadsMvp'
+import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import type { ActivitySummary } from '@/types/activity'
 
 export type BulkWorkbookImportResult = {
@@ -75,6 +82,8 @@ async function prepareWorkbook(file: File): Promise<PreparedWorkbook | BulkWorkb
       title: parsed.lesson.title.trim(),
       country: parsed.lesson.country.trim(),
       description: parsed.lesson.description.trim(),
+      cardTitle: parsed.lesson.cardTitle?.trim() ?? '',
+      sku: parsed.lesson.sku?.trim() ?? '',
     },
   }
 }
@@ -85,19 +94,25 @@ function isFailure(
   return 'message' in value
 }
 
-async function languagesForLesson(
-  lessonName: string,
-  summaries: ActivitySummary[],
-): Promise<Map<string, string>> {
-  const versions = new Map<string, string>()
-  for (const id of inroadsMvpSiblingIds(lessonName, summaries)) {
-    const activity = await services.persistence.getById(id)
+async function loadExistingLessons(summaries: ActivitySummary[]): Promise<ExistingLessonIdentity[]> {
+  const parents = summaries.filter(
+    (item) => isInroadsMvpActivity(item.tags) && !isInroadsMvpChildActivity(item.tags),
+  )
+  const existing: ExistingLessonIdentity[] = []
+  for (const summary of parents) {
+    const activity = await services.persistence.getById(summary.id)
     const mvp = activity ? readInroadsMvpDefinition(activity) : null
-    if (!mvp) continue
-    const language = canonicalizeLessonLanguage(mvp.language) || 'English'
-    if (!versions.has(language)) versions.set(language, id)
+    if (!activity || !mvp) continue
+    existing.push({
+      id: summary.id,
+      title: activity.metadata.title.trim() || summary.title,
+      lessonTitle: mvp.lessonTitle.trim(),
+      country: canonicalizeLessonCountry(mvp.country),
+      language: canonicalizeLessonLanguage(mvp.language) || 'English',
+      sku: mvp.sku.trim(),
+    })
   }
-  return versions
+  return existing
 }
 
 async function importOneWorkbook(
@@ -163,6 +178,7 @@ export async function importInroadsMvpWorkbooks(
 ): Promise<BulkWorkbookImportReport> {
   const results: BulkWorkbookImportResult[] = []
   const failures: BulkWorkbookImportFailure[] = []
+  const existingLessons = await loadExistingLessons(summaries)
   const groups = new Map<string, PreparedWorkbook[]>()
   const groupOrder: string[] = []
 
@@ -185,8 +201,9 @@ export async function importInroadsMvpWorkbooks(
 
   for (const key of groupOrder) {
     const group = groups.get(key) ?? []
-    const lessonName = group[0]?.lesson.lessonName ?? ''
-    const versions = await languagesForLesson(lessonName, summaries)
+    const first = group[0]
+    if (!first) continue
+    const versions = existingVersionsForWorkbook(first.lesson, existingLessons)
     const rank = new Map(
       orderLessonFiles(group.map((entry) => entry.lesson)).map((lesson, index) => [lesson, index]),
     )
