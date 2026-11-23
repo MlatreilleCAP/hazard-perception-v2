@@ -27,6 +27,7 @@ import {
   reviewerAssignee,
 } from '@/lib/lesson/queueAssignment'
 import { exportIntroductionAssetsZip } from '@/services/exportIntroductionPackage'
+import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import { exportLessonTemplateZip } from '@/services/exportInroadsMvpPackage'
 import { listQueueSnapshots } from '@/services/queueSnapshots'
 import { loadReleaseBuckets, saveReleaseBuckets } from '@/services/releaseBuckets'
@@ -103,6 +104,8 @@ const activeTab = ref<QueueTab>('project')
 const publishedType = ref<PublishedType>('all')
 const updatingId = ref<string | null>(null)
 const reviewMenuId = ref<string | null>(null)
+const kebabMenuId = ref<string | null>(null)
+const deletingId = ref<string | null>(null)
 const noteCardId = ref<string | null>(null)
 const changesForId = ref<string | null>(null)
 const changesDestination = ref<SendBackStatus>('in_progress')
@@ -1086,6 +1089,10 @@ function onDocumentPointerDown(event: PointerEvent): void {
     const menu = document.querySelector(`[data-review-menu="${reviewMenuId.value}"]`)
     if (!menu?.contains(target)) reviewMenuId.value = null
   }
+  if (kebabMenuId.value) {
+    const menu = document.querySelector(`[data-kebab-menu="${kebabMenuId.value}"]`)
+    if (!menu?.contains(target)) kebabMenuId.value = null
+  }
   if (noteCardId.value) {
     const note = document.querySelector(`[data-note-popover="${noteCardId.value}"]`)
     if (!note?.contains(target)) noteCardId.value = null
@@ -1095,6 +1102,7 @@ function onDocumentPointerDown(event: PointerEvent): void {
 function onDocumentKeyDown(event: KeyboardEvent): void {
   if (event.key !== 'Escape') return
   reviewMenuId.value = null
+  kebabMenuId.value = null
   noteCardId.value = null
   if (!updatingId.value) changesForId.value = null
   closeBucketForm()
@@ -1249,6 +1257,32 @@ async function claimUserAcceptance(card: QueueCard): Promise<void> {
     actionError.value = cause instanceof Error ? cause.message : 'Failed to claim the lesson'
   } finally {
     updatingId.value = null
+  }
+}
+
+function toggleKebab(card: QueueCard): void {
+  kebabMenuId.value = kebabMenuId.value === card.id ? null : card.id
+}
+
+async function deleteQueueItem(card: QueueCard): Promise<void> {
+  kebabMenuId.value = null
+  if (deletingId.value) return
+  const message =
+    card.kind === 'lesson'
+      ? `Remove "${card.title}" and its Observe, Process, and Anticipate sections from authoring and training? The records will be kept in the database.`
+      : `Remove "${card.title}" from authoring and training? The record will be kept in the database.`
+  if (!window.confirm(message)) return
+  deletingId.value = card.id
+  actionError.value = null
+  try {
+    if (card.kind === 'lesson') await removeInroadsMvpParent(card.id)
+    else await activities.remove(card.id)
+    cards.value = cards.value.filter((item) => item.id !== card.id)
+    await activities.refreshList()
+  } catch (cause) {
+    actionError.value = cause instanceof Error ? cause.message : 'Failed to remove this item'
+  } finally {
+    deletingId.value = null
   }
 }
 
@@ -1517,7 +1551,7 @@ async function clearNote(card: QueueCard): Promise<void> {
                 'is-nested': entry.kind === 'card' && entry.nested,
                 'is-available': column.status === 'available',
                 'is-dragging': draggingId === card.id,
-                'is-open': reviewMenuId === card.id || noteCardId === card.id,
+                'is-open': reviewMenuId === card.id || noteCardId === card.id || kebabMenuId === card.id,
                 'is-drop-before': dropPlace?.id === card.id && dropPlace.place === 'before',
                 'is-drop-after': dropPlace?.id === card.id && dropPlace.place === 'after',
               }"
@@ -1580,6 +1614,39 @@ async function clearNote(card: QueueCard): Promise<void> {
                         Clear
                       </button>
                     </div>
+                  </div>
+                </div>
+                <div class="author-menu queue-kebab" :data-kebab-menu="card.id" @pointerdown.stop>
+                  <button
+                    type="button"
+                    class="author-menu-btn"
+                    aria-label="More actions"
+                    aria-haspopup="menu"
+                    :aria-expanded="kebabMenuId === card.id"
+                    draggable="false"
+                    @click.stop="toggleKebab(card)"
+                  >
+                    <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+                      <circle cx="8" cy="3.5" r="1.25" />
+                      <circle cx="8" cy="8" r="1.25" />
+                      <circle cx="8" cy="12.5" r="1.25" />
+                    </svg>
+                  </button>
+                  <div
+                    v-if="kebabMenuId === card.id"
+                    class="author-menu-panel"
+                    role="menu"
+                    aria-label="Queue item"
+                  >
+                    <button
+                      type="button"
+                      class="author-menu-item danger"
+                      role="menuitem"
+                      :disabled="deletingId === card.id"
+                      @click="deleteQueueItem(card)"
+                    >
+                      {{ deletingId === card.id ? 'Deleting…' : 'Delete' }}
+                    </button>
                   </div>
                 </div>
                 <p class="queue-card-locale">{{ localeLabel(card) }}</p>
@@ -1733,6 +1800,38 @@ async function clearNote(card: QueueCard): Promise<void> {
               <RouterLink class="author-pill author-pill-white" :to="previewRoute(card)">
                 Preview
               </RouterLink>
+              <div class="author-menu queue-kebab" :data-kebab-menu="card.id">
+                <button
+                  type="button"
+                  class="author-menu-btn"
+                  aria-label="More actions"
+                  aria-haspopup="menu"
+                  :aria-expanded="kebabMenuId === card.id"
+                  @click.stop="toggleKebab(card)"
+                >
+                  <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+                    <circle cx="8" cy="3.5" r="1.25" />
+                    <circle cx="8" cy="8" r="1.25" />
+                    <circle cx="8" cy="12.5" r="1.25" />
+                  </svg>
+                </button>
+                <div
+                  v-if="kebabMenuId === card.id"
+                  class="author-menu-panel"
+                  role="menu"
+                  aria-label="Queue item"
+                >
+                  <button
+                    type="button"
+                    class="author-menu-item danger"
+                    role="menuitem"
+                    :disabled="deletingId === card.id"
+                    @click="deleteQueueItem(card)"
+                  >
+                    {{ deletingId === card.id ? 'Deleting…' : 'Delete' }}
+                  </button>
+                </div>
+              </div>
             </div>
           </li>
         </ul>

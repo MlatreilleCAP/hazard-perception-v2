@@ -45,6 +45,8 @@ export async function createBlankInroadsMvp(
           ...definition,
           country: canonicalizeLessonCountry(country),
           language: canonicalizeLessonLanguage(language) || definition.language,
+          reviewStatus: 'available',
+          releaseBucketId: '',
         })
       : mvp,
   )

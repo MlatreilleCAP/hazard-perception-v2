@@ -18,7 +18,10 @@ import {
 import { isInroadsMvpActivity, isInroadsMvpChildActivity } from '@/types/inroadsMvp'
 import { createBlankInroadsMvp, duplicateInroadsMvpVersion } from '@/services/createInroadsMvp'
 import { replaceInroadsMvpWorkbook } from '@/services/inroadsMvpImport'
-import { markDraftLanguageVariantsAvailable } from '@/services/publishInroadsMvp'
+import {
+  markDraftLanguageVariantsAvailable,
+  setLessonQueuePlacement,
+} from '@/services/publishInroadsMvp'
 import { removeInroadsMvpParent } from '@/services/removeInroadsMvp'
 import type { ActivitySummary } from '@/types/activity'
 
@@ -150,6 +153,7 @@ async function importOneWorkbook(
       createdId = await duplicateInroadsMvpVersion(sourceId, lesson.language)
     }
     await replaceInroadsMvpWorkbook(createdId, file, onProgress)
+    await setLessonQueuePlacement(createdId, 'available', null, undefined, undefined, null, '')
   } catch (cause) {
     if (createdId) {
       try {

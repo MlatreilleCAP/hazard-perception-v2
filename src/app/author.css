@@ -1028,6 +1028,16 @@ span.queue-bucket-name {
   gap: 8px;
 }
 
+.queue-kebab {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.queue-kebab .author-menu-btn {
+  width: 22px;
+  height: 22px;
+}
+
 .queue-card-title {
   flex: 1;
   min-width: 0;
