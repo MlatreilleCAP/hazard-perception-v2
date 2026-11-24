@@ -138,6 +138,15 @@ export const useAuthStore = defineStore('auth', () => {
     return changePassword(password)
   }
 
+  async function restoreSession(): Promise<boolean> {
+    const client = getSupabase()
+    if (!client) return false
+    const { data } = await client.auth.getSession()
+    session.value = data.session
+    await loadProfile(data.session?.user.id ?? null)
+    return Boolean(data.session)
+  }
+
   return {
     session,
     user,
@@ -160,5 +169,6 @@ export const useAuthStore = defineStore('auth', () => {
     signOut,
     requestPasswordReset,
     updatePassword,
+    restoreSession,
   }
 })

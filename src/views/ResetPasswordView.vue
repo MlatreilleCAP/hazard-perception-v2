@@ -13,7 +13,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-const state = ref<'checking' | 'code' | 'confirm' | 'invalid' | 'form' | 'success'>('checking')
+const state = ref<'checking' | 'code' | 'confirm' | 'invalid' | 'form'>('checking')
 const email = ref('')
 const code = ref('')
 const failureTitle = ref('Reset link expired')
@@ -46,7 +46,6 @@ void auth.initialize().then(async () => {
 async function verifyRecovery(): Promise<void> {
   try {
     const result = await establishPasswordRecovery()
-    if (state.value === 'success') return
     if (result.status === 'ready') {
       const client = getSupabase()
       const current = client ? (await client.auth.getUser()).data.user : auth.user
@@ -119,12 +118,11 @@ async function handleUpdate(): Promise<void> {
     return
   }
 
+  const chosenPassword = password.value
   loading.value = true
   try {
     if (finishingSetup.value) {
-      const result = await completeAccountSetup(password.value)
-      password.value = ''
-      confirmation.value = ''
+      const result = await completeAccountSetup(chosenPassword)
       if (result.status === 'retry') {
         error.value = 'The password update could not be finished. Submit it again. Training stays locked until this finishes.'
         return
@@ -134,17 +132,27 @@ async function handleUpdate(): Promise<void> {
         return
       }
       clearPasswordRecovery()
-      await auth.signOut()
-      state.value = 'success'
+      const signedIn = await signInWithNewPassword(chosenPassword)
+      if (!signedIn) return
+      password.value = ''
+      confirmation.value = ''
+      await router.replace('/')
       return
     }
-    const updateError = await auth.updatePassword(password.value)
+    const updateError = await auth.updatePassword(chosenPassword)
     if (updateError) {
       error.value = updateError
       return
     }
     clearPasswordRecovery()
-    state.value = 'success'
+    const stillSignedIn = await auth.restoreSession()
+    if (!stillSignedIn) {
+      const signedIn = await signInWithNewPassword(chosenPassword)
+      if (!signedIn) return
+    }
+    password.value = ''
+    confirmation.value = ''
+    await router.replace('/')
   } catch {
     error.value = 'Could not update the password. Try again.'
   } finally {
@@ -152,11 +160,19 @@ async function handleUpdate(): Promise<void> {
   }
 }
 
-async function returnToLogin(): Promise<void> {
-  returning.value = true
-  clearPasswordRecovery()
+async function signInWithNewPassword(chosenPassword: string): Promise<boolean> {
+  const address = email.value.trim() || auth.email || ''
+  if (!address) {
+    error.value = 'Password updated. Sign in with your new password.'
+    return false
+  }
   await auth.signOut()
-  await router.replace({ path: '/login', query: { reset: 'success' } })
+  const signInError = await auth.signIn(address, chosenPassword)
+  if (signInError) {
+    error.value = signInError
+    return false
+  }
+  return true
 }
 
 async function requestAnother(): Promise<void> {
@@ -178,11 +194,9 @@ async function requestAnother(): Promise<void> {
           <RouterLink to="/" class="auth-logo">
             <img src="/AD_Logo.svg" alt="AlertDriving" />
           </RouterLink>
-          <h1 v-if="state === 'success'">Password updated</h1>
-          <h1 v-else-if="state === 'invalid'">{{ failureTitle }}</h1>
+          <h1 v-if="state === 'invalid'">{{ failureTitle }}</h1>
           <h1 v-else>Create a new password</h1>
-          <p v-if="state === 'success'">You can sign in with your new password.</p>
-          <p v-else-if="state === 'invalid'">{{ failureMessage }}</p>
+          <p v-if="state === 'invalid'">{{ failureMessage }}</p>
           <p v-else-if="state === 'form'">Enter and confirm a new password for your account.</p>
           <p v-else-if="state === 'code'">Enter the code from the reset email, then choose a new password.</p>
           <p v-else-if="state === 'confirm'">Continue to choose a new password. This link can only be used once.</p>
@@ -272,12 +286,6 @@ async function requestAnother(): Promise<void> {
               {{ loading ? 'Updating…' : 'Update password' }}
             </button>
           </form>
-        </div>
-
-        <div v-else-if="state === 'success'" class="auth-card">
-          <button type="button" class="auth-submit" :disabled="returning" @click="returnToLogin">
-            Back to login
-          </button>
         </div>
 
         <p v-if="state === 'invalid'" class="auth-switch">

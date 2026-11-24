@@ -6,6 +6,7 @@ import {
   readRecoveryCallback,
   type RecoveryCallback,
 } from '@/lib/auth/recoveryCallback'
+import { INACTIVE_ACCOUNT_MESSAGE, isBannedAuthError } from '@/lib/auth/accountMessage'
 import { signInFailureMessage } from '@/lib/auth/signInMessage'
 import { createRecoveryRequestClient, getAuthArrivalHref, getSupabase } from '@/services/supabase'
 
@@ -230,6 +231,13 @@ async function settleRecovery(error: AuthError | null): Promise<RecoveryResult> 
 
 function recoveryFailure(error: AuthError): RecoveryResult {
   clearPasswordRecovery()
+  if (isBannedAuthError(error)) {
+    return {
+      status: 'blocked',
+      title: 'Account inactive',
+      message: INACTIVE_ACCOUNT_MESSAGE,
+    }
+  }
   if (isNetworkFailure(error)) {
     return {
       status: 'blocked',

@@ -8,12 +8,17 @@ import ResetPasswordView from '@/views/ResetPasswordView.vue'
 
 const updatePassword = vi.fn(async () => null)
 const signOut = vi.fn(async () => undefined)
+const signIn = vi.fn(async () => null)
+const restoreSession = vi.fn(async () => true)
 
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: () => ({
     initialize: vi.fn(async () => undefined),
     updatePassword,
     signOut,
+    signIn,
+    restoreSession,
+    email: 'person@example.com',
     user: null,
   }),
 }))
@@ -60,6 +65,7 @@ async function submit(password: string) {
   await inputs[1].setValue(password)
   await wrapper.get('form').trigger('submit')
   await flushPromises()
+  return wrapper
 }
 
 describe('password recovery', () => {
@@ -72,11 +78,13 @@ describe('password recovery', () => {
     vi.mocked(getSupabase).mockReturnValue({
       auth: { getUser: async () => ({ data: { user: { app_metadata: {} } }, error: null }) },
     } as never)
-    await submit('long-enough')
+    const wrapper = await submit('long-enough')
     expect(updatePassword).toHaveBeenCalledWith('long-enough')
     expect(completeAccountSetup).not.toHaveBeenCalled()
     expect(verifyRecoveryCode).toHaveBeenCalledWith('person@example.com', '123456')
     expect(establishPasswordRecovery).not.toHaveBeenCalled()
+    expect(signOut).not.toHaveBeenCalled()
+    expect(wrapper.vm.$router.currentRoute.value.path).toBe('/')
   })
 
   it('finishes unfinished account setup through the recovery form', async () => {
@@ -89,9 +97,11 @@ describe('password recovery', () => {
       },
     } as never)
     vi.mocked(completeAccountSetup).mockResolvedValue({ status: 'updated' })
-    await submit('long-enough')
+    const wrapper = await submit('long-enough')
     expect(completeAccountSetup).toHaveBeenCalledWith('long-enough')
     expect(updatePassword).not.toHaveBeenCalled()
     expect(signOut).toHaveBeenCalled()
+    expect(signIn).toHaveBeenCalledWith('person@example.com', 'long-enough')
+    expect(wrapper.vm.$router.currentRoute.value.path).toBe('/')
   })
 })
