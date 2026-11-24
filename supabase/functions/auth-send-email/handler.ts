@@ -126,7 +126,7 @@ export async function handleAuthEmailRequest(request: Request): Promise<Response
     for (const message of planAuthEmails(hook)) {
       const actionUrl = message.tokenHash
         ? message.action === 'recovery'
-          ? recoveryPageUrl(message.redirectTo, message.tokenHash)
+          ? recoveryPageUrl(message.redirectTo, message.to)
           : authVerificationUrl(verifyBase, message.tokenHash, message.action, message.redirectTo)
         : null
       const rendered = renderAuthEmail(message, actionUrl, templateOptions)

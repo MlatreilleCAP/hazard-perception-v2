@@ -188,9 +188,29 @@ async function finishRecoveryCallback(callback: RecoveryCallback): Promise<Recov
 }
 
 function recoveryCallbackFromBrowser(): RecoveryCallback {
-  const arrival = readRecoveryCallback(getAuthArrivalHref())
-  if (arrival.kind !== 'none' || typeof window === 'undefined') return arrival
-  return readRecoveryCallback(window.location.href)
+  if (typeof window !== 'undefined') {
+    const live = readRecoveryCallback(window.location.href)
+    if (live.kind !== 'none') return live
+  }
+  return readRecoveryCallback(getAuthArrivalHref())
+}
+
+/** Checks the code from a recovery email. The link itself does not contain it. */
+export async function verifyRecoveryCode(email: string, code: string): Promise<RecoveryResult> {
+  const client = requireClient()
+  const address = email.trim()
+  const token = code.trim()
+  if (!address || !token) return expiredRecovery
+  const { error } = await client.auth.verifyOtp({
+    email: address,
+    token,
+    type: 'recovery',
+  })
+  if (!error) {
+    markPasswordRecovery()
+    return { status: 'ready' }
+  }
+  return recoveryFailure(error)
 }
 
 function recoveryAttemptKey(callback: RecoveryCallback): string {

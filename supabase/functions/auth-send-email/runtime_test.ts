@@ -232,7 +232,7 @@ Deno.test('auth send email runtime', async (t) => {
         for (const message of planAuthEmails(payload)) {
           const link = message.tokenHash
             ? message.action === 'recovery'
-              ? recoveryPageUrl(message.redirectTo, message.tokenHash)
+              ? recoveryPageUrl(message.redirectTo, message.to)
               : authVerificationUrl('https://projectref.supabase.co/auth/v1', message.tokenHash, message.action, message.redirectTo)
             : null
           const rendered = renderAuthEmail(message, link, {
@@ -248,15 +248,14 @@ Deno.test('auth send email runtime', async (t) => {
             assertEquals(rendered.html.includes('or copy this link'), false)
             assertStringIncludes(rendered.html, 'expires in 24 hours')
             assertStringIncludes(rendered.text, 'expires in 24 hours')
-            assertEquals(rendered.html.includes(message.otp ?? '111111'), false)
             if (message.action === 'recovery') {
-              const page = hrefs(rendered.html).find(
-                (url) => url.searchParams.get('token_hash') === message.tokenHash,
-              )
+              assertStringIncludes(rendered.html, message.otp ?? '111111')
+              const page = hrefs(rendered.html).find((url) => url.searchParams.get('email') === message.to)
               assert(page, 'expected a reset page link')
-              assertEquals(page.searchParams.get('type'), 'recovery')
+              assertEquals(page.searchParams.get('token_hash'), null)
               assertEquals(rendered.html.includes('/auth/v1/verify'), false)
             } else {
+              assertEquals(rendered.html.includes(message.otp ?? '111111'), false)
               assertEquals(verifyLink(rendered.html).searchParams.get('token'), message.tokenHash)
             }
           }

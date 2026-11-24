@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { completeAccountSetup } from '@/services/accountSetup'
-import { establishPasswordRecovery } from '@/services/auth'
+import { establishPasswordRecovery, verifyRecoveryCode } from '@/services/auth'
 import { getSupabase } from '@/services/supabase'
 import ResetPasswordView from '@/views/ResetPasswordView.vue'
 
@@ -20,6 +20,7 @@ vi.mock('@/stores/authStore', () => ({
 
 vi.mock('@/services/auth', () => ({
   establishPasswordRecovery: vi.fn(async () => ({ status: 'ready' as const })),
+  verifyRecoveryCode: vi.fn(async () => ({ status: 'ready' as const })),
   clearPasswordRecovery: vi.fn(),
 }))
 
@@ -48,6 +49,12 @@ async function mountReset() {
 
 async function submit(password: string) {
   const wrapper = await mountReset()
+  const codeForm = wrapper.findAll('form')[0]
+  const codeInputs = codeForm.findAll('input')
+  await codeInputs[0].setValue('person@example.com')
+  await codeInputs[1].setValue('123456')
+  await codeForm.trigger('submit')
+  await flushPromises()
   const inputs = wrapper.findAll('input')
   await inputs[0].setValue(password)
   await inputs[1].setValue(password)
@@ -68,7 +75,8 @@ describe('password recovery', () => {
     await submit('long-enough')
     expect(updatePassword).toHaveBeenCalledWith('long-enough')
     expect(completeAccountSetup).not.toHaveBeenCalled()
-    expect(establishPasswordRecovery).toHaveBeenCalled()
+    expect(verifyRecoveryCode).toHaveBeenCalledWith('person@example.com', '123456')
+    expect(establishPasswordRecovery).not.toHaveBeenCalled()
   })
 
   it('finishes unfinished account setup through the recovery form', async () => {

@@ -131,11 +131,13 @@ function copyFor(message: PlannedEmail): EmailCopy {
         subject: 'Reset your Inroads password',
         heading: 'Reset your password',
         paragraphs: [
-          'We received a request to reset the password for your Inroads account. Click the button below to create a new password.',
+          'We received a request to reset the password for your Inroads account. Open the reset page and enter this code.',
         ],
         actionLabel: 'Reset password',
-        showCode: false,
-        security: "If you didn't request a password reset, you can safely ignore this email.",
+        showCode: true,
+        codeLead: 'Reset code',
+        security:
+          "Enter the code on the reset page. This code expires in 24 hours and can only be used once. If you didn't request a password reset, you can safely ignore this email.",
       }
     case 'invite':
       return {
@@ -297,7 +299,7 @@ export function trustedAuthActionUrl(
   if (message.action === 'recovery') {
     let expected = ''
     try {
-      expected = recoveryPageUrl(message.redirectTo, tokenHash)
+      expected = recoveryPageUrl(message.redirectTo, message.to)
     } catch (error) {
       if (error instanceof HookError) throw error
       throw new HookError(400, 'payload', 'Auth action URL is invalid.')
@@ -329,7 +331,7 @@ export function renderAuthEmail(
 ): RenderedEmail {
   const copy = copyFor(message)
   const trustedUrl = trustedAuthActionUrl(actionUrl, message, options.verifyBase)
-  const code = !trustedUrl && copy.showCode && isDisplayCode(message.otp) ? message.otp : null
+  const code = copy.showCode && isDisplayCode(message.otp) ? message.otp : null
   const expiryNote = trustedUrl && !copy.security.includes('expires in') ? LINK_EXPIRY : ''
   const rendered = renderEmailLayout({
     heading: copy.heading,

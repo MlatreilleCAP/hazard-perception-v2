@@ -209,7 +209,7 @@ test('transactional auth mail uses the Inroads layout and its own verify link', 
       action: 'recovery',
       subject: 'Reset your Inroads password',
       heading: 'Reset your password',
-      body: 'We received a request to reset the password for your Inroads account. Click the button below to create a new password.',
+      body: 'We received a request to reset the password for your Inroads account. Open the reset page and enter this code.',
       button: 'Reset password',
       footer: "If you didn't request a password reset, you can safely ignore this email.",
     },
@@ -246,7 +246,7 @@ test('transactional auth mail uses the Inroads layout and its own verify link', 
     assert.ok(message)
     const link =
       item.action === 'recovery'
-        ? recoveryPageUrl(message.redirectTo, message.tokenHash ?? '')
+        ? recoveryPageUrl(message.redirectTo, message.to)
         : verifyLink(message)
     const rendered = renderAuthEmail(message, link, { verifyBase: VERIFY_BASE })
 
@@ -258,7 +258,7 @@ test('transactional auth mail uses the Inroads layout and its own verify link', 
     assert.ok(rendered.text.includes(link))
     assert.ok(rendered.text.includes('inroads.alertdriving.com'))
     assert.equal(rendered.text.includes('<table'), false)
-    assert.equal(rendered.html.includes('111111'), false)
+    assert.equal(rendered.html.includes('111111'), item.action === 'recovery')
     assert.match(rendered.html, new RegExp(`>${item.button}<`))
     assert.match(rendered.html, /#ff6bb5/)
     assert.match(rendered.html, /bgcolor="#000000"/)
@@ -272,7 +272,13 @@ test('transactional auth mail uses the Inroads layout and its own verify link', 
     assert.match(rendered.html, /max-width:560px/)
     assert.match(rendered.html, /@media only screen and \(max-width: 600px\)/)
     assert.match(rendered.html, /border-radius:16px/)
-    assert.match(rendered.html, new RegExp(`type=${item.action}`))
+    if (item.action === 'recovery') {
+      assert.equal(rendered.html.includes('token_hash'), false)
+      assert.equal(rendered.html.includes('/auth/v1/verify'), false)
+      assert.match(rendered.html, /email=current%40example\.com/)
+    } else {
+      assert.match(rendered.html, new RegExp(`type=${item.action}`))
+    }
     assert.equal(rendered.html.includes('https://inroads.alertdriving.com/reset'), false)
   }
 })

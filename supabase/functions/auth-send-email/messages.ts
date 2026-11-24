@@ -304,15 +304,18 @@ export function planAuthEmails(payload: HookPayload): PlannedEmail[] {
 }
 
 /**
- * Recovery button on our own site. Mail scanners request the Auth `/verify`
- * URL and consume the one-time token before the person clicks, so the link
- * looks expired immediately. The reset page verifies this hash only after a click.
+ * Recovery button on our own site, with no one-time token in the address.
+ * Mail scanners open every link, and Auth burns a token as soon as it is
+ * verified, so the code stays in the message and the person types it.
  */
-export function recoveryPageUrl(redirectTo: string, tokenHash: string): string {
+export function recoveryPageUrl(redirectTo: string, email: string): string {
   const redirect = redirectTo.trim()
-  const hash = tokenHash.trim()
-  if (!redirect || !hash) {
+  const address = email.trim()
+  if (!redirect || !address) {
     throw new HookError(400, 'payload', 'Auth action URL is missing.')
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+    throw new HookError(400, 'payload', 'Auth action URL is invalid.')
   }
 
   let url: URL
@@ -326,8 +329,9 @@ export function recoveryPageUrl(redirectTo: string, tokenHash: string): string {
     throw new HookError(400, 'payload', 'Auth action URL is invalid.')
   }
 
-  url.searchParams.set('token_hash', hash)
-  url.searchParams.set('type', 'recovery')
+  url.searchParams.set('email', address)
+  url.searchParams.delete('token_hash')
+  url.searchParams.delete('type')
   return url.toString()
 }
 
