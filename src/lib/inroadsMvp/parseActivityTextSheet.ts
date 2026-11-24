@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx'
 import { canonicalizeLessonLanguage, type CopyField, type CopySection } from '@/lib/inroadsMvp/packageSpec'
 import type { ResultsChrome, ResultsChromeKey } from '@/lib/lesson/resultsChrome'
 import {
-  isSeverityScaleAnswer,
+  answersUseSeveritySlider,
   type ExplanationWhen,
   type ProcessQuestionKind,
 } from '@/types/questions'
@@ -334,7 +334,9 @@ function flushQuestion(draft: QuestionDraft | null, questions: ImportedQuestionR
     filled.findIndex((answer) => answer.correct),
   )
   const kind: ProcessQuestionKind =
-    filled.filter((answer) => isSeverityScaleAnswer(answer.reference || answer.text)).length >= 2
+    answersUseSeveritySlider(
+      filled.map((answer) => answer.reference || answer.text),
+    )
       ? 'severity'
       : 'theory'
   const explanation = draft.explanation.trim()

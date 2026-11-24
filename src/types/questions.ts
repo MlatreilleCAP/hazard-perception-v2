@@ -24,6 +24,20 @@ export function isSeverityScaleAnswer(value: string): boolean {
   return SEVERITY_SCALE_ANSWER.test(value.trim())
 }
 
+/** Translated scales such as "lage ernst" are three short labels, not sentences. */
+function isShortSeverityLabel(value: string): boolean {
+  const text = value.trim()
+  if (!text || text.length > 40 || /[.!?;:]/.test(text)) return false
+  const words = text.split(/\s+/).filter(Boolean)
+  return words.length >= 1 && words.length <= 3
+}
+
+export function answersUseSeveritySlider(answers: readonly string[]): boolean {
+  const labels = answers.map((answer) => answer.trim()).filter(Boolean)
+  if (labels.filter((label) => isSeverityScaleAnswer(label)).length >= 2) return true
+  return labels.length === 3 && labels.every(isShortSeverityLabel)
+}
+
 export function isTheoryStyleKind(kind: ProcessQuestionKind): boolean {
   return kind === 'theory'
 }
@@ -250,8 +264,7 @@ function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
       : [createAnswerOption('', 0), createAnswerOption('', 0)]
   const correctIndex = Math.min(parsedAnswers.length - 1, Math.max(0, correctIndexRaw))
   const answers = answersWithFixedPoints(parsedAnswers, correctIndex)
-  const severityScale =
-    parsedAnswers.filter((answer) => isSeverityScaleAnswer(answer.text)).length >= 2
+  const severityScale = answersUseSeveritySlider(parsedAnswers.map((answer) => answer.text))
   const kind: ProcessQuestionKind =
     raw.kind === 'severity' || severityScale ? 'severity' : 'theory'
   const questionText = typeof raw.questionText === 'string' ? raw.questionText : ''

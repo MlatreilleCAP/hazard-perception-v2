@@ -20,6 +20,22 @@ describe('severity scale questions', () => {
     expect(bank.questions[0]?.kind).toBe('severity')
   })
 
+  it('shows the Dutch severity scale on the slider', () => {
+    const bank = readQuestionBank({
+      version: 2,
+      questions: [
+        {
+          id: 'severity-nl',
+          kind: 'theory',
+          questionText: 'Hoe ernstig hadden de gevolgen kunnen zijn?',
+          answers: [{ text: 'lage ernst' }, { text: 'matige ernst' }, { text: 'hoge ernst' }],
+          correctIndex: 1,
+        },
+      ],
+    })
+    expect(bank.questions[0]?.kind).toBe('severity')
+  })
+
   it('keeps a written choice question as theory', () => {
     const bank = readQuestionBank({
       version: 2,
