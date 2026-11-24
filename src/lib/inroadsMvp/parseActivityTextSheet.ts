@@ -772,5 +772,16 @@ export function parseActivityTextSheet(
   }
 
   flushQuestion(draft, questions)
+  markChallengeSeverityQuestions(questions)
   return { lesson, copy, questions }
+}
+
+function markChallengeSeverityQuestions(questions: ImportedQuestionRow[]): void {
+  for (const section of ['process', 'anticipate'] as const) {
+    const challenge = questions.filter(
+      (question) => question.section === section && question.segment === 1,
+    )
+    const severity = challenge[2]
+    if (severity) severity.kind = 'severity'
+  }
 }

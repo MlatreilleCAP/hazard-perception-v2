@@ -5,6 +5,7 @@ import { inroadsQuestionBankMaxPoints } from '@/types/inroadsScoring'
 import {
   emptyQuestionBank,
   readQuestionBank,
+  withChallengeSeverityQuestion,
   type ProcessQuestionBank,
 } from '@/types/questions'
 
@@ -84,23 +85,25 @@ export function cloneAnticipateDefinition(
 
 export function normalizeAnticipateSegment(
   segment: AnticipateSegment | undefined,
+  challenge = false,
 ): AnticipateSegment {
   const base = segment ?? createEmptyAnticipateSegment()
+  const questions = readQuestionBank(base.questions)
   return {
     ...base,
     id: base.id || crypto.randomUUID(),
     media: base.media ?? null,
     captions: base.captions ?? null,
     durationMs: base.durationMs ?? 0,
-    questions: readQuestionBank(base.questions),
+    questions: challenge ? withChallengeSeverityQuestion(questions) : questions,
   }
 }
 
 export function normalizeAnticipateDefinition(
   definition: AnticipateDefinition,
 ): AnticipateDefinition {
-  const segments = (definition.segments ?? []).map((segment) =>
-    normalizeAnticipateSegment(segment),
+  const segments = (definition.segments ?? []).map((segment, index) =>
+    normalizeAnticipateSegment(segment, index === 0),
   )
   return {
     version: 1,
@@ -142,7 +145,7 @@ export function buildPersistableAnticipateDefinition(
   const secondInstructionText = definition.secondInstructionText ?? ''
   const secondInstructionPill =
     definition.secondInstructionPill ?? DEFAULT_ANTICIPATE_INSTRUCTION_PILL
-  const segment1 = normalizeAnticipateSegment(definition.segments[0])
+  const segment1 = normalizeAnticipateSegment(definition.segments[0], true)
 
   if (!enableSecond) {
     return {

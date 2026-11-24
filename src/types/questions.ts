@@ -38,6 +38,16 @@ export function answersUseSeveritySlider(answers: readonly string[]): boolean {
   return labels.length === 3 && labels.every(isShortSeverityLabel)
 }
 
+/** The third question on a Process or Anticipate challenge is the severity slider. */
+export const CHALLENGE_SEVERITY_QUESTION_INDEX = 2
+
+export function withChallengeSeverityQuestion(bank: ProcessQuestionBank): ProcessQuestionBank {
+  const questions = bank.questions.map((question, index) =>
+    index === CHALLENGE_SEVERITY_QUESTION_INDEX ? { ...question, kind: 'severity' as const } : question,
+  )
+  return { ...bank, questions }
+}
+
 export function isTheoryStyleKind(kind: ProcessQuestionKind): boolean {
   return kind === 'theory'
 }

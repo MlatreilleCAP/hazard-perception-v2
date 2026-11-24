@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { readQuestionBank } from '@/types/questions'
+import { normalizeAnticipateDefinition } from '@/types/anticipate'
+import { normalizeProcessDefinition } from '@/types/process'
+import { readQuestionBank, type ProcessQuestionBank } from '@/types/questions'
 
 describe('severity scale questions', () => {
   it('shows Minor, Serious, and Critical on the severity slider', () => {
@@ -34,6 +36,79 @@ describe('severity scale questions', () => {
       ],
     })
     expect(bank.questions[0]?.kind).toBe('severity')
+  })
+
+  it('uses the slider for the third process and anticipate challenge question', () => {
+    const bank: ProcessQuestionBank = {
+      version: 2,
+      questions: [0, 1, 2].map((index) => ({
+        id: `q-${index}`,
+        kind: 'theory' as const,
+        questionText: `Question ${index + 1}`,
+        answers: [
+          { text: 'een lang antwoord over het verkeer', points: 0 },
+          { text: 'nog een volledige zin als keuze', points: 0 },
+          { text: 'een derde zin die geen schaal is', points: 0 },
+        ],
+        correctIndex: 1,
+        explanation: '',
+        correctExplanation: '',
+        explanationWhen: 'incorrect' as const,
+        showExplanation: true,
+      })),
+    }
+    const process = normalizeProcessDefinition({
+      version: 1,
+      instructionText: '',
+      instructionPill: '',
+      instructionDesktopText: '',
+      secondInstructionText: '',
+      secondInstructionPill: '',
+      segments: [
+        {
+          id: 'challenge',
+          media: null,
+          captions: null,
+          durationMs: 0,
+          questions: bank,
+        },
+        {
+          id: 'coaching',
+          media: null,
+          captions: null,
+          durationMs: 0,
+          questions: bank,
+        },
+      ],
+      secondSegmentScoreThreshold: null,
+      thirdSegmentScoreThreshold: null,
+    })
+    const anticipate = normalizeAnticipateDefinition({
+      version: 1,
+      instructionText: '',
+      instructionPill: '',
+      instructionDesktopText: '',
+      secondInstructionText: '',
+      secondInstructionPill: '',
+      segments: [
+        {
+          id: 'challenge',
+          media: null,
+          captions: null,
+          durationMs: 0,
+          questions: bank,
+        },
+      ],
+      secondSegmentScoreThreshold: null,
+      thirdSegmentScoreThreshold: null,
+    })
+    expect(process.segments[0]?.questions.questions.map((question) => question.kind)).toEqual([
+      'theory',
+      'theory',
+      'severity',
+    ])
+    expect(process.segments[1]?.questions.questions[2]?.kind).toBe('theory')
+    expect(anticipate.segments[0]?.questions.questions[2]?.kind).toBe('severity')
   })
 
   it('keeps a written choice question as theory', () => {

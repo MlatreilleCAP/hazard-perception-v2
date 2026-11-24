@@ -5,6 +5,7 @@ import { inroadsQuestionBankMaxPoints } from '@/types/inroadsScoring'
 import {
   emptyQuestionBank,
   readQuestionBank,
+  withChallengeSeverityQuestion,
   type ProcessQuestionBank,
 } from '@/types/questions'
 
@@ -82,23 +83,25 @@ export function cloneProcessDefinition(definition: ProcessDefinition): ProcessDe
 
 export function normalizeProcessSegment(
   segment: ProcessSegment | undefined,
+  challenge = false,
 ): ProcessSegment {
   const base = segment ?? createEmptyProcessSegment()
+  const questions = readQuestionBank(base.questions)
   return {
     ...base,
     id: base.id || crypto.randomUUID(),
     media: base.media ?? null,
     captions: base.captions ?? null,
     durationMs: base.durationMs ?? 0,
-    questions: readQuestionBank(base.questions),
+    questions: challenge ? withChallengeSeverityQuestion(questions) : questions,
   }
 }
 
 export function normalizeProcessDefinition(
   definition: ProcessDefinition,
 ): ProcessDefinition {
-  const segments = (definition.segments ?? []).map((segment) =>
-    normalizeProcessSegment(segment),
+  const segments = (definition.segments ?? []).map((segment, index) =>
+    normalizeProcessSegment(segment, index === 0),
   )
   return {
     version: 1,
@@ -138,7 +141,7 @@ export function buildPersistableProcessDefinition(
   const instructionDesktopText = definition.instructionDesktopText ?? ''
   const secondInstructionText = definition.secondInstructionText ?? ''
   const secondInstructionPill = definition.secondInstructionPill ?? DEFAULT_PROCESS_INSTRUCTION_PILL
-  const segment1 = normalizeProcessSegment(definition.segments[0])
+  const segment1 = normalizeProcessSegment(definition.segments[0], true)
 
   if (!enableSecond) {
     return {
