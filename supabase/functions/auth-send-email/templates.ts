@@ -1,6 +1,11 @@
 import { HookError } from './errors.ts'
 import { renderEmailLayout } from './layout.ts'
-import { authActionExpectsLink, type AuthEmailAction, type PlannedEmail } from './messages.ts'
+import {
+  authActionExpectsLink,
+  recoveryPageUrl,
+  type AuthEmailAction,
+  type PlannedEmail,
+} from './messages.ts'
 
 /**
  * Auth mail is rendered here. Database rows with source `auth_hook` are a
@@ -288,10 +293,22 @@ export function trustedAuthActionUrl(
     throw new HookError(500, 'config', 'Auth verify URL is invalid.')
   }
 
+  const tokenHash = message.tokenHash ?? ''
+  if (message.action === 'recovery') {
+    let expected = ''
+    try {
+      expected = recoveryPageUrl(message.redirectTo, tokenHash)
+    } catch (error) {
+      if (error instanceof HookError) throw error
+      throw new HookError(400, 'payload', 'Auth action URL is invalid.')
+    }
+    if (raw !== expected) throw new HookError(400, 'payload', 'Auth action URL is invalid.')
+    return raw
+  }
+
   const path = url.pathname.replace(/\/$/, '')
   const expectedPath = expected.pathname.replace(/\/$/, '')
   const token = url.searchParams.get('token') ?? ''
-  const tokenHash = message.tokenHash ?? ''
   if (
     url.origin !== expected.origin ||
     path !== `${expectedPath}/verify` ||

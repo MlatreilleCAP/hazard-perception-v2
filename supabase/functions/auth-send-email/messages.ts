@@ -303,6 +303,34 @@ export function planAuthEmails(payload: HookPayload): PlannedEmail[] {
   throw new HookError(400, 'payload', 'Send Email Hook payload is invalid.')
 }
 
+/**
+ * Recovery button on our own site. Mail scanners request the Auth `/verify`
+ * URL and consume the one-time token before the person clicks, so the link
+ * looks expired immediately. The reset page verifies this hash only after a click.
+ */
+export function recoveryPageUrl(redirectTo: string, tokenHash: string): string {
+  const redirect = redirectTo.trim()
+  const hash = tokenHash.trim()
+  if (!redirect || !hash) {
+    throw new HookError(400, 'payload', 'Auth action URL is missing.')
+  }
+
+  let url: URL
+  try {
+    url = new URL(redirect)
+  } catch {
+    throw new HookError(400, 'payload', 'Auth action URL is invalid.')
+  }
+
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password) {
+    throw new HookError(400, 'payload', 'Auth action URL is invalid.')
+  }
+
+  url.searchParams.set('token_hash', hash)
+  url.searchParams.set('type', 'recovery')
+  return url.toString()
+}
+
 /** Auth verify link. `base` is the Auth API root, for example https://project.supabase.co/auth/v1. */
 export function authVerificationUrl(
   base: string,

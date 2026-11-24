@@ -4,7 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { MIN_PASSWORD_LENGTH, passwordError } from '@/lib/auth/credentials'
 import { setupRequired } from '@/lib/auth/setupAccess'
 import { completeAccountSetup } from '@/services/accountSetup'
-import { RECOVERY_LINK_ERROR, RECOVERY_NETWORK_ERROR } from '@/lib/auth/recoveryCallback'
+import { RECOVERY_LINK_ERROR, RECOVERY_NETWORK_ERROR, readRecoveryCallback } from '@/lib/auth/recoveryCallback'
 import { clearPasswordRecovery, establishPasswordRecovery } from '@/services/auth'
 import { getSupabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/authStore'
@@ -13,7 +13,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-const state = ref<'checking' | 'invalid' | 'form' | 'success'>('checking')
+const state = ref<'checking' | 'confirm' | 'invalid' | 'form' | 'success'>('checking')
 const failureTitle = ref('Reset link expired')
 const failureMessage = ref(RECOVERY_LINK_ERROR)
 const password = ref('')
@@ -26,6 +26,16 @@ const returning = ref(false)
 const finishingSetup = ref(false)
 
 void auth.initialize().then(async () => {
+  // Mail scanners open the link before the person does. Verifying on arrival
+  // would use up the token, so wait for an explicit click.
+  if (readRecoveryCallback(window.location.href).kind === 'token_hash') {
+    state.value = 'confirm'
+    return
+  }
+  await verifyRecovery()
+})
+
+async function verifyRecovery(): Promise<void> {
   try {
     const result = await establishPasswordRecovery()
     if (state.value === 'success') return
@@ -47,7 +57,13 @@ void auth.initialize().then(async () => {
   if (hasRecoveryParams()) {
     await router.replace({ path: '/reset-password' })
   }
-})
+}
+
+async function continueReset(): Promise<void> {
+  if (state.value !== 'confirm') return
+  state.value = 'checking'
+  await verifyRecovery()
+}
 
 function hasRecoveryParams(): boolean {
   return Boolean(
@@ -133,10 +149,17 @@ async function requestAnother(): Promise<void> {
           <p v-if="state === 'success'">You can sign in with your new password.</p>
           <p v-else-if="state === 'invalid'">{{ failureMessage }}</p>
           <p v-else-if="state === 'form'">Enter and confirm a new password for your account.</p>
+          <p v-else-if="state === 'confirm'">Continue to choose a new password. This link can only be used once.</p>
           <p v-else>Checking your reset link…</p>
         </div>
 
-        <div v-if="state === 'form'" class="auth-card">
+        <div v-if="state === 'confirm'" class="auth-card">
+          <button type="button" class="auth-submit" @click="continueReset">
+            Continue
+          </button>
+        </div>
+
+        <div v-else-if="state === 'form'" class="auth-card">
           <form class="auth-form" @submit.prevent="handleUpdate">
             <label>
               <span>New password</span>

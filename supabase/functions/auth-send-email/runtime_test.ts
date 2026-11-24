@@ -1,7 +1,13 @@
 import { assert, assertEquals, assertNotEquals, assertStringIncludes, assertThrows } from 'jsr:@std/assert@1'
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0'
 import { handleAuthEmailRequest } from './handler.ts'
-import { AUTH_EMAIL_ACTIONS, authVerificationUrl, planAuthEmails, parseHookPayload } from './messages.ts'
+import {
+  AUTH_EMAIL_ACTIONS,
+  authVerificationUrl,
+  planAuthEmails,
+  parseHookPayload,
+  recoveryPageUrl,
+} from './messages.ts'
 import { buildIdempotencyKey, resendEndpoint } from './resend.ts'
 import { renderAuthEmail } from './templates.ts'
 import { HookError } from './errors.ts'
@@ -225,7 +231,9 @@ Deno.test('auth send email runtime', async (t) => {
         })))
         for (const message of planAuthEmails(payload)) {
           const link = message.tokenHash
-            ? authVerificationUrl('https://projectref.supabase.co/auth/v1', message.tokenHash, message.action, message.redirectTo)
+            ? message.action === 'recovery'
+              ? recoveryPageUrl(message.redirectTo, message.tokenHash)
+              : authVerificationUrl('https://projectref.supabase.co/auth/v1', message.tokenHash, message.action, message.redirectTo)
             : null
           const rendered = renderAuthEmail(message, link, {
             verifyBase: 'https://projectref.supabase.co/auth/v1',
@@ -241,7 +249,16 @@ Deno.test('auth send email runtime', async (t) => {
             assertStringIncludes(rendered.html, 'expires in 24 hours')
             assertStringIncludes(rendered.text, 'expires in 24 hours')
             assertEquals(rendered.html.includes(message.otp ?? '111111'), false)
-            assertEquals(verifyLink(rendered.html).searchParams.get('token'), message.tokenHash)
+            if (message.action === 'recovery') {
+              const page = hrefs(rendered.html).find(
+                (url) => url.searchParams.get('token_hash') === message.tokenHash,
+              )
+              assert(page, 'expected a reset page link')
+              assertEquals(page.searchParams.get('type'), 'recovery')
+              assertEquals(rendered.html.includes('/auth/v1/verify'), false)
+            } else {
+              assertEquals(verifyLink(rendered.html).searchParams.get('token'), message.tokenHash)
+            }
           }
         }
       }

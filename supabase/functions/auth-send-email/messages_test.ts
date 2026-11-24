@@ -5,6 +5,7 @@ import {
   authVerificationUrl,
   parseHookPayload,
   planAuthEmails,
+  recoveryPageUrl,
   resolveVerifyBase,
   type PlannedEmail,
 } from './messages.ts'
@@ -243,7 +244,10 @@ test('transactional auth mail uses the Inroads layout and its own verify link', 
       parseHookPayload(payload({ emailData: { email_action_type: item.action } })),
     )
     assert.ok(message)
-    const link = verifyLink(message)
+    const link =
+      item.action === 'recovery'
+        ? recoveryPageUrl(message.redirectTo, message.tokenHash ?? '')
+        : verifyLink(message)
     const rendered = renderAuthEmail(message, link, { verifyBase: VERIFY_BASE })
 
     assert.equal(rendered.subject, item.subject)
@@ -342,6 +346,7 @@ test('link emails reject a missing or untrusted action URL without revealing it'
     'javascript:alert(1)',
     'https://evil.example/reset',
     'https://evil.example/auth/v1/verify?token=super-secret-hash&type=recovery',
+    authVerificationUrl(VERIFY_BASE, 'super-secret-hash', 'recovery', message.redirectTo),
     authVerificationUrl(VERIFY_BASE, 'other-hash', 'recovery', message.redirectTo),
     authVerificationUrl(VERIFY_BASE, 'super-secret-hash', 'signup', message.redirectTo),
   ]

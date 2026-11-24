@@ -3,6 +3,7 @@ import {
   authVerificationUrl,
   parseHookPayload,
   planAuthEmails,
+  recoveryPageUrl,
   resolveVerifyBase,
 } from './messages.ts'
 import {
@@ -124,7 +125,9 @@ export async function handleAuthEmailRequest(request: Request): Promise<Response
 
     for (const message of planAuthEmails(hook)) {
       const actionUrl = message.tokenHash
-        ? authVerificationUrl(verifyBase, message.tokenHash, message.action, message.redirectTo)
+        ? message.action === 'recovery'
+          ? recoveryPageUrl(message.redirectTo, message.tokenHash)
+          : authVerificationUrl(verifyBase, message.tokenHash, message.action, message.redirectTo)
         : null
       const rendered = renderAuthEmail(message, actionUrl, templateOptions)
       const idempotencyKey = await buildIdempotencyKey(webhookId, message.action, message.recipientRole)
