@@ -131,7 +131,16 @@ export const LESSON_KEYS = [
 export function canonicalizeLessonLanguage(value: string): string {
   const trimmed = value.trim()
   if (!trimmed) return ''
-  return LANGUAGE_ALIASES[trimmed.toLowerCase()] ?? trimmed
+  const lower = trimmed.toLowerCase()
+  const direct = LANGUAGE_ALIASES[lower]
+  if (direct) return direct
+  // Workbooks store a locale tag such as en-SE. The language is the first part.
+  const primary = lower.split(/[-_]/)[0] ?? ''
+  if (primary && primary !== lower) {
+    const fromTag = LANGUAGE_ALIASES[primary]
+    if (fromTag) return fromTag
+  }
+  return trimmed
 }
 
 /** Locale written in the activity-text Language row. English uses the workbook's en-US tag. */

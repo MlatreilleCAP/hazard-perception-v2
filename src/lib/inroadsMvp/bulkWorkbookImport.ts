@@ -46,6 +46,8 @@ export type ExistingLessonIdentity = {
   country: string
   language: string
   sku: string
+  /** ISO timestamp. When two copies match, the older activity is the one to update. */
+  createdAt?: string
 }
 
 function identityKeys(...values: Array<string | null | undefined>): Set<string> {
@@ -104,7 +106,11 @@ export function existingVersionsForWorkbook(
 ): Map<string, string> {
   const matches = existing
     .filter((item) => workbookMatchesExistingLesson(lesson, item))
-    .sort((left, right) => matchRank(lesson, right) - matchRank(lesson, left))
+    .sort((left, right) => {
+      const byRank = matchRank(lesson, right) - matchRank(lesson, left)
+      if (byRank !== 0) return byRank
+      return (left.createdAt || '9999').localeCompare(right.createdAt || '9999')
+    })
   const versions = new Map<string, string>()
   for (const item of matches) {
     const language = canonicalizeLessonLanguage(item.language) || 'English'

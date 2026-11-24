@@ -113,6 +113,7 @@ async function loadExistingLessons(summaries: ActivitySummary[]): Promise<Existi
       country: canonicalizeLessonCountry(mvp.country),
       language: canonicalizeLessonLanguage(mvp.language) || 'English',
       sku: mvp.sku.trim(),
+      createdAt: activity.metadata.createdAt,
     })
   }
   return existing

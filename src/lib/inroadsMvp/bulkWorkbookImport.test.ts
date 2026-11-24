@@ -10,6 +10,7 @@ import {
   type WorkbookLessonFile,
 } from '@/lib/inroadsMvp/bulkWorkbookImport'
 import { parseImportWorkbook } from '@/lib/inroadsMvp/parseImportPackage'
+import { canonicalizeLessonLanguage } from '@/lib/inroadsMvp/packageSpec'
 
 function lesson(language: string, fileName = `${language}.xlsx`): WorkbookLessonFile {
   return {
@@ -92,5 +93,40 @@ describe('bulk workbook lesson identity', () => {
     expect(
       workbookMatchesExistingLesson(lesson, { ...existing, sku: 'INR_OTHER' }),
     ).toBe(false)
+  })
+
+  it('treats a locale tag as the same language as the file name', () => {
+    expect(canonicalizeLessonLanguage('en-SE')).toBe('English')
+    expect(canonicalizeLessonLanguage('sv-SE')).toBe('Swedish')
+    expect(canonicalizeLessonLanguage('en-us')).toBe('English')
+    expect(canonicalizeLessonLanguage('be')).toBe('Belarusian')
+    expect(languageFromWorkbookFileName('Lane Changes_Sweden_en-SE.xlsx')).toBe('English')
+
+    const existing: ExistingLessonIdentity = {
+      id: 'sweden-original',
+      title: 'Lane Changes - Sweden',
+      lessonTitle: 'FD Inroads - Lane Changes',
+      country: 'Sweden',
+      language: 'en-SE',
+      sku: '',
+      createdAt: '2026-11-20T12:00:00.000Z',
+    }
+    const duplicate: ExistingLessonIdentity = {
+      ...existing,
+      id: 'sweden-duplicate',
+      createdAt: '2026-11-23T23:00:00.000Z',
+    }
+    const uploaded: WorkbookLessonFile = {
+      fileName: 'Lane Changes_Sweden_English.xlsx',
+      lessonName: 'Lane Changes - Sweden',
+      language: 'English',
+      title: 'Lane Changes',
+      country: 'Sweden',
+      description: '',
+      cardTitle: 'FD Inroads - Lane Changes',
+      sku: '',
+    }
+    const versions = existingVersionsForWorkbook(uploaded, [duplicate, existing])
+    expect(versions.get('English')).toBe('sweden-original')
   })
 })
