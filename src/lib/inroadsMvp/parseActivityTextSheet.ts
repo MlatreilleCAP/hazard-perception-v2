@@ -1,7 +1,11 @@
 import * as XLSX from 'xlsx'
 import { canonicalizeLessonLanguage, type CopyField, type CopySection } from '@/lib/inroadsMvp/packageSpec'
 import type { ResultsChrome, ResultsChromeKey } from '@/lib/lesson/resultsChrome'
-import type { ExplanationWhen, ProcessQuestionKind } from '@/types/questions'
+import {
+  isSeverityScaleAnswer,
+  type ExplanationWhen,
+  type ProcessQuestionKind,
+} from '@/types/questions'
 import type {
   ImportedCopy,
   ImportedLessonFields,
@@ -170,10 +174,6 @@ function answerElement(element: string): { letter: string; correct: boolean } | 
   }
 }
 
-function isSeverityAnswer(value: string): boolean {
-  return /^(low|modest|medium|high)(?:\s+severity)?$/i.test(value.trim())
-}
-
 function sectionKey(screen: string): 'observe' | 'process' | 'anticipate' | null {
   const name = screen.trim().toLowerCase()
   if (name.startsWith('observe')) return 'observe'
@@ -334,7 +334,7 @@ function flushQuestion(draft: QuestionDraft | null, questions: ImportedQuestionR
     filled.findIndex((answer) => answer.correct),
   )
   const kind: ProcessQuestionKind =
-    filled.filter((answer) => isSeverityAnswer(answer.reference || answer.text)).length >= 2
+    filled.filter((answer) => isSeverityScaleAnswer(answer.reference || answer.text)).length >= 2
       ? 'severity'
       : 'theory'
   const explanation = draft.explanation.trim()

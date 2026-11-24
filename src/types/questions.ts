@@ -16,6 +16,14 @@ export const EXPLANATION_WHEN_OPTIONS: ReadonlyArray<{
   { value: 'always', label: 'Always (incorrect and correct)' },
 ]
 
+/** Answer labels that belong on the severity slider, not as separate choice buttons. */
+const SEVERITY_SCALE_ANSWER =
+  /^(low|modest|medium|high|minor|serious|critical)(?:\s+severity)?$/i
+
+export function isSeverityScaleAnswer(value: string): boolean {
+  return SEVERITY_SCALE_ANSWER.test(value.trim())
+}
+
 export function isTheoryStyleKind(kind: ProcessQuestionKind): boolean {
   return kind === 'theory'
 }
@@ -233,8 +241,6 @@ export function answersWithFixedPoints(
 function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
   if (!value || typeof value !== 'object') return null
   const raw = value as Partial<ProcessSurveyQuestion> & { answers?: unknown }
-  const kind: ProcessQuestionKind =
-    raw.kind === 'severity' ? 'severity' : 'theory'
   const answersRaw = Array.isArray(raw.answers) ? raw.answers : []
   const correctIndexRaw =
     typeof raw.correctIndex === 'number' ? Math.floor(raw.correctIndex) : 0
@@ -244,6 +250,10 @@ function parseSurveyQuestion(value: unknown): ProcessSurveyQuestion | null {
       : [createAnswerOption('', 0), createAnswerOption('', 0)]
   const correctIndex = Math.min(parsedAnswers.length - 1, Math.max(0, correctIndexRaw))
   const answers = answersWithFixedPoints(parsedAnswers, correctIndex)
+  const severityScale =
+    parsedAnswers.filter((answer) => isSeverityScaleAnswer(answer.text)).length >= 2
+  const kind: ProcessQuestionKind =
+    raw.kind === 'severity' || severityScale ? 'severity' : 'theory'
   const questionText = typeof raw.questionText === 'string' ? raw.questionText : ''
   const explanationWhen = explanationWhenFromUnknown(
     raw.explanationWhen,
