@@ -46,6 +46,8 @@ const emit = defineEmits<{
 const videoRef = ref<HTMLVideoElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const previewUrl = ref<string | null>(null)
+let previewToken = 0
+let previewObjectUrl: string | null = null
 const currentTime = ref(0)
 const duration = ref(props.duration)
 const videoAspect = ref<number | null>(null)
@@ -79,17 +81,32 @@ function createDraftHazard(): SeeHazard {
   return createEmptySeeHazard(1, 0, span, newHazardRadius.value)
 }
 
+function revokePreviewObjectUrl(): void {
+  if (!previewObjectUrl) return
+  URL.revokeObjectURL(previewObjectUrl)
+  previewObjectUrl = null
+}
+
 watch(
   () => props.media?.media_asset_id,
   async (id) => {
-    previewUrl.value = null
+    const token = ++previewToken
     videoAspect.value = null
     currentTime.value = 0
     isPlaying.value = false
-    if (!id) return
+    if (!id) {
+      if (token !== previewToken) return
+      revokePreviewObjectUrl()
+      previewUrl.value = null
+      return
+    }
     try {
-      previewUrl.value = await services.media.getSignedUrl(id)
+      const url = await services.media.getSignedUrl(id)
+      if (token !== previewToken) return
+      revokePreviewObjectUrl()
+      previewUrl.value = url
     } catch (cause) {
+      if (token !== previewToken) return
       replaceError.value = cause instanceof Error ? cause.message : 'Failed to load video'
     }
   },
@@ -251,7 +268,10 @@ watch(isPlaying, (playing) => {
   else cancelAnimationFrame(playFrame)
 })
 
-onBeforeUnmount(() => cancelAnimationFrame(playFrame))
+onBeforeUnmount(() => {
+  cancelAnimationFrame(playFrame)
+  revokePreviewObjectUrl()
+})
 
 function patchHazards(next: SeeHazard[]): void {
   if (props.readonly) return
@@ -389,6 +409,10 @@ async function replaceVideo(file: File): Promise<void> {
   pause()
   try {
     const asset = await services.media.uploadVideo(props.activityId, file)
+    revokePreviewObjectUrl()
+    previewObjectUrl = URL.createObjectURL(file)
+    previewToken += 1
+    previewUrl.value = previewObjectUrl
     emit('update:media', { media_asset_id: asset.id })
     if (asset.durationMs && asset.durationMs > 0) {
       emit('update:duration', asset.durationMs / 1000)

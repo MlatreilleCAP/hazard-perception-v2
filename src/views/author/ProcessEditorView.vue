@@ -69,6 +69,7 @@ const title = ref('')
 const description = ref('')
 const sourceActivity = ref<ActivityDefinition | null>(null)
 const process = ref<ProcessDefinition | null>(null)
+let revision = 0
 const enableThird = ref(false)
 const video1Questions = ref<{ snapshot: () => ProcessQuestionBank } | null>(null)
 
@@ -140,6 +141,7 @@ watch(activityId, () => {
 
 async function load(): Promise<void> {
   const generation = ++loadGeneration
+  const revisionAtStart = revision
   loading.value = true
   loadError.value = null
   try {
@@ -149,6 +151,7 @@ async function load(): Promise<void> {
       : (await activities.load(activityId.value), activities.current)
     if (generation !== loadGeneration) return
     sourceActivity.value = current
+    if (revision !== revisionAtStart && process.value) return
     if (!current || !isProcessActivity(current.metadata.tags)) {
       process.value = null
       return
@@ -205,7 +208,10 @@ function setQuestions(index: ProcessSegmentIndex, questions: ProcessQuestionBank
 
 function setMedia(index: ProcessSegmentIndex, media: MediaRef | null): void {
   patchSegment(index, { media })
+  void flushMediaSave?.()
 }
+
+let flushMediaSave: (() => void) | null = null
 
 function setCaptions(index: ProcessSegmentIndex, captions: MediaRef | null): void {
   patchSegment(index, { captions })
@@ -228,7 +234,23 @@ function flushVideo1Questions(): void {
   process.value = { ...process.value, segments }
 }
 
+let saveChain: Promise<boolean> = Promise.resolve(true)
+
 async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
+  const run = saveChain.then(async () => {
+    const before = revision
+    const result = await saveOnce(origin)
+    if (!result || revision === before) return result
+    return saveOnce(origin)
+  })
+  saveChain = run.then(
+    () => true,
+    () => false,
+  )
+  return run
+}
+
+async function saveOnce(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
   if (!editable.value || !process.value) return false
 
   await nextTick()
@@ -247,26 +269,25 @@ async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
       canonicalActivityId(sourceActivity.value?.id) === id
         ? sourceActivity.value
         : await services.persistence.getById(id)
-    if (!source || canonicalActivityId(source.id) !== id) return false
+    if (!source || canonicalActivityId(source.id) !== id || !process.value) return false
+    const revisionAtWrite = revision
     const nextProcess = {
       ...buildPersistableProcessDefinition(process.value, true, enableThird.value),
       secondSegmentScoreThreshold: 100,
     }
-    autosave.pause()
-    process.value = nextProcess
     const next = writeProcessDefinition(source, nextProcess)
     next.id = id
     if (!props.embedded) {
       next.metadata.title = title.value.trim() || next.metadata.title
       next.metadata.description = description.value.trim()
     }
-    await nextTick()
-    autosave.resume()
     if (props.embedded) {
       sourceActivity.value = await services.persistence.save(next)
+      if (revision !== revisionAtWrite) return true
       await activities.refreshList()
     } else {
       await activities.save(next)
+      if (revision !== revisionAtWrite) return true
       sourceActivity.value = activities.current
       activities.stagePreview(next)
     }
@@ -293,10 +314,14 @@ const autosave = useAuthorAutosave({
   loading,
   save: () => save('auto'),
 })
+flushMediaSave = () => {
+  void autosave.flush()
+}
 
 watch(
   process,
   () => {
+    revision += 1
     autosave.schedule()
   },
   { deep: true },

@@ -1,4 +1,4 @@
-import { onBeforeUnmount, type Ref } from 'vue'
+import { getCurrentInstance, onBeforeUnmount, type Ref } from 'vue'
 
 const DEFAULT_DELAY_MS = 800
 
@@ -10,13 +10,49 @@ export function useAuthorAutosave(options: {
 }) {
   let timer = 0
   let paused = 0
+  let running = false
+  let rerun = false
+  let current: Promise<boolean> | null = null
+
+  function blocked(): boolean {
+    return paused > 0 || options.loading.value || !options.editable.value
+  }
+
+  async function run(): Promise<boolean> {
+    if (blocked()) return current ?? true
+    if (running) {
+      rerun = true
+      return current ?? true
+    }
+    running = true
+    rerun = false
+    let result = true
+    current = (async () => {
+      try {
+        do {
+          rerun = false
+          if (blocked()) break
+          result = await options.save()
+        } while (rerun && !blocked())
+        return result
+      } finally {
+        running = false
+        current = null
+      }
+    })()
+    return current
+  }
 
   function schedule(): void {
     if (paused > 0 || options.loading.value || !options.editable.value) return
+    if (running) {
+      rerun = true
+      return
+    }
     window.clearTimeout(timer)
     timer = window.setTimeout(() => {
       timer = 0
-      void options.save()
+      void run()
     }, options.delayMs ?? DEFAULT_DELAY_MS)
   }
 
@@ -33,13 +69,19 @@ export function useAuthorAutosave(options: {
   async function flush(): Promise<boolean> {
     window.clearTimeout(timer)
     timer = 0
-    if (paused > 0 || options.loading.value || !options.editable.value) return true
-    return options.save()
+    if (running) {
+      rerun = true
+      return current ?? true
+    }
+    if (blocked()) return true
+    return run()
   }
 
-  onBeforeUnmount(() => {
-    void flush()
-  })
+  if (getCurrentInstance()) {
+    onBeforeUnmount(() => {
+      void flush()
+    })
+  }
 
   return { schedule, pause, resume, flush }
 }

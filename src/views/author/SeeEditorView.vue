@@ -94,6 +94,9 @@ const title = ref('')
 const description = ref('')
 const sourceActivity = ref<ActivityDefinition | null>(null)
 const see = ref<SeeDefinition | null>(null)
+/** Bumps on every local edit so a slow reload cannot put the previous video back. */
+let revision = 0
+let applyingNormalized = false
 const loadedSummaryHeadings = ref<ObserveSummaryHeadings>({ ...DEFAULT_OBSERVE_SUMMARY_HEADINGS })
 
 function summaryHeadingsFrom(source: Partial<ObserveSummaryHeadings> | null | undefined): ObserveSummaryHeadings {
@@ -157,6 +160,7 @@ watch(activityId, () => {
 
 async function load(): Promise<void> {
   const generation = ++loadGeneration
+  const revisionAtStart = revision
   loading.value = true
   loadError.value = null
   try {
@@ -166,6 +170,7 @@ async function load(): Promise<void> {
       : (await activities.load(activityId.value), activities.current)
     if (generation !== loadGeneration) return
     sourceActivity.value = current
+    if (revision !== revisionAtStart && see.value) return
     if (!current || !isSeeActivity(current.metadata.tags)) {
       see.value = null
       return
@@ -213,7 +218,10 @@ async function load(): Promise<void> {
 function setMedia(media: MediaRef | null): void {
   if (!see.value) return
   see.value = { ...see.value, media }
+  void flushMediaSave?.()
 }
+
+let flushMediaSave: (() => void) | null = null
 
 function setDurationMs(durationMs: number): void {
   if (!see.value) return
@@ -236,7 +244,23 @@ function patchSee(next: Partial<SeeDefinition>): void {
   see.value = { ...see.value, ...next }
 }
 
+let saveChain: Promise<boolean> = Promise.resolve(true)
+
 async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
+  const run = saveChain.then(async () => {
+    const before = revision
+    const result = await saveOnce(origin)
+    if (!result || revision === before) return result
+    return saveOnce(origin)
+  })
+  saveChain = run.then(
+    () => true,
+    () => false,
+  )
+  return run
+}
+
+async function saveOnce(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
   if (!editable.value || !see.value) return false
 
   await nextTick()
@@ -254,7 +278,8 @@ async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
       canonicalActivityId(sourceActivity.value?.id) === id
         ? sourceActivity.value
         : await services.persistence.getById(id)
-    if (!source || canonicalActivityId(source.id) !== id) return false
+    if (!source || canonicalActivityId(source.id) !== id || !see.value) return false
+    const revisionAtWrite = revision
     const next = writeSeeDefinition(source, see.value)
     next.id = id
     if (!props.embedded) {
@@ -263,21 +288,28 @@ async function save(origin: 'auto' | 'manual' = 'manual'): Promise<boolean> {
     }
     if (props.embedded) {
       sourceActivity.value = await services.persistence.save(next)
+      if (revision !== revisionAtWrite) return true
       await activities.refreshList()
+      if (revision !== revisionAtWrite) return true
       const parentId = canonicalActivityId(String(route.params.id ?? ''))
       if (parentId) {
         await syncObserveTriggersToLanguageVersions(parentId, id, readSeeDefinition(next).hazards)
       }
+      if (revision !== revisionAtWrite) return true
     } else {
       await activities.save(next)
+      if (revision !== revisionAtWrite) return true
       sourceActivity.value = activities.current
       activities.stagePreview(next)
     }
-    if (origin === 'manual') {
+    if (origin === 'manual' && revision === revisionAtWrite) {
       if (props.persistExample && !(await props.persistExample())) return false
+      if (revision !== revisionAtWrite || !see.value) return true
       autosave.pause()
+      applyingNormalized = true
       see.value = readSeeDefinition(next)
       await nextTick()
+      applyingNormalized = false
       autosave.resume()
     }
     saveMessage.value = 'Saved'
@@ -303,10 +335,14 @@ const autosave = useAuthorAutosave({
   loading,
   save: () => save('auto'),
 })
+flushMediaSave = () => {
+  void autosave.flush()
+}
 
 watch(
   see,
   () => {
+    if (!applyingNormalized) revision += 1
     autosave.schedule()
   },
   { deep: true },

@@ -53,6 +53,7 @@ const libraryQuery = ref('')
 const librarySort = ref<LibrarySort>('created-desc')
 const librarySearchInput = ref<HTMLInputElement | null>(null)
 const previewUrl = ref<string | null>(null)
+let previewToken = 0
 
 const filteredLibraryAssets = computed(() => {
   const query = libraryQuery.value.trim().toLowerCase()
@@ -78,13 +79,18 @@ const filteredLibraryAssets = computed(() => {
 })
 
 async function refreshPreview(media: MediaRef | null): Promise<void> {
+  const token = ++previewToken
   if (!media?.media_asset_id) {
+    if (token !== previewToken) return
     previewUrl.value = null
     return
   }
   try {
-    previewUrl.value = await services.media.getSignedUrl(media.media_asset_id)
+    const url = await services.media.getSignedUrl(media.media_asset_id)
+    if (token !== previewToken) return
+    previewUrl.value = url
   } catch {
+    if (token !== previewToken) return
     previewUrl.value = null
   }
 }
